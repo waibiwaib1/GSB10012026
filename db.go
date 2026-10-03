@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/litestream/internal"
+	"github.com/fsnotify/fsnotify"
 	"github.com/pierrec/lz4/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -1367,15 +1368,45 @@ func (db *DB) execCheckpoint(mode string) (err error) {
 
 // monitor runs in a separate goroutine and monitors the database & WAL.
 func (db *DB) monitor() {
+	// Watch the database directory for changes to the database & WAL files
+	// so that syncs can be triggered with low latency. The directory must be
+	// watched (instead of the files themselves) because the WAL file can be
+	// deleted & recreated during checkpoints.
+	//
+	// If watching is unavailable then events remains nil and monitoring
+	// falls back to polling on the ticker only.
+	var events <-chan fsnotify.Event
+	var watcherErrors <-chan error
+	if watcher, err := fsnotify.NewWatcher(); err != nil {
+		db.Logger.Printf("cannot create file watcher, using polling only: %s", err)
+	} else if err := watcher.Add(filepath.Dir(db.Path())); err != nil {
+		_ = watcher.Close()
+		db.Logger.Printf("cannot watch database directory, using polling only: %s", err)
+	} else {
+		defer watcher.Close()
+		events = watcher.Events
+		watcherErrors = watcher.Errors
+	}
+
+	// The ticker remains as a fallback to ensure the database is synced
+	// periodically even if file system events are missed.
 	ticker := time.NewTicker(db.MonitorInterval)
 	defer ticker.Stop()
 
 	for {
-		// Wait for ticker or context close.
+		// Wait for a file system event, the fallback ticker, or context close.
 		select {
 		case <-db.ctx.Done():
 			return
 		case <-ticker.C:
+		case event := <-events:
+			// Ignore events for files other than the database & WAL.
+			if event.Name != db.Path() && event.Name != db.WALPath() {
+				continue
+			}
+		case err := <-watcherErrors:
+			db.Logger.Printf("file watcher error: %s", err)
+			continue
 		}
 
 		// Sync the database to the shadow WAL.
