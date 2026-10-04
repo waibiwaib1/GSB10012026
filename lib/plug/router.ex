@@ -268,13 +268,22 @@ defmodule Plug.Router do
 
     defs =
       for {callback, {mod, opts}} <- router_to do
-        if init_mode == :runtime do
+        cond do
+          is_atom(mod) and Module.defines?(env.module, {mod, 2}) ->
+            quote do
+              defp unquote(callback)(conn, _opts) do
+                unquote(mod)(conn, unquote(Macro.escape(opts)))
+              end
+            end
+
+          init_mode == :runtime ->
           quote do
             defp unquote(callback)(conn, _opts) do
               unquote(mod).call(conn, unquote(mod).init(unquote(Macro.escape(opts))))
             end
           end
-        else
+
+          true ->
           opts = mod.init(opts)
 
           quote do
@@ -338,6 +347,8 @@ defmodule Plug.Router do
       the route matches.
 
     * `:to` - a Plug that will be called in case the route matches.
+      It can be a module plug or the name of a function (as an atom)
+      in the current module that will be called as a function plug.
 
     * `:init_opts` - the options for the target Plug given by `:to`.
 

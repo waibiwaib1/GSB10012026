@@ -152,10 +152,15 @@ defmodule Plug.RouterTest do
     opts = :hello
     get "/plug/match", to: SamplePlug
     get "/plug/match/options", to: plug, init_opts: opts
+    get "/plug/match/function", to: :sample_function_plug, init_opts: :function_opts
 
     forward "/step1", to: Reforward
     forward "/forward", to: Forward
     forward "/nested/forward", to: Forward
+
+    def sample_function_plug(conn, opts) do
+      resp(conn, 200, "function plug: #{inspect(opts)}")
+    end
 
     match "/params/get/:param" do
       resp(conn, 200, conn.params["param"])
@@ -350,6 +355,11 @@ defmodule Plug.RouterTest do
 
     conn = call(Sample, conn(:get, "/plug/match/options"))
     assert conn.resp_body == ":world"
+  end
+
+  test "dispatch to function plug" do
+    conn = call(Sample, conn(:get, "/plug/match/function"))
+    assert conn.resp_body == "function plug: :function_opts"
   end
 
   test "dispatch with forwarding" do
