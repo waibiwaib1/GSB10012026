@@ -69,6 +69,24 @@ describe("Search", () => {
       );
     });
 
+    it("applies the maxWidth specified by the user", () => {
+      assertStyleMatch(
+        {
+          maxWidth: "400px",
+        },
+        renderSearch({ value: "", maxWidth: "400px" })
+      );
+    });
+
+    it("applies a maxWidth of 100% when one is not specified", () => {
+      assertStyleMatch(
+        {
+          maxWidth: "100%",
+        },
+        renderSearch({ value: "", maxWidth: "" })
+      );
+    });
+
     it("matches the expected styles when the input is focused", () => {
       wrapper = renderSearch({ value: "" });
       const input = wrapper.find("input");
