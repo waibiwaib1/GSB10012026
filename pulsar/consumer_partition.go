@@ -116,6 +116,7 @@ type partitionConsumerOpts struct {
 	// in failover mode, this callback will be called when consumer change
 	consumerEventListener ConsumerEventListener
 	enableBatchIndexAck   bool
+	ackGroupingOptions    *AckGroupingOptions
 }
 
 type ConsumerEventListener interface {
@@ -167,6 +168,7 @@ type partitionConsumer struct {
 
 	chunkedMsgCtxMap   *chunkedMsgCtxMap
 	unAckChunksTracker *unAckChunksTracker
+	ackGroupingTracker ackGroupingTracker
 }
 
 func (pc *partitionConsumer) ActiveConsumerChanged(isActive bool) {
@@ -310,6 +312,10 @@ func newPartitionConsumer(parent Consumer, client *client, options *partitionCon
 	pc.availablePermits = &availablePermits{pc: pc}
 	pc.chunkedMsgCtxMap = newChunkedMsgCtxMap(options.maxPendingChunkedMessage, pc)
 	pc.unAckChunksTracker = newUnAckChunksTracker(pc)
+	pc.ackGroupingTracker = newAckGroupingTracker(options.ackGroupingOptions,
+		func(id MessageID) { pc.sendIndividualAck(id) },
+		func(id MessageID) { pc.sendCumulativeAck(id) },
+		func(ids []*pb.MessageIdData) { pc.eventsCh <- ids })
 	pc.setConsumerState(consumerInit)
 	pc.log = client.log.SubLogger(log.Fields{
 		"name":         pc.name,
@@ -467,30 +473,35 @@ func (pc *partitionConsumer) ackID(msgID MessageID, withResponse bool) error {
 		return errors.New("failed to convert trackingMessageID")
 	}
 
-	ackReq := new(ackRequest)
-	ackReq.doneCh = make(chan struct{})
-	ackReq.ackType = individualAck
 	if !trackingID.Undefined() && trackingID.ack() {
 		pc.metrics.AcksCounter.Inc()
 		pc.metrics.ProcessingTime.Observe(float64(time.Now().UnixNano()-trackingID.receivedTime.UnixNano()) / 1.0e9)
-		ackReq.msgID = trackingID
-		// send ack request to eventsCh
-		pc.eventsCh <- ackReq
-
-		if withResponse {
-			<-ackReq.doneCh
-		}
-
-		pc.options.interceptors.OnAcknowledge(pc.parentConsumer, msgID)
-	} else if pc.options.enableBatchIndexAck {
-		ackReq.msgID = trackingID
-		pc.eventsCh <- ackReq
+	} else if !pc.options.enableBatchIndexAck {
+		return nil
 	}
 
+	var ackReq *ackRequest
 	if withResponse {
-		return ackReq.err
+		ackReq := pc.sendIndividualAck(&trackingID)
+		<-ackReq.doneCh
+	} else {
+		pc.ackGroupingTracker.add(&trackingID)
 	}
-	return nil
+	pc.options.interceptors.OnAcknowledge(pc.parentConsumer, msgID)
+	if ackReq == nil {
+		return nil
+	}
+	return ackReq.err
+}
+
+func (pc *partitionConsumer) sendIndividualAck(msgID MessageID) *ackRequest {
+	ackReq := &ackRequest{
+		doneCh:  make(chan struct{}),
+		ackType: individualAck,
+		msgID:   *msgID.(*trackingMessageID),
+	}
+	pc.eventsCh <- ackReq
+	return ackReq
 }
 
 func (pc *partitionConsumer) AckIDWithResponse(msgID MessageID) error {
@@ -524,14 +535,12 @@ func (pc *partitionConsumer) internalAckIDCumulative(msgID MessageID, withRespon
 		return nil
 	}
 
-	ackReq := new(ackRequest)
-	ackReq.doneCh = make(chan struct{})
-	ackReq.ackType = cumulativeAck
+	var msgIDToAck trackingMessageID
 	if trackingID.ackCumulative() || pc.options.enableBatchIndexAck {
-		ackReq.msgID = trackingID
+		msgIDToAck = trackingID
 	} else if !trackingID.tracker.hasPrevBatchAcked() {
 		// get previous batch message id
-		ackReq.msgID = trackingID.prev()
+		msgIDToAck = trackingID.prev()
 		trackingID.tracker.setPrevBatchAcked()
 	} else {
 		// waiting for all the msgs are acked in this batch
@@ -540,12 +549,13 @@ func (pc *partitionConsumer) internalAckIDCumulative(msgID MessageID, withRespon
 
 	pc.metrics.AcksCounter.Inc()
 	pc.metrics.ProcessingTime.Observe(float64(time.Now().UnixNano()-trackingID.receivedTime.UnixNano()) / 1.0e9)
-	// send ack request to eventsCh
-	pc.eventsCh <- ackReq
 
+	var ackReq *ackRequest
 	if withResponse {
-		// wait for the request to complete if withResponse set true
+		ackReq := pc.sendCumulativeAck(&msgIDToAck)
 		<-ackReq.doneCh
+	} else {
+		pc.ackGroupingTracker.addCumulative(&msgIDToAck)
 	}
 
 	pc.options.interceptors.OnAcknowledge(pc.parentConsumer, msgID)
@@ -554,7 +564,20 @@ func (pc *partitionConsumer) internalAckIDCumulative(msgID MessageID, withRespon
 		pc.unAckChunksTracker.remove(cmid)
 	}
 
-	return nil
+	if ackReq == nil {
+		return nil
+	}
+	return ackReq.err
+}
+
+func (pc *partitionConsumer) sendCumulativeAck(msgID MessageID) *ackRequest {
+	ackReq := &ackRequest{
+		doneCh:  make(chan struct{}),
+		ackType: cumulativeAck,
+		msgID:   *msgID.(*trackingMessageID),
+	}
+	pc.eventsCh <- ackReq
+	return ackReq
 }
 
 func (pc *partitionConsumer) NackID(msgID MessageID) {
@@ -631,6 +654,9 @@ func (pc *partitionConsumer) Close() {
 		return
 	}
 
+	// flush all pending ACK requests and terminate the timer goroutine
+	pc.ackGroupingTracker.close()
+
 	// close chunkedMsgCtxMap
 	pc.chunkedMsgCtxMap.Close()
 
@@ -658,6 +684,7 @@ func (pc *partitionConsumer) Seek(msgID MessageID) error {
 		return errors.New("unhandled messageID type")
 	}
 
+	pc.ackGroupingTracker.flushAndClean()
 	pc.eventsCh <- req
 
 	// wait for the request to complete
@@ -715,6 +742,7 @@ func (pc *partitionConsumer) SeekByTime(time time.Time) error {
 		doneCh:      make(chan struct{}),
 		publishTime: time,
 	}
+	pc.ackGroupingTracker.flushAndClean()
 	pc.eventsCh <- req
 
 	// wait for the request to complete
@@ -795,6 +823,14 @@ func (pc *partitionConsumer) internalAck(req *ackRequest) {
 		pc.log.Error("Connection was closed when request ack cmd")
 		req.err = err
 	}
+}
+
+func (pc *partitionConsumer) internalAckList(msgIDs []*pb.MessageIdData) {
+	pc.client.rpcClient.RequestOnCnxNoWait(pc._getConn(), pb.BaseCommand_ACK, &pb.CommandAck{
+		AckType:    pb.CommandAck_Individual.Enum(),
+		ConsumerId: proto.Uint64(pc.consumerID),
+		MessageId:  msgIDs,
+	})
 }
 
 func (pc *partitionConsumer) MessageReceived(response *pb.CommandMessage, headersAndPayload internal.Buffer) error {
@@ -955,6 +991,10 @@ func (pc *partitionConsumer) MessageReceived(response *pb.CommandMessage, header
 			msgID = cmid
 		} else {
 			msgID = trackingMsgID
+		}
+
+		if pc.ackGroupingTracker.isDuplicate(msgID) {
+			continue
 		}
 
 		var messageIndex *uint64
@@ -1320,6 +1360,8 @@ func (pc *partitionConsumer) runEventsLoop() {
 			switch v := i.(type) {
 			case *ackRequest:
 				pc.internalAck(v)
+			case []*pb.MessageIdData:
+				pc.internalAckList(v)
 			case *redeliveryRequest:
 				pc.internalRedeliver(v)
 			case *unsubscribeRequest:
