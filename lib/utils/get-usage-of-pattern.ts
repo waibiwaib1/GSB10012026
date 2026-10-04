@@ -1,5 +1,6 @@
 import type { Rule } from "eslint"
 import type {
+    CallExpression,
     Expression,
     Identifier,
     Literal,
@@ -67,13 +68,45 @@ function* iterateUsageOfPattern(
         } else if (ref.type === "unused") {
             // noop
         } else if (ref.type === "argument") {
-            // It could be a call to a known method that uses a regexp (`match`, `matchAll`, `split`, `replace`, `replaceAll`, and `search`),
-            // or it could use an unknown method, both of which are considered to have used a regexp.
-            yield UsageOfPattern.whole
+            if (isKnownRegExpUsingMethodCall(ref.callExpression, context)) {
+                // It is a call to a known method that uses a regexp (`match`,
+                // `matchAll`, `split`, `replace`, `replaceAll`, and `search`),
+                // so it is considered to have used a regexp.
+                yield UsageOfPattern.whole
+            } else {
+                // Unknown function. It might use the regexp as is, but it might
+                // also use only its `.source`.
+                yield UsageOfPattern.unknown
+            }
         } else {
             yield UsageOfPattern.unknown
         }
     }
+}
+
+/** Names of known methods that use a given regexp argument as a regular expression. */
+const KNOWN_REGEXP_USING_METHOD_NAMES = new Set([
+    "match",
+    "matchAll",
+    "split",
+    "replace",
+    "replaceAll",
+    "search",
+])
+
+/** Checks whether the given call expression is a call of a known method that uses a regexp. */
+function isKnownRegExpUsingMethodCall(
+    node: CallExpression,
+    context: Rule.RuleContext,
+): boolean {
+    const { callee } = node
+    if (callee.type !== "MemberExpression") {
+        return false
+    }
+    const propName: string | null = !callee.computed
+        ? (callee.property as Identifier).name
+        : getStringIfConstant(context, callee.property)
+    return propName != null && KNOWN_REGEXP_USING_METHOD_NAMES.has(propName)
 }
 
 /** Iterate the usage of pattern for the given member expression node. */
