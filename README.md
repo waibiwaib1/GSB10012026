@@ -93,6 +93,44 @@ It is also possible to disable specific rules (or all rules) in a template itsel
 
 It is not currently possible to change rule configuration in the template.
 
+It is also possible to disable rules only for a given block, using mustache
+comments instead of HTML comments.
+
+A child-less comment applies to all of its later sibling nodes (and
+mandatorily to their descendants). Configuration is reset once the
+containing block closes:
+
+```hbs
+<div>
+  {{! template-lint disabled=true }}
+  {{! Things are disabled here }}
+</div>
+{{! Not disabled here }}
+
+{{#foo-bar as |baz|}}
+  {{! template-lint invalid-interactive=false }}
+  {{! invalid-interactive is disabled here }}
+{{/foo-bar}}
+{{! invalid-interactive is reset to its original / global configuration here }}
+```
+
+An in-element comment applies to the element itself. Add `recursive=true` to
+apply the directive to the element's descendants as well:
+
+```hbs
+<div>
+  <div {{! template-lint rule='invalid-interactive' disabled=true}}>
+    {{! invalid-interactive is NOT disabled here }}
+  </div>
+</div>
+
+<div>
+  <div {{! template-lint rule='invalid-interactive' disabled=true recursive=true}}>
+    {{! invalid-interactive IS disabled here }}
+  </div>
+</div>
+```
+
 ### Configuration Keys
 
 The following properties are allowed in the root of the `.template-lintrc.js` configuration file:
