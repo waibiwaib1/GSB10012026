@@ -209,6 +209,7 @@ mod handlers {
     mod sort_items;
     mod split_import;
     mod term_search;
+    mod toggle_async_sugar;
     mod toggle_ignore;
     mod unmerge_match_arm;
     mod unmerge_use;
@@ -336,6 +337,8 @@ mod handlers {
             sort_items::sort_items,
             split_import::split_import,
             term_search::term_search,
+            toggle_async_sugar::desugar_async_into_impl_future,
+            toggle_async_sugar::sugar_impl_future_into_async,
             toggle_ignore::toggle_ignore,
             unmerge_match_arm::unmerge_match_arm,
             unmerge_use::unmerge_use,

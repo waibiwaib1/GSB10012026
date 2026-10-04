@@ -66,6 +66,10 @@ impl FamousDefs<'_, '_> {
         self.find_enum("core:result:Result")
     }
 
+    pub fn core_future_Future(&self) -> Option<Trait> {
+        self.find_trait("core:future:Future")
+    }
+
     pub fn core_default_Default(&self) -> Option<Trait> {
         self.find_trait("core:default:Default")
     }
