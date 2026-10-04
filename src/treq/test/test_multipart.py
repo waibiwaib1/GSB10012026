@@ -5,7 +5,6 @@ from typing import cast, AnyStr
 
 from io import BytesIO
 
-from multipart import MultipartParser  # type: ignore
 from twisted.trial import unittest
 from zope.interface.verify import verifyObject
 
@@ -13,6 +12,8 @@ from twisted.internet import task
 from twisted.internet.testing import StringTransport
 from twisted.web.client import FileBodyProducer
 from twisted.web.iweb import UNKNOWN_LENGTH, IBodyProducer
+
+from python_multipart import parse_form  # type: ignore
 
 from treq.multipart import MultiPartProducer, _LengthConsumer
 
@@ -590,7 +591,7 @@ my lovely bytes
     def test_worksWithMultipart(self):
         """
         Make sure the stuff we generated can actually be parsed by the
-        `multipart` module.
+        `python-multipart` package.
         """
         output = self.getOutput(
             MultiPartProducer([
@@ -612,20 +613,33 @@ my lovely bytes
             )
         )
 
-        form = MultipartParser(
-            stream=BytesIO(output),
-            boundary=b"heyDavid",
-            content_length=len(output),
+        fields = {}
+
+        def on_field(field):
+            fields.setdefault(field.field_name, []).append(field.value)
+
+        def on_file(f):
+            f.file_object.seek(0)
+            fields.setdefault(f.field_name, []).append(f.file_object.read())
+
+        parse_form(
+            {
+                "Content-Type": b"multipart/form-data; boundary=heyDavid",
+                "Content-Length": str(len(output)).encode("ascii"),
+            },
+            BytesIO(output),
+            on_field,
+            on_file,
         )
 
         self.assertEqual(
-            [b'just a string\r\n', b'another string'],
-            [f.raw for f in form.get_all('cfield')],
+            [b"just a string\r\n", b"another string"],
+            fields[b"cfield"],
         )
 
-        self.assertEqual(b'my lovely bytes2', form.get('efield').raw)
-        self.assertEqual(b'my lovely bytes219', form.get('xfield').raw)
-        self.assertEqual(b'my lovely bytes22', form.get('afield').raw)
+        self.assertEqual(b"my lovely bytes2", fields[b"efield"][0])
+        self.assertEqual(b"my lovely bytes219", fields[b"xfield"][0])
+        self.assertEqual(b"my lovely bytes22", fields[b"afield"][0])
 
 
 class LengthConsumerTestCase(unittest.TestCase):

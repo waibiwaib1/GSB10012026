@@ -1,0 +1,5 @@
+treq now depends on `python-multipart <https://pypi.org/project/python-multipart/>`__
+instead of the `multipart <https://pypi.org/project/multipart/>`__ package,
+which both install a top-level ``multipart`` module and so could not be
+installed together.  This makes treq co-installable with packages like
+Starlette and Synapse that depend on python-multipart.

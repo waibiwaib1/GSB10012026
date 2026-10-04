@@ -1,7 +1,7 @@
 import json
+import re
 from typing import Any, Callable, FrozenSet, List, Optional, cast
 
-import multipart  # type: ignore
 from twisted.internet.defer import Deferred, succeed
 from twisted.internet.protocol import Protocol, connectionDone
 from twisted.python.failure import Failure
@@ -9,6 +9,8 @@ from twisted.web.client import ResponseDone
 from twisted.web.http import PotentialDataLoss
 from twisted.web.http_headers import Headers
 from twisted.web.iweb import IResponse
+
+from python_multipart import multipart  # type: ignore
 
 
 """Characters that are valid in a charset name per RFC 2978.
@@ -21,6 +23,8 @@ _MIME_CHARSET_CHARS: FrozenSet[str] = frozenset(
     "!#$%&+-^_`~"  # symbols
 )
 
+_CHARSET_RE = re.compile(r"charset\s*=\s*(['\"]?)([^;'\"]*)\1", re.IGNORECASE)
+
 
 def _encoding_from_headers(headers: Headers) -> Optional[str]:
     content_types = headers.getRawHeaders("content-type")
@@ -29,11 +33,28 @@ def _encoding_from_headers(headers: Headers) -> Optional[str]:
 
     # This seems to be the choice browsers make when encountering multiple
     # content-type headers.
-    media_type, params = multipart.parse_options_header(content_types[-1])
+    media_type = None
+    charset = None
 
-    charset = params.get("charset")
-    if charset:
-        assert isinstance(charset, str)  # for MyPy
+    # python-multipart assumes header values are latin-1 and raises for
+    # characters outside that range.  Fall back to a tolerant regex that still
+    # extracts a charset parameter from such garbage headers.
+    try:
+        media_type, params = multipart.parse_options_header(content_types[-1])
+    except UnicodeError:
+        params = {}
+        header = content_types[-1]
+        if isinstance(header, bytes):
+            header = header.decode("latin-1")
+        match = _CHARSET_RE.search(header)
+        if match is not None:
+            charset = match.group(2).encode("latin-1", "replace")
+    else:
+        charset = params.get(b"charset")
+
+    if charset is not None:
+        if isinstance(charset, bytes):  # python-multipart returns bytes
+            charset = charset.decode("latin-1")
         charset = charset.strip("'\"").lower()
         if not charset:
             return None
@@ -41,7 +62,7 @@ def _encoding_from_headers(headers: Headers) -> Optional[str]:
             return None
         return charset
 
-    if media_type == "application/json":
+    if media_type == b"application/json":
         return "utf-8"
 
     return None
