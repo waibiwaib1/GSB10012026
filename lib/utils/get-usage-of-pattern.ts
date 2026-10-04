@@ -1,5 +1,6 @@
 import type { Rule } from "eslint"
 import type {
+    CallExpression,
     Expression,
     Identifier,
     Literal,
@@ -22,6 +23,16 @@ type InternalUsageOfPattern =
     | UsageOfPattern.partial
     | UsageOfPattern.whole
     | UsageOfPattern.unknown
+
+/** Names of known methods that take a regular expression as an argument. */
+const KNOWN_REGEXP_ARG_METHODS = new Set([
+    "match",
+    "matchAll",
+    "split",
+    "replace",
+    "replaceAll",
+    "search",
+])
 /**
  * Returns the usage of pattern.
  */
@@ -67,13 +78,35 @@ function* iterateUsageOfPattern(
         } else if (ref.type === "unused") {
             // noop
         } else if (ref.type === "argument") {
-            // It could be a call to a known method that uses a regexp (`match`, `matchAll`, `split`, `replace`, `replaceAll`, and `search`),
-            // or it could use an unknown method, both of which are considered to have used a regexp.
-            yield UsageOfPattern.whole
+            yield* iterateUsageOfPatternForCallExpression(
+                ref.callExpression,
+                context,
+            )
         } else {
             yield UsageOfPattern.unknown
         }
     }
+}
+
+/** Iterate the usage of pattern given as an argument of the given call expression node. */
+function* iterateUsageOfPatternForCallExpression(
+    node: CallExpression,
+    context: Rule.RuleContext,
+): Iterable<InternalUsageOfPattern> {
+    const { callee } = node
+    if (callee.type === "MemberExpression") {
+        const propName: string | null = !callee.computed
+            ? (callee.property as Identifier).name
+            : getStringIfConstant(context, callee.property)
+        if (propName !== null && KNOWN_REGEXP_ARG_METHODS.has(propName)) {
+            // Known methods that use a regexp (`match`, `matchAll`, `split`, `replace`, `replaceAll`, and `search`).
+            yield UsageOfPattern.whole
+            return
+        }
+    }
+
+    // It is unknown how the function that received the regexp uses it.
+    yield UsageOfPattern.unknown
 }
 
 /** Iterate the usage of pattern for the given member expression node. */

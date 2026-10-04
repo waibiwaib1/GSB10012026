@@ -206,6 +206,22 @@ const TESTCASES: TestCase[] = [
         results: [UsageOfPattern.whole],
     },
     {
+        code: `foo(/[a-zA-Z]\\w*/)`,
+        results: [UsageOfPattern.unknown],
+    },
+    {
+        code: `foo({ pattern: /[a-zA-Z]\\w*/ })`,
+        results: [UsageOfPattern.unknown],
+    },
+    {
+        code: `"str".match(/[a-zA-Z]\\w*/)`,
+        results: [UsageOfPattern.whole],
+    },
+    {
+        code: `"str"["match"](/[a-zA-Z]\\w*/)`,
+        results: [UsageOfPattern.whole],
+    },
+    {
         code: `
         const s = /a/.source
         const b =  new RegExp(\`\${s}\`)
