@@ -21,6 +21,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/litestream/internal"
+	"github.com/fsnotify/fsnotify"
 	"github.com/pierrec/lz4/v4"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -33,6 +34,10 @@ const (
 	DefaultMinCheckpointPageN = 1000
 	DefaultMaxCheckpointPageN = 10000
 )
+
+// MonitorDebounceDelay is the amount of time to wait after a file system
+// event before syncing. This batches bursts of writes into a single sync.
+const MonitorDebounceDelay = 10 * time.Millisecond
 
 // MaxIndex is the maximum possible WAL index.
 // If this index is reached then a new generation will be started.
@@ -1370,12 +1375,53 @@ func (db *DB) monitor() {
 	ticker := time.NewTicker(db.MonitorInterval)
 	defer ticker.Stop()
 
+	// Watch the database directory for changes to the database & WAL files.
+	// The directory is watched (instead of the files themselves) so that
+	// creation of the WAL file is detected as well.
+	var events <-chan fsnotify.Event
+	var watcherErrors <-chan error
+	if watcher, err := fsnotify.NewWatcher(); err != nil {
+		db.Logger.Printf("cannot create file watcher, falling back to polling: %s", err)
+	} else if err := watcher.Add(filepath.Dir(db.Path())); err != nil {
+		db.Logger.Printf("cannot watch database directory, falling back to polling: %s", err)
+		_ = watcher.Close()
+	} else {
+		defer watcher.Close()
+		events, watcherErrors = watcher.Events, watcher.Errors
+	}
+
+	// Debounce file system events so bursts of writes trigger a single sync.
+	var debounce *time.Timer
+	var debounceC <-chan time.Time
+	defer func() {
+		if debounce != nil {
+			debounce.Stop()
+		}
+	}()
+
 	for {
-		// Wait for ticker or context close.
+		// Wait for ticker, file system event, or context close.
 		select {
 		case <-db.ctx.Done():
 			return
 		case <-ticker.C:
+		case <-debounceC:
+			debounceC = nil
+		case event := <-events:
+			// Ignore events for files other than the database & WAL.
+			if event.Name != db.Path() && event.Name != db.WALPath() {
+				continue
+			}
+			if debounce == nil {
+				debounce = time.NewTimer(MonitorDebounceDelay)
+			} else {
+				debounce.Reset(MonitorDebounceDelay)
+			}
+			debounceC = debounce.C
+			continue
+		case err := <-watcherErrors:
+			db.Logger.Printf("file watcher error: %s", err)
+			continue
 		}
 
 		// Sync the database to the shadow WAL.
