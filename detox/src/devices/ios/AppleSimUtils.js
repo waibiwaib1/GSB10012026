@@ -28,15 +28,9 @@ class AppleSimUtils {
       trying: `Searching for device matching ${query}...`
     };
 
-    let type;
-    let os;
-    if (_.includes(query, ',')) {
-      const parts = _.split(query, ',');
-      type = parts[0].trim();
-      os = parts[1].trim();
-    } else {
-      type = query;
-      const deviceInfo = await this.deviceTypeAndNewestRuntimeFor(query);
+    const { type, os } = this._parseDeviceQuery(query);
+    if (!os) {
+      const deviceInfo = await this.deviceTypeAndNewestRuntimeFor(type);
       os = deviceInfo.newestRuntime.version;
     }
 
@@ -84,25 +78,53 @@ class AppleSimUtils {
     return (_.isEqual(device.state, 'Booted') || _.isEqual(device.state, 'Booting'));
   }
 
-  async deviceTypeAndNewestRuntimeFor(name) {
+  _parseDeviceQuery(query) {
+    const separatorIndex = query.indexOf(',');
+    if (separatorIndex === -1) {
+      return { type: query.trim() };
+    }
+
+    return {
+      type: query.slice(0, separatorIndex).trim(),
+      os: query.slice(separatorIndex + 1).trim(),
+    };
+  }
+
+  _isRuntimeAvailable(runtime) {
+    return runtime.isAvailable !== false &&
+      !_.includes(_.get(runtime, 'availability', ''), 'unavailable');
+  }
+
+  async deviceTypeAndNewestRuntimeFor(name, os) {
     const result = await this._execSimctl({ cmd: `list -j` });
     const stdout = _.get(result, 'stdout');
     const output = JSON.parse(stdout);
     const deviceType = _.filter(output.devicetypes, { 'name': name})[0];
-    const newestRuntime = _.maxBy(output.runtimes, r => Number(r.version));
+    const iosRuntimes = _.filter(output.runtimes, runtime =>
+      _.startsWith(runtime.name, 'iOS ') && this._isRuntimeAvailable(runtime)
+    );
+    const runtimes = os
+      ? _.filter(iosRuntimes, { name: os })
+      : iosRuntimes;
+    const newestRuntime = _.maxBy(runtimes, runtime => Number(runtime.version));
+
+    if (!deviceType) {
+      throw new Error(`Can't find a simulator device type named "${name}", run 'xcrun simctl list devicetypes' to list supported device types.`);
+    }
+
+    if (!newestRuntime) {
+      throw new Error(`Can't find an available iOS runtime${os ? ` named "${os}"` : ''}, run 'xcrun simctl list runtimes' to list supported runtimes.`);
+    }
+
     return { deviceType, newestRuntime };
   }
 
-  async create(name) {
-    const deviceInfo = await this.deviceTypeAndNewestRuntimeFor(name);
-
-    if (deviceInfo.newestRuntime) {
-      const result = await this._execSimctl({cmd: `create "${name}-Detox" "${deviceInfo.deviceType.identifier}" "${deviceInfo.newestRuntime.identifier}"`});
-      const udid = _.get(result, 'stdout').trim();
-      return udid;
-    } else {
-      throw new Error(`Unable to create device. No runtime found for ${name}`);
-    }
+  async create(query) {
+    const { type, os } = this._parseDeviceQuery(query);
+    const deviceInfo = await this.deviceTypeAndNewestRuntimeFor(type, os);
+    const result = await this._execSimctl({cmd: `create "${type}-Detox" "${deviceInfo.deviceType.identifier}" "${deviceInfo.newestRuntime.identifier}"`});
+    const udid = _.get(result, 'stdout').trim();
+    return udid;
   }
 
   async install(udid, absPath) {
