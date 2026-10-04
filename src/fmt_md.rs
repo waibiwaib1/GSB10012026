@@ -14,6 +14,20 @@ use crate::tree_ref::{ListItemRef, MdElemRef};
 pub struct MdOptions {
     pub link_reference_placement: ReferencePlacement,
     pub footnote_reference_placement: ReferencePlacement,
+    pub link_style: LinkStyle,
+}
+
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+pub enum LinkStyle {
+    /// Keep links and images in their original style (inline, or reference with their original label).
+    #[default]
+    Keep,
+
+    /// Render all links and images inline: `[text](https://example.com "title")`.
+    Inline,
+
+    /// Render all links and images as numbered references: `[text][1]`, with a `[1]: ...` definition.
+    Reference,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -79,6 +93,8 @@ where
             links: HashMap::with_capacity(pending_refs_capacity),
             footnotes: HashMap::with_capacity(pending_refs_capacity),
         },
+        forced_references: HashMap::with_capacity(pending_refs_capacity),
+        next_link_number: 1,
     };
     writer_state.write_md(out, nodes, true);
 
@@ -93,6 +109,11 @@ struct MdWriterState<'a> {
     seen_links: HashSet<LinkLabel<'a>>,
     seen_footnotes: HashSet<&'a String>,
     pending_references: PendingReferences<'a>,
+    /// When [MdOptions::link_style] is [LinkStyle::Reference], maps each distinct (url, title) to its assigned
+    /// numeric identifier.
+    forced_references: HashMap<UrlAndTitle<'a>, usize>,
+    /// The next numeric identifier to assign when [MdOptions::link_style] is [LinkStyle::Reference].
+    next_link_number: usize,
 }
 
 struct PendingReferences<'a> {
@@ -110,6 +131,8 @@ struct UrlAndTitle<'a> {
 enum LinkLabel<'a> {
     Identifier(&'a String),
     Inline(&'a Vec<Inline>),
+    /// A numeric identifier assigned when [MdOptions::link_style] is [LinkStyle::Reference].
+    Number(usize),
 }
 
 impl<'a> LinkLabel<'a> {
@@ -120,6 +143,7 @@ impl<'a> LinkLabel<'a> {
         match self {
             LinkLabel::Identifier(text) => out.write_str(text),
             LinkLabel::Inline(text) => writer.write_line(out, text),
+            LinkLabel::Number(number) => out.write_str(&number.to_string()),
         }
     }
 }
@@ -129,6 +153,7 @@ impl<'a> Display for LinkLabel<'a> {
         match self {
             LinkLabel::Identifier(s) => f.write_str(*s),
             LinkLabel::Inline(inlines) => f.write_str(&inlines_to_plain_string(*inlines)),
+            LinkLabel::Number(number) => write!(f, "{number}"),
         }
     }
 }
@@ -474,6 +499,40 @@ impl<'a> MdWriterState<'a> {
         out.write_char('[');
         label.write_to(self, out);
         out.write_char(']');
+
+        match self.opts.link_style {
+            LinkStyle::Inline => {
+                out.write_char('(');
+                out.write_str(&link.url);
+                self.write_url_title(out, &link.title);
+                out.write_char(')');
+                return;
+            }
+            LinkStyle::Reference => {
+                let url_and_title = UrlAndTitle {
+                    url: &link.url,
+                    title: &link.title,
+                };
+                let number = match self.forced_references.get(&url_and_title) {
+                    Some(number) => *number,
+                    None => {
+                        let number = self.next_link_number;
+                        self.next_link_number += 1;
+                        self.forced_references.insert(url_and_title, number);
+                        self.pending_references
+                            .links
+                            .insert(LinkLabel::Number(number), url_and_title);
+                        number
+                    }
+                };
+                out.write_char('[');
+                out.write_str(&number.to_string());
+                out.write_char(']');
+                return;
+            }
+            LinkStyle::Keep => {}
+        }
+
         let reference_to_add = match &link.reference {
             LinkReference::Inline => {
                 out.write_char('(');
@@ -547,13 +606,19 @@ impl<'a> MdWriterState<'a> {
 
             if matches!(which, DefinitionsToWrite::Links | DefinitionsToWrite::Both) {
                 let mut defs_to_write: Vec<_> = self.pending_references.links.drain().collect();
-                defs_to_write.sort_by_key(|(k, _)| k.to_string());
+                defs_to_write.sort_by(|(left, _), (right, _)| match (left, right) {
+                    (LinkLabel::Number(left), LinkLabel::Number(right)) => left.cmp(right),
+                    (LinkLabel::Number(_), _) => std::cmp::Ordering::Less,
+                    (_, LinkLabel::Number(_)) => std::cmp::Ordering::Greater,
+                    _ => left.to_string().cmp(&right.to_string()),
+                });
 
                 for (link_ref, link_def) in defs_to_write {
                     out.write_char('[');
                     match link_ref {
                         LinkLabel::Identifier(identifier) => out.write_str(identifier),
                         LinkLabel::Inline(text) => self.write_line(out, text),
+                        LinkLabel::Number(number) => out.write_str(&number.to_string()),
                     }
                     out.write_str("]: ");
                     out.write_str(&link_def.url);
@@ -1858,6 +1923,155 @@ pub mod tests {
         }
     }
 
+    mod link_style {
+        use super::*;
+        use crate::fmt_md::{LinkStyle, ReferencePlacement};
+
+        fn options(link_style: LinkStyle) -> MdOptions {
+            MdOptions {
+                link_reference_placement: ReferencePlacement::Doc,
+                footnote_reference_placement: ReferencePlacement::Doc,
+                link_style,
+            }
+        }
+
+        fn mixed_link_nodes() -> Vec<MdElem> {
+            md_elems![Block::LeafBlock::Paragraph {
+                body: vec![
+                    m_node!(Inline::Link {
+                        text: vec![mdq_inline!("inline link")],
+                        link_definition: LinkDefinition {
+                            url: "https://example.com/inline".to_string(),
+                            title: Some("a title".to_string()),
+                            reference: LinkReference::Inline,
+                        },
+                    }),
+                    mdq_inline!(" and "),
+                    m_node!(Inline::Link {
+                        text: vec![mdq_inline!("referenced link")],
+                        link_definition: LinkDefinition {
+                            url: "https://example.com/ref".to_string(),
+                            title: None,
+                            reference: LinkReference::Full("abc".to_string()),
+                        },
+                    }),
+                    mdq_inline!(" and "),
+                    m_node!(Inline::Image {
+                        alt: "an image".to_string(),
+                        link: LinkDefinition {
+                            url: "https://example.com/img.png".to_string(),
+                            title: None,
+                            reference: LinkReference::Collapsed,
+                        },
+                    }),
+                    mdq_inline!(" repeat: "),
+                    m_node!(Inline::Link {
+                        text: vec![mdq_inline!("referenced again")],
+                        link_definition: LinkDefinition {
+                            url: "https://example.com/ref".to_string(),
+                            title: None,
+                            reference: LinkReference::Shortcut,
+                        },
+                    }),
+                ],
+            }]
+        }
+
+        #[test]
+        fn force_inline() {
+            check_render_with(
+                &options(LinkStyle::Inline),
+                mixed_link_nodes(),
+                indoc! {r#"
+                    [inline link](https://example.com/inline "a title") and [referenced link](https://example.com/ref) and ![an image](https://example.com/img.png) repeat: [referenced again](https://example.com/ref)"#},
+            );
+        }
+
+        #[test]
+        fn force_reference() {
+            check_render_with(
+                &options(LinkStyle::Reference),
+                mixed_link_nodes(),
+                indoc! {r#"
+                    [inline link][1] and [referenced link][2] and ![an image][3] repeat: [referenced again][2]
+
+                       -----
+
+                    [1]: https://example.com/inline "a title"
+                    [2]: https://example.com/ref
+                    [3]: https://example.com/img.png"#},
+            );
+        }
+
+        #[test]
+        fn force_reference_definitions_follow_placement() {
+            let options = MdOptions {
+                link_reference_placement: ReferencePlacement::Section,
+                footnote_reference_placement: ReferencePlacement::Section,
+                link_style: LinkStyle::Reference,
+            };
+            let nodes = md_elems![
+                Block::Container::Section {
+                    depth: 1,
+                    title: vec![mdq_inline!("First")],
+                    body: md_elems![Block::LeafBlock::Paragraph {
+                        body: vec![m_node!(Inline::Link {
+                            text: vec![mdq_inline!("a link")],
+                            link_definition: LinkDefinition {
+                                url: "https://example.com/1".to_string(),
+                                title: None,
+                                reference: LinkReference::Inline,
+                            },
+                        }),]
+                    }],
+                },
+                Block::Container::Section {
+                    depth: 1,
+                    title: vec![mdq_inline!("Second")],
+                    body: md_elems![Block::LeafBlock::Paragraph {
+                        body: vec![
+                            m_node!(Inline::Link {
+                                text: vec![mdq_inline!("again")],
+                                link_definition: LinkDefinition {
+                                    url: "https://example.com/1".to_string(),
+                                    title: None,
+                                    reference: LinkReference::Inline,
+                                },
+                            }),
+                            mdq_inline!(" and "),
+                            m_node!(Inline::Link {
+                                text: vec![mdq_inline!("new link")],
+                                link_definition: LinkDefinition {
+                                    url: "https://example.com/2".to_string(),
+                                    title: None,
+                                    reference: LinkReference::Inline,
+                                },
+                            }),
+                        ]
+                    }],
+                },
+            ];
+            check_render_with(
+                &options,
+                nodes,
+                indoc! {r#"
+                    # First
+
+                    [a link][1]
+
+                    [1]: https://example.com/1
+
+                       -----
+
+                    # Second
+
+                    [again][1] and [new link][2]
+
+                    [2]: https://example.com/2"#},
+            );
+        }
+    }
+
     mod image {
         use super::*;
 
@@ -1962,7 +2176,7 @@ pub mod tests {
 
     mod annotation_and_footnote_layouts {
         use super::*;
-        use crate::fmt_md::ReferencePlacement;
+        use crate::fmt_md::{LinkStyle, ReferencePlacement};
 
         #[test]
         fn link_and_footnote() {
@@ -2002,6 +2216,7 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Section,
                     footnote_reference_placement: ReferencePlacement::Section,
+                    link_style: LinkStyle::Keep,
                 },
                 link_and_footnote_markdown(),
                 indoc! {r#"
@@ -2026,6 +2241,7 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Section,
                     footnote_reference_placement: ReferencePlacement::Doc,
+                    link_style: LinkStyle::Keep,
                 },
                 link_and_footnote_markdown(),
                 indoc! {r#"
@@ -2053,6 +2269,7 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Section,
                     footnote_reference_placement: ReferencePlacement::Section,
+                    link_style: LinkStyle::Keep,
                 },
                 md_elems![Block::LeafBlock::Paragraph {
                     body: vec![m_node!(Inline::Link {
@@ -2079,6 +2296,7 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Doc,
                     footnote_reference_placement: ReferencePlacement::Section,
+                    link_style: LinkStyle::Keep,
                 },
                 link_and_footnote_markdown(),
                 indoc! {r#"
@@ -2106,6 +2324,7 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Doc,
                     footnote_reference_placement: ReferencePlacement::Doc,
+                    link_style: LinkStyle::Keep,
                 },
                 link_and_footnote_markdown(),
                 indoc! {r#"
@@ -2132,6 +2351,7 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Doc,
                     footnote_reference_placement: ReferencePlacement::Doc,
+                    link_style: LinkStyle::Keep,
                 },
                 // Define them in the opposite order that we'd expect them
                 md_elems![Block::LeafBlock::Paragraph {

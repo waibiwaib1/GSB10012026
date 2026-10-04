@@ -3,7 +3,7 @@ use std::io;
 use std::io::{stdin, Read};
 use std::process::ExitCode;
 
-use crate::fmt_md::{MdOptions, ReferencePlacement};
+use crate::fmt_md::{LinkStyle, MdOptions, ReferencePlacement};
 use crate::output::Stream;
 use crate::select::ParseError;
 use crate::tree::{MdElem, ReadOptions};
@@ -37,6 +37,14 @@ struct Cli {
     #[arg(long, value_enum)]
     footnote_pos: Option<ReferencePlacement>,
 
+    /// The style to use for links and images.
+    ///
+    /// `keep` leaves them as they were in the source; `inline` renders all of them as
+    /// `[text](url "title")`; `reference` renders all of them as numbered references like `[text][1]`
+    /// with a `[1]: url` definition.
+    #[arg(long, value_enum, default_value_t=LinkStyle::Keep)]
+    link_style: LinkStyle,
+
     /// The selector string
     selectors: Option<String>,
 }
@@ -68,6 +76,7 @@ fn main() -> ExitCode {
     let mut md_options = MdOptions::default();
     md_options.link_reference_placement = cli.link_pos;
     md_options.footnote_reference_placement = cli.footnote_pos.unwrap_or(md_options.link_reference_placement);
+    md_options.link_style = cli.link_style;
 
     fmt_md::write_md(&md_options, &mut out, pipeline_nodes.into_iter());
     out.write_str("\n");
