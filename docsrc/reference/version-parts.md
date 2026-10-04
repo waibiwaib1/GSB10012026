@@ -122,6 +122,40 @@ You can include a value that incremented *independently* from the other parts, s
 independent = true
 ```
 
+### Calendar Versioning
+
+You can create a [CalVer](https://calver.org) version part by setting the `calver_format` configuration for that part. Bumping the part sets it to the current date rendered with the format, regardless of its previous value.
+
+```toml
+[tool.bumpversion.parts.release]
+calver_format = "{YYYY}.{0M}.{0D}"
+```
+
+The format string is rendered with the following values:
+
+| Code   | Description                        | Example  |
+|--------|------------------------------------|----------|
+| `YYYY` | Full year                          | 2024     |
+| `YY`   | Short year, no leading zero        | 24       |
+| `0Y`   | Zero-padded short year             | 24       |
+| `MMM`  | Abbreviated month name             | May      |
+| `MM`   | Month, no leading zero             | 5        |
+| `0M`   | Zero-padded month                  | 05       |
+| `DD`   | Day of month, no leading zero      | 1        |
+| `0D`   | Zero-padded day of month           | 01       |
+| `JJJ`  | Day of year, no leading zero       | 121      |
+| `00J`  | Zero-padded day of year            | 121      |
+| `Q`    | Quarter                            | 2        |
+| `WW`   | Week of year (Monday), no padding  | 17       |
+| `0W`   | Zero-padded week of year (Monday)  | 17       |
+| `UU`   | Week of year (Sunday), no padding  | 17       |
+| `0U`   | Zero-padded week of year (Sunday)  | 17       |
+| `VV`   | ISO week, no leading zero          | 18       |
+| `0V`   | Zero-padded ISO week               | 18       |
+| `GGGG` | ISO week-numbering year            | 2024     |
+| `GG`   | Short ISO year, no leading zero    | 24       |
+| `0G`   | Zero-padded short ISO year         | 24       |
+
 ## Reference
 
 - https://devopedia.org/semantic-versioning

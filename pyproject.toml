@@ -76,6 +76,7 @@ docs = [
 ]
 test = [
     "coverage",
+    "freezegun",
     "pre-commit",
     "pytest-cov",
     "pytest",

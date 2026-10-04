@@ -21,6 +21,8 @@ distlib==0.3.7
 dotted-notation==0.10.0
     # via bump-my-version (pyproject.toml)
 filelock==3.13.1
+freezegun==1.4.0
+    # via bump-my-version (pyproject.toml)
     # via virtualenv
 identify==2.5.33
     # via pre-commit
