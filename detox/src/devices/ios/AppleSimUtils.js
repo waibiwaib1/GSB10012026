@@ -90,6 +90,9 @@ class AppleSimUtils {
     const output = JSON.parse(stdout);
     const deviceType = _.filter(output.devicetypes, { 'name': name})[0];
     const newestRuntime = _.maxBy(output.runtimes, r => Number(r.version));
+    if (!deviceType) {
+      throw new Error(`Can't find device type matching "${name}", run 'xcrun simctl list devicetypes' to list your supported device types`);
+    }
     return { deviceType, newestRuntime };
   }
 
