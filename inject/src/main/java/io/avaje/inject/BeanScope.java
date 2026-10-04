@@ -140,7 +140,17 @@ public interface BeanScope extends AutoCloseable {
   <T> T get(Class<T> type, @Nullable String name);
 
   /**
-   * Return a single bean given the generic type and name.
+   * Return a single bean given the full generic type.
+   *
+   * @param type The generic type
+   * @throws java.util.NoSuchElementException When no matching bean is found
+   */
+  default <T> T get(Type type) {
+    return get(type, null);
+  }
+
+  /**
+   * Return a single bean given the full generic type and name.
    *
    * @param type The generic type
    * @param name the name qualifier of a specific bean

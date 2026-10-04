@@ -9,15 +9,18 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 
+import java.lang.reflect.Type;
 import java.net.http.HttpClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class MetaReaderTest {
 
-  @Mock Pump pump;
+  @Mock
+  Pump pump;
 
-  @Mock Grinder grinder;
+  @Mock
+  Grinder grinder;
 
   static @Mock AMusher musher;
 
@@ -43,13 +46,14 @@ class MetaReaderTest {
 
   static class HelloBean {
 
-    @Inject HttpClient client;
+    @Inject
+    HttpClient client;
   }
 
 
   static class MyPlugin implements Plugin {
 
-    public boolean forType(Class<?> type) {
+    public boolean forType(Type type) {
       return HttpClient.class.equals(type);
     }
 
@@ -63,7 +67,7 @@ class MetaReaderTest {
       HttpClient httpClient;
 
       @Override
-      public Object create(Class<?> type) {
+      public Object create(Type type) {
         this.httpClient = HttpClient.newBuilder().build();
         return httpClient;
       }
