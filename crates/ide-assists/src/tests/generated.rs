@@ -1675,6 +1675,35 @@ fn apply<T, U, F>(f: F, x: T) -> U where F: FnOnce(T) -> U {
 }
 
 #[test]
+fn doctest_move_const_to_impl() {
+    check_doc_test(
+        "move_const_to_impl",
+        r#####"
+struct Foo;
+impl Foo {
+    fn foo(&self) -> usize {
+        /// A doc comment attached.
+        const X$0YZ: usize = 1234;
+
+        XYZ
+    }
+}
+"#####,
+        r#####"
+struct Foo;
+impl Foo {
+    /// A doc comment attached.
+    const XYZ: usize = 1234;
+
+    fn foo(&self) -> usize {
+        Self::XYZ
+    }
+}
+"#####,
+    )
+}
+
+#[test]
 fn doctest_move_format_string_arg() {
     check_doc_test(
         "move_format_string_arg",
