@@ -9,6 +9,8 @@ use tracing::warn;
 
 use dirs;
 
+use crate::constants::FUEL_TOOLCHAIN_TOML_FILE;
+
 pub const FUELUP_DIR: &str = ".fuelup";
 
 pub fn fuelup_dir() -> PathBuf {
@@ -45,6 +47,27 @@ pub fn toolchain_dir(toolchain: &str) -> PathBuf {
 
 pub fn toolchain_bin_dir(toolchain: &str) -> PathBuf {
     toolchain_dir(toolchain).join("bin")
+}
+
+fn find_parent_dir_with_file(starter_path: &Path, file_name: &str) -> Option<PathBuf> {
+    let mut path = fs::canonicalize(starter_path).ok()?;
+
+    loop {
+        let candidate = path.join(file_name);
+        if candidate.exists() {
+            return Some(path);
+        }
+
+        if !path.pop() {
+            return None;
+        }
+    }
+}
+
+pub fn get_fuel_toolchain_toml() -> Option<PathBuf> {
+    let current_dir = env::current_dir().ok()?;
+    find_parent_dir_with_file(&current_dir, FUEL_TOOLCHAIN_TOML_FILE)
+        .map(|path| path.join(FUEL_TOOLCHAIN_TOML_FILE))
 }
 
 pub fn ensure_dir_exists(path: &Path) -> Result<()> {

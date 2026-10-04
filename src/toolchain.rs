@@ -9,7 +9,9 @@ use time::Date;
 use tracing::{error, info};
 
 use crate::channel::{self, is_beta_toolchain};
+use crate::channel::Channel;
 use crate::constants::DATE_FORMAT;
+use crate::config::Config;
 use crate::download::{download_file_and_unpack, link_to_fuelup, unpack_bins, DownloadCfg};
 use crate::ops::fuelup_self::self_update;
 use crate::path::{
@@ -274,6 +276,28 @@ impl Toolchain {
         );
 
         Ok(download_cfg)
+    }
+
+    pub fn install_if_nonexistent(
+        &self,
+        description: &DistToolchainDescription,
+    ) -> Result<()> {
+        if self.exists() {
+            return Ok(());
+        }
+
+        info!("toolchain '{}' does not exist; installing", description);
+
+        let (channel, hash) = Channel::from_dist_channel(description)?;
+        let config = Config::from_env()?;
+
+        for cfg in channel.build_download_configs() {
+            self.add_component(cfg)?;
+        }
+
+        config.save_hash(&self.name, &hash)?;
+
+        Ok(())
     }
 
     fn remove_executables(&self, component: &str) -> Result<()> {

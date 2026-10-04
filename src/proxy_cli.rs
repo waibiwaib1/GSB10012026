@@ -6,12 +6,16 @@ use std::process::{Command, ExitCode, Stdio};
 use std::{env, io};
 
 use crate::toolchain::Toolchain;
+use crate::toolchain_override::ToolchainOverride;
 use component::Components;
 
 /// Runs forc or fuel-core in proxy mode
 pub fn proxy_run(arg0: &str) -> Result<ExitCode> {
     let cmd_args: Vec<_> = env::args_os().skip(1).collect();
-    let toolchain = Toolchain::from_settings()?;
+    let toolchain = match ToolchainOverride::from_project_root() {
+        Some(toolchain_override) => toolchain_override.toolchain()?,
+        None => Toolchain::from_settings()?,
+    };
 
     if !cmd_args.is_empty() {
         let plugin = format!("{}-{}", arg0, &cmd_args[0].to_string_lossy());

@@ -1,11 +1,14 @@
 use anyhow::Result;
+use fuelup::constants::FUEL_TOOLCHAIN_TOML_FILE;
 use fuelup::settings::SettingsFile;
 use fuelup::target_triple::TargetTriple;
+use fuelup::toolchain_override::{Channel, OverrideCfg, ToolchainCfg, ToolchainOverride};
 use std::os::unix::fs::OpenOptionsExt;
 use std::{
     env, fs,
     path::{Path, PathBuf},
     process::{Command, ExitStatus},
+    str::FromStr,
 };
 use tempfile::tempdir;
 
@@ -20,6 +23,7 @@ pub enum FuelupState {
     LatestAndNightlyInstalled,
     NightlyAndNightlyDateInstalled,
     Beta1Installed,
+    LatestAndNightlyWithBetaOverride,
 }
 
 pub struct TestCfg {
@@ -80,16 +84,26 @@ impl TestCfg {
     }
 
     pub fn fuelup(&mut self, args: &[&str]) -> TestOutput {
-        let output = Command::new(&self.fuelup_path)
+        Self::run_command(Command::new(&self.fuelup_path), args, &self.home)
+    }
+
+    pub fn fuelup_proxy(&mut self, proxy: &str, args: &[&str]) -> TestOutput {
+        let proxy_path = self.home.join(".fuelup").join("bin").join(proxy);
+        Self::run_command(Command::new(proxy_path), args, &self.home)
+    }
+
+    fn run_command(mut command: Command, args: &[&str], home: &Path) -> TestOutput {
+        let output = command
             .args(args)
-            .env("HOME", &self.home)
-            .env("CARGO_HOME", self.home.join(".cargo").to_str().unwrap())
+            .current_dir(home)
+            .env("HOME", home)
+            .env("CARGO_HOME", home.join(".cargo").to_str().unwrap())
             .env(
                 "PATH",
                 format!(
                     "{}:{}",
-                    &self.home.join(".local/bin").display(),
-                    &self.home.join(".cargo/bin").display()
+                    &home.join(".local/bin").display(),
+                    &home.join(".cargo/bin").display()
                 ),
             )
             .env("TERM", "dumb")
@@ -142,6 +156,21 @@ fn setup_settings_file(settings_dir: &Path, default_toolchain: &str) -> Result<(
         format!("default_toolchain = \"{}\"", default_toolchain),
     )
     .expect("Failed to copy settings");
+    Ok(())
+}
+
+#[cfg(unix)]
+fn create_executable_script(path: &Path, contents: &str) -> Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+
+    fs::write(path, contents)?;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o770))?;
+    Ok(())
+}
+
+fn setup_override_file(toolchain_override: ToolchainOverride) -> Result<()> {
+    let document = toolchain_override.to_toml();
+    fs::write(toolchain_override.path, document.to_string())?;
     Ok(())
 }
 
@@ -241,6 +270,35 @@ pub fn setup(state: FuelupState, f: &dyn Fn(&mut TestCfg)) -> Result<()> {
                 &format!("beta-1-{}-{}", DATE, target),
             )?;
             setup_settings_file(&tmp_fuelup_root_path, &beta_1)?;
+        }
+        FuelupState::LatestAndNightlyWithBetaOverride => {
+            setup_toolchain(&tmp_fuelup_root_path, &latest)?;
+            setup_toolchain(&tmp_fuelup_root_path, &nightly)?;
+            setup_toolchain(&tmp_fuelup_root_path, &beta_1)?;
+            setup_settings_file(&tmp_fuelup_root_path, &latest)?;
+
+            setup_override_file(ToolchainOverride {
+                cfg: OverrideCfg::new(
+                    ToolchainCfg {
+                        channel: Channel::from_str("beta-1")?,
+                    },
+                    None,
+                ),
+                path: tmp_home.join(FUEL_TOOLCHAIN_TOML_FILE),
+            })?;
+
+            fs::hard_link(
+                tmp_fuelup_bin_dir_path.join("fuelup"),
+                tmp_fuelup_bin_dir_path.join("forc"),
+            )?;
+            create_executable_script(
+                &tmp_fuelup_root_path
+                    .join("toolchains")
+                    .join(&beta_1)
+                    .join("bin")
+                    .join("forc"),
+                "#!/bin/sh\necho beta-1\n",
+            )?;
         }
     }
 

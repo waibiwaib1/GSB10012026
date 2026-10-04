@@ -6,6 +6,7 @@ use crate::{
     path::settings_file,
     settings::SettingsFile,
     toolchain::{DistToolchainDescription, Toolchain},
+    toolchain_override::ToolchainOverride,
 };
 
 pub fn default(toolchain: Option<String>) -> Result<()> {
@@ -14,7 +15,18 @@ pub fn default(toolchain: Option<String>) -> Result<()> {
     let toolchain = match toolchain {
         Some(toolchain) => toolchain,
         None => {
-            info!("{} (default)", current_toolchain.name);
+            let mut message = String::new();
+
+            if let Some(toolchain_override) = ToolchainOverride::from_project_root() {
+                let override_name = toolchain_override
+                    .description()
+                    .map(|description| description.to_string())
+                    .unwrap_or_else(|_| toolchain_override.cfg.toolchain.channel.to_string());
+                message.push_str(&format!("{override_name} (override), "));
+            }
+
+            message.push_str(&format!("{} (default)", current_toolchain.name));
+            info!("{message}");
             return Ok(());
         }
     };
