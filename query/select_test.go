@@ -267,6 +267,56 @@ func TestSelectStmt(t *testing.T) {
 	})
 }
 
+// See issue https://github.com/genjidb/genji/issues/378
+func TestSelectStmtIndexedArrayField(t *testing.T) {
+	tests := []struct {
+		name     string
+		query    string
+		expected string
+	}{
+		{"With eq op on array", "SELECT * FROM test WHERE a = [1, 2, 3]", `[{"a":[1,2,3],"d":{"x":1,"y":2}}]`},
+		{"With eq op on nested array", "SELECT * FROM test WHERE a = [[1, 2], [3, 4]]", `[]`},
+		{"With eq op on document", "SELECT * FROM test WHERE d = {x: 1, y: 2}", `[{"a":[1,2,3],"d":{"x":1,"y":2}}]`},
+		{"With IN op on arrays", "SELECT * FROM test WHERE a IN [[1, 2, 3], [10, 11]]", `[{"a":[1,2,3],"d":{"x":1,"y":2}}]`},
+	}
+
+	for _, test := range tests {
+		testFn := func(withIndexes bool) func(t *testing.T) {
+			return func(t *testing.T) {
+				db, err := genji.Open(":memory:")
+				require.NoError(t, err)
+				defer db.Close()
+
+				err = db.Exec("CREATE TABLE test")
+				require.NoError(t, err)
+				if withIndexes {
+					err = db.Exec(`
+						CREATE INDEX idx_a ON test (a);
+						CREATE INDEX idx_d ON test (d);
+					`)
+					require.NoError(t, err)
+				}
+
+				err = db.Exec("INSERT INTO test (a, d) VALUES ([1, 2, 3], {x: 1, y: 2})")
+				require.NoError(t, err)
+				err = db.Exec("INSERT INTO test (a, d) VALUES ([4, 5, 6], {x: 3, y: 4})")
+				require.NoError(t, err)
+
+				st, err := db.Query(test.query)
+				defer st.Close()
+				require.NoError(t, err)
+
+				var buf bytes.Buffer
+				err = document.IteratorToJSONArray(&buf, st)
+				require.NoError(t, err)
+				require.JSONEq(t, test.expected, buf.String())
+			}
+		}
+		t.Run("No Index/"+test.name, testFn(false))
+		t.Run("With Index/"+test.name, testFn(true))
+	}
+}
+
 func TestDistinct(t *testing.T) {
 	types := []struct {
 		name          string

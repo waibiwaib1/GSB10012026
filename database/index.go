@@ -207,15 +207,9 @@ func (idx *Index) EncodeValue(v document.Value) ([]byte, error) {
 	}
 
 	var err error
-	if v.Type == document.IntegerValue {
-		if v.V == nil {
-			v.Type = document.DoubleValue
-		} else {
-			v, err = v.CastAsDouble()
-			if err != nil {
-				return nil, err
-			}
-		}
+	v, err = convertValueToDouble(v)
+	if err != nil {
+		return nil, err
 	}
 
 	var buf bytes.Buffer
@@ -224,6 +218,57 @@ func (idx *Index) EncodeValue(v document.Value) ([]byte, error) {
 		return nil, err
 	}
 	return buf.Bytes(), nil
+}
+
+// convertValueToDouble converts integer values to double, recursively.
+// Values stored in tables have their integers converted to doubles when
+// they are not associated with a type constraint (see FieldConstraints.ConvertDocument).
+// Index keys must be encoded the same way so that lookups match stored values.
+func convertValueToDouble(v document.Value) (document.Value, error) {
+	switch v.Type {
+	case document.IntegerValue:
+		if v.V == nil {
+			v.Type = document.DoubleValue
+			return v, nil
+		}
+		return v.CastAsDouble()
+	case document.ArrayValue:
+		if v.V == nil {
+			return v, nil
+		}
+		vb := document.NewValueBuffer()
+		err := v.V.(document.Array).Iterate(func(i int, value document.Value) error {
+			value, err := convertValueToDouble(value)
+			if err != nil {
+				return err
+			}
+			vb.Append(value)
+			return nil
+		})
+		if err != nil {
+			return v, err
+		}
+		return document.NewArrayValue(vb), nil
+	case document.DocumentValue:
+		if v.V == nil {
+			return v, nil
+		}
+		fb := document.NewFieldBuffer()
+		err := v.V.(document.Document).Iterate(func(field string, value document.Value) error {
+			value, err := convertValueToDouble(value)
+			if err != nil {
+				return err
+			}
+			fb.Add(field, value)
+			return nil
+		})
+		if err != nil {
+			return v, err
+		}
+		return document.NewDocumentValue(fb), nil
+	}
+
+	return v, nil
 }
 
 func getOrCreateStore(tx engine.Transaction, name []byte) (engine.Store, error) {
