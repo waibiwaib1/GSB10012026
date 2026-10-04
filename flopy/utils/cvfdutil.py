@@ -53,7 +53,7 @@ def shared_face(ivlist1, ivlist2):
     return False
 
 
-def segment_face(ivert, ivlist1, ivlist2, vertices):
+def segment_face(ivert, ivlist1, ivlist2, vertices, vertex_cell_dict, icell1):
     """
     Check the vertex lists for cell 1 and cell 2.  Add a new vertex to cell 1
     if necessary.
@@ -68,6 +68,10 @@ def segment_face(ivert, ivlist1, ivlist2, vertices):
         list of vertices for cell2.
     vertices : ndarray
         array of x, y vertices
+    vertex_cell_dict : dict
+        dictionary with vertices as keys and list of cells as values
+    icell1 : int
+        cell number for cell 1
 
     Returns
     -------
@@ -106,6 +110,7 @@ def segment_face(ivert, ivlist1, ivlist2, vertices):
                     if ipos == 0:
                         ipos = len(ivlist1) - 1
                     ivlist1.insert(ipos, ivc)
+                    vertex_cell_dict[ivc].append(icell1)
                     return True
 
     return False
@@ -243,7 +248,12 @@ def to_cvfd(
 
                         # don't share a face, so need to segment if necessary
                         segmented = segment_face(
-                            ivert, ivertlist1, ivertlist2, vertexdict_keys
+                            ivert,
+                            ivertlist1,
+                            ivertlist2,
+                            vertexdict_keys,
+                            vertex_cell_dict,
+                            icell1,
                         )
                         if segmented:
                             finished = False
