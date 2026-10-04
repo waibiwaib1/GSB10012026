@@ -1,4 +1,15 @@
-from typing import Any, Type, TypeVar, Generic, Optional, Callable, overload
+from typing import (
+    Any,
+    Type,
+    Tuple,
+    Dict,
+    TypeVar,
+    Generic,
+    Optional,
+    Callable,
+    overload,
+)
+from collections.abc import Iterable
 
 T = TypeVar("T")
 
@@ -51,3 +62,7 @@ def decode(
     dec_hook: dec_hook_sig = None,
 ) -> T: ...
 def encode(obj: Any, *, enc_hook: enc_hook_sig = None) -> bytes: ...
+def schema(type: Any) -> Dict[str, Any]: ...
+def schema_components(
+    types: Iterable[Any], ref_template: str = "#/$defs/{name}"
+) -> Tuple[Tuple[Dict[str, Any], ...], Dict[str, Any]]: ...
