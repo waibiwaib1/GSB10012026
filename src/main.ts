@@ -269,4 +269,5 @@ export const LogicTemplates = LogicTemplatesCommonJSExport.default;
 
 export * from './makeTxn';
 export * from './transaction';
+export * from './abi/abi_type';
 export * from './types';
