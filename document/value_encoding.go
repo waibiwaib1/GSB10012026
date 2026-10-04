@@ -20,10 +20,26 @@ type ValueEncoder struct {
 	w io.Writer
 
 	buf []byte
+
+	// normalizeIntegers converts integers to doubles while encoding,
+	// including integers nested inside arrays and documents.
+	// This is used when encoding untyped index/pk keys so that keys
+	// remain consistent with the way unconstrained values are stored.
+	normalizeIntegers bool
 }
 
 // NewValueEncoder creates a ValueEncoder that writes to w.
 func NewValueEncoder(w io.Writer) *ValueEncoder {
+	return &ValueEncoder{
+		w:                 w,
+		normalizeIntegers: true,
+	}
+}
+
+// newValueEncoderWithoutIntegerNormalization creates a ValueEncoder
+// that preserves integer values as-is, including when they are nested
+// inside arrays and documents.
+func newValueEncoderWithoutIntegerNormalization(w io.Writer) *ValueEncoder {
 	return &ValueEncoder{
 		w: w,
 	}
@@ -40,6 +56,21 @@ func (ve *ValueEncoder) Encode(v Value) error {
 }
 
 func (ve *ValueEncoder) appendValue(v Value) error {
+	// integers nested inside arrays and documents are
+	// converted to doubles so that encoded keys remain
+	// consistent with the way unconstrained values are stored.
+	if ve.normalizeIntegers && v.Type == IntegerValue {
+		if v.V == nil {
+			v.Type = DoubleValue
+		} else {
+			d, err := v.CastAsDouble()
+			if err != nil {
+				return err
+			}
+			v = d
+		}
+	}
+
 	err := ve.append(byte(v.Type))
 	if err != nil {
 		return err

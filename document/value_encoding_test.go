@@ -14,27 +14,27 @@ func TestValueEncoder(t *testing.T) {
 	}{
 		{"null", NewNullValue()},
 		{"bool", NewBoolValue(true)},
-		{"integer", NewIntegerValue(-10)},
+		{"integer", NewDoubleValue(-10)},
 		{"double", NewDoubleValue(-3.14)},
 		{"text", NewTextValue("foo")},
 		{"blob", NewBlobValue([]byte("bar"))},
 		{"array", NewArrayValue(NewValueBuffer(
 			NewBoolValue(true),
-			NewIntegerValue(55),
+			NewDoubleValue(55),
 			NewDoubleValue(789.58),
 			NewArrayValue(NewValueBuffer(
 				NewBoolValue(false),
-				NewIntegerValue(100),
+				NewDoubleValue(100),
 				NewTextValue("baz"),
 			)),
 			NewBlobValue([]byte("loo")),
 			NewDocumentValue(
 				NewFieldBuffer().
 					Add("foo1", NewBoolValue(true)).
-					Add("foo2", NewIntegerValue(55)).
+					Add("foo2", NewDoubleValue(55)).
 					Add("foo3", NewArrayValue(NewValueBuffer(
 						NewBoolValue(false),
-						NewIntegerValue(100),
+						NewDoubleValue(100),
 						NewTextValue("baz"),
 					))),
 			),
@@ -42,19 +42,19 @@ func TestValueEncoder(t *testing.T) {
 		{"document", NewDocumentValue(
 			NewFieldBuffer().
 				Add("foo1", NewBoolValue(true)).
-				Add("foo2", NewIntegerValue(55)).
+				Add("foo2", NewDoubleValue(55)).
 				Add("foo3", NewArrayValue(NewValueBuffer(
 					NewBoolValue(false),
-					NewIntegerValue(100),
+					NewDoubleValue(100),
 					NewTextValue("baz"),
 				))).
 				Add("foo4", NewDocumentValue(
 					NewFieldBuffer().
 						Add("foo1", NewBoolValue(true)).
-						Add("foo2", NewIntegerValue(55)).
+						Add("foo2", NewDoubleValue(55)).
 						Add("foo3", NewArrayValue(NewValueBuffer(
 							NewBoolValue(false),
-							NewIntegerValue(100),
+							NewDoubleValue(100),
 							NewTextValue("baz"),
 						))),
 				)),
@@ -74,4 +74,29 @@ func TestValueEncoder(t *testing.T) {
 			require.Equal(t, test.v, got)
 		})
 	}
+
+	// integers are encoded as doubles to remain consistent with
+	// the way unconstrained integer values are stored, including
+	// integers nested inside arrays and documents.
+	t.Run("integers normalize to doubles", func(t *testing.T) {
+		v := NewArrayValue(NewValueBuffer(
+			NewIntegerValue(1),
+			NewIntegerValue(2),
+			NewIntegerValue(3),
+		))
+
+		var buf bytes.Buffer
+		err := NewValueEncoder(&buf).Encode(v)
+		require.NoError(t, err)
+
+		got, err := decodeValue(buf.Bytes())
+		require.NoError(t, err)
+
+		want := NewArrayValue(NewValueBuffer(
+			NewDoubleValue(1),
+			NewDoubleValue(2),
+			NewDoubleValue(3),
+		))
+		require.Equal(t, want, got)
+	})
 }

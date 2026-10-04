@@ -318,14 +318,14 @@ func (v Value) Append(buf []byte) ([]byte, error) {
 		return buf, nil
 	case ArrayValue:
 		var buf bytes.Buffer
-		err := NewValueEncoder(&buf).appendArray(v.V.(Array))
+		err := newValueEncoderWithoutIntegerNormalization(&buf).appendArray(v.V.(Array))
 		if err != nil {
 			return nil, err
 		}
 		return buf.Bytes(), nil
 	case DocumentValue:
 		var buf bytes.Buffer
-		err := NewValueEncoder(&buf).appendDocument(v.V.(Document))
+		err := newValueEncoderWithoutIntegerNormalization(&buf).appendDocument(v.V.(Document))
 		if err != nil {
 			return nil, err
 		}

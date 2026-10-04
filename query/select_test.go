@@ -210,6 +210,39 @@ func TestSelectStmt(t *testing.T) {
 		require.Error(t, err)
 	})
 
+	// See issue https://github.com/genjidb/genji/issues/378
+	t.Run("equality on array field", func(t *testing.T) {
+		for _, withIndex := range []bool{false, true} {
+			t.Run(strconv.FormatBool(withIndex), func(t *testing.T) {
+				db, err := genji.Open(":memory:")
+				require.NoError(t, err)
+				defer db.Close()
+
+				require.NoError(t, db.Exec("CREATE TABLE test"))
+				if withIndex {
+					require.NoError(t, db.Exec("CREATE INDEX idx_test_a ON test(a)"))
+				}
+
+				require.NoError(t, db.Exec(`INSERT INTO test (a) VALUES ([1, 2, 3])`))
+				require.NoError(t, db.Exec(`INSERT INTO test (a) VALUES ([4, 5, 6])`))
+
+				call := func(q string, params ...interface{}) {
+					st, err := db.Query(q, params...)
+					require.NoError(t, err)
+					defer st.Close()
+
+					var buf bytes.Buffer
+					require.NoError(t, document.IteratorToJSONArray(&buf, st))
+					require.JSONEq(t, `[{"a": [1, 2, 3]}]`, buf.String())
+				}
+
+				call("SELECT * FROM test WHERE a = [1, 2, 3]")
+				call("SELECT * FROM test WHERE a = ?", []interface{}{1, 2, 3})
+				call("SELECT * FROM test WHERE [1, 2, 3] = a")
+			})
+		}
+	})
+
 	t.Run("with order by and indexes", func(t *testing.T) {
 		db, err := genji.Open(":memory:")
 		require.NoError(t, err)
