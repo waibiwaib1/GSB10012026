@@ -267,22 +267,39 @@ defmodule Plug.Router do
     init_mode = Module.get_attribute(env.module, :plug_builder_opts)[:init_mode]
 
     defs =
-      for {callback, {mod, opts}} <- router_to do
-        if init_mode == :runtime do
-          quote do
-            defp unquote(callback)(conn, _opts) do
-              unquote(mod).call(conn, unquote(mod).init(unquote(Macro.escape(opts))))
+      for {callback, target} <- router_to do
+        case target do
+          {{mod, fun}, opts} when mod == env.module ->
+            quote generated: true do
+              defp unquote(callback)(conn, _opts) do
+                unquote(fun)(conn, unquote(Macro.escape(opts)))
+              end
             end
-          end
-        else
-          opts = mod.init(opts)
 
-          quote do
-            defp unquote(callback)(conn, _opts) do
-              require unquote(mod)
-              unquote(mod).call(conn, unquote(Macro.escape(opts)))
+          {{mod, fun}, opts} ->
+            quote generated: true do
+              defp unquote(callback)(conn, _opts) do
+                apply(unquote(mod), unquote(fun), [conn, unquote(Macro.escape(opts))])
+              end
             end
-          end
+
+          {mod, opts} when is_atom(mod) ->
+            if init_mode == :runtime do
+              quote do
+                defp unquote(callback)(conn, _opts) do
+                  unquote(mod).call(conn, unquote(mod).init(unquote(Macro.escape(opts))))
+                end
+              end
+            else
+              opts = mod.init(opts)
+
+              quote do
+                defp unquote(callback)(conn, _opts) do
+                  require unquote(mod)
+                  unquote(mod).call(conn, unquote(Macro.escape(opts)))
+                end
+              end
+            end
         end
       end
 
@@ -318,6 +335,7 @@ defmodule Plug.Router do
       end
 
       match "/baz", to: MyPlug, init_opts: [an_option: :a_value]
+      match "/qux", to: :qux
 
   ## Options
 
@@ -337,7 +355,8 @@ defmodule Plug.Router do
     * `:do` - contains the implementation to be invoked in case
       the route matches.
 
-    * `:to` - a Plug that will be called in case the route matches.
+    * `:to` - a Plug module or local function plug that will be called in case
+      the route matches.
 
     * `:init_opts` - the options for the target Plug given by `:to`.
 
@@ -571,6 +590,7 @@ defmodule Plug.Router do
   def __to__(module, options) do
     {to, options} = Keyword.pop(options, :to)
     {init_opts, options} = Keyword.pop(options, :init_opts, [])
+    to = function_plug(module, to)
 
     router_to = Module.get_attribute(module, :plug_router_to)
     callback = :"plug_router_to_#{map_size(router_to)}"
@@ -578,6 +598,16 @@ defmodule Plug.Router do
     Module.put_attribute(module, :plug_router_to, router_to)
     {Macro.var(callback, nil), options}
   end
+
+  defp function_plug(module, plug) when is_atom(plug) do
+    if match?(~c"Elixir." ++ _, Atom.to_charlist(plug)) do
+      plug
+    else
+      {module, plug}
+    end
+  end
+
+  defp function_plug(_module, plug), do: plug
 
   defp wrap_function_do(body) do
     quote do

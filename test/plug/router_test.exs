@@ -60,6 +60,12 @@ defmodule Plug.RouterTest do
     opts = :hello
     get "/plug/match", to: SamplePlug
     get "/plug/match/options", to: plug, init_opts: opts
+    get "/plug/match_local", to: :forward_local
+    get "/plug/match_local_options", to: :forward_local, init_opts: opts
+
+    defp forward_local(conn, opts) do
+      resp(conn, 200, inspect(opts))
+    end
 
     def handle_errors(conn, assigns) do
       # Custom call is always invoked before
@@ -152,6 +158,8 @@ defmodule Plug.RouterTest do
     opts = :hello
     get "/plug/match", to: SamplePlug
     get "/plug/match/options", to: plug, init_opts: opts
+    get "/plug/match_local", to: :forward_local
+    get "/plug/match_local_options", to: :forward_local, init_opts: opts
 
     forward "/step1", to: Reforward
     forward "/forward", to: Forward
@@ -350,6 +358,22 @@ defmodule Plug.RouterTest do
 
     conn = call(Sample, conn(:get, "/plug/match/options"))
     assert conn.resp_body == ":world"
+  end
+
+  test "dispatch to function plug" do
+    conn = call(Sample, conn(:get, "/plug/match_local"))
+    assert conn.resp_body == "[]"
+
+    conn = call(Sample, conn(:get, "/plug/match_local_options"))
+    assert conn.resp_body == ":hello"
+  end
+
+  test "dispatch to function plug with runtime init" do
+    conn = call(Forward, conn(:get, "/plug/match_local"))
+    assert conn.resp_body == "[]"
+
+    conn = call(Forward, conn(:get, "/plug/match_local_options"))
+    assert conn.resp_body == ":hello"
   end
 
   test "dispatch with forwarding" do
