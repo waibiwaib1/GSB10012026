@@ -14,6 +14,7 @@ export const CP_CLOSING_PAREN = ")".codePointAt(0)!
 export const CP_STAR = "*".codePointAt(0)!
 export const CP_PLUS = "+".codePointAt(0)!
 export const CP_MINUS = "-".codePointAt(0)!
+export const CP_APOSTROPHE = "'".codePointAt(0)!
 export const CP_DOT = ".".codePointAt(0)!
 export const CP_SLASH = "/".codePointAt(0)!
 export const CP_COLON = ":".codePointAt(0)!
