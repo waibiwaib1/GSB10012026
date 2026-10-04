@@ -1,3 +1,4 @@
+
 import type { RuleModule } from "../types"
 import confusingQuantifier from "../rules/confusing-quantifier"
 import controlCharacterEscape from "../rules/control-character-escape"
@@ -57,70 +58,11 @@ import preferStarQuantifier from "../rules/prefer-star-quantifier"
 import preferT from "../rules/prefer-t"
 import preferUnicodeCodepointEscapes from "../rules/prefer-unicode-codepoint-escapes"
 import preferW from "../rules/prefer-w"
+import sortAlternatives from "../rules/sort-alternatives"
 import sortFlags from "../rules/sort-flags"
 import strict from "../rules/strict"
 import unicodeEscape from "../rules/unicode-escape"
 
 export const rules = [
-    confusingQuantifier,
-    controlCharacterEscape,
-    hexadecimalEscape,
-    letterCase,
-    matchAny,
-    negation,
-    noAssertionCapturingGroup,
-    noDupeCharactersCharacterClass,
-    noDupeDisjunctions,
-    noEmptyAlternative,
-    noEmptyCapturingGroup,
-    noEmptyGroup,
-    noEmptyLookaroundsAssertion,
-    noEscapeBackspace,
-    noInvisibleCharacter,
-    noLazyEnds,
-    noLegacyFeatures,
-    noNonStandardFlag,
-    noObscureRange,
-    noOctal,
-    noOptionalAssertion,
-    noPotentiallyUselessBackreference,
-    noStandaloneBackslash,
-    noTriviallyNestedAssertion,
-    noTriviallyNestedQuantifier,
-    noUnusedCapturingGroup,
-    noUselessAssertions,
-    noUselessBackreference,
-    noUselessCharacterClass,
-    noUselessDollarReplacements,
-    noUselessEscape,
-    noUselessExactlyQuantifier,
-    noUselessFlag,
-    noUselessLazy,
-    noUselessNonCapturingGroup,
-    noUselessNonGreedy,
-    noUselessQuantifier,
-    noUselessRange,
-    noUselessTwoNumsQuantifier,
-    noZeroQuantifier,
-    optimalLookaroundQuantifier,
-    optimalQuantifierConcatenation,
-    orderInCharacterClass,
-    preferCharacterClass,
-    preferD,
-    preferEscapeReplacementDollarChar,
-    preferNamedBackreference,
-    preferPlusQuantifier,
-    preferPredefinedAssertion,
-    preferQuantifier,
-    preferQuestionQuantifier,
-    preferRange,
-    preferRegexpExec,
-    preferRegexpTest,
-    preferStarQuantifier,
-    preferT,
-    preferUnicodeCodepointEscapes,
-    preferW,
-    sortFlags,
-    strict,
-    unicodeEscape,
+    confusingQuantifier,controlCharacterEscape,hexadecimalEscape,letterCase,matchAny,negation,noAssertionCapturingGroup,noDupeCharactersCharacterClass,noDupeDisjunctions,noEmptyAlternative,noEmptyCapturingGroup,noEmptyGroup,noEmptyLookaroundsAssertion,noEscapeBackspace,noInvisibleCharacter,noLazyEnds,noLegacyFeatures,noNonStandardFlag,noObscureRange,noOctal,noOptionalAssertion,noPotentiallyUselessBackreference,noStandaloneBackslash,noTriviallyNestedAssertion,noTriviallyNestedQuantifier,noUnusedCapturingGroup,noUselessAssertions,noUselessBackreference,noUselessCharacterClass,noUselessDollarReplacements,noUselessEscape,noUselessExactlyQuantifier,noUselessFlag,noUselessLazy,noUselessNonCapturingGroup,noUselessNonGreedy,noUselessQuantifier,noUselessRange,noUselessTwoNumsQuantifier,noZeroQuantifier,optimalLookaroundQuantifier,optimalQuantifierConcatenation,orderInCharacterClass,preferCharacterClass,preferD,preferEscapeReplacementDollarChar,preferNamedBackreference,preferPlusQuantifier,preferPredefinedAssertion,preferQuantifier,preferQuestionQuantifier,preferRange,preferRegexpExec,preferRegexpTest,preferStarQuantifier,preferT,preferUnicodeCodepointEscapes,preferW,sortAlternatives,sortFlags,strict,unicodeEscape
 ] as RuleModule[]

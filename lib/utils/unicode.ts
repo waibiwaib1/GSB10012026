@@ -8,6 +8,7 @@ export const CP_FF = 12
 export const CP_CR = 13
 export const CP_SPACE = " ".codePointAt(0)!
 export const CP_BAN = "!".codePointAt(0)!
+export const CP_APOSTROPHE = "'".codePointAt(0)!
 export const CP_DOLLAR = "$".codePointAt(0)!
 export const CP_OPENING_PAREN = "(".codePointAt(0)!
 export const CP_CLOSING_PAREN = ")".codePointAt(0)!
