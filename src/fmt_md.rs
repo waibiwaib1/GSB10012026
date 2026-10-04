@@ -14,6 +14,21 @@ use crate::tree_ref::{ListItemRef, MdElemRef};
 pub struct MdOptions {
     pub link_reference_placement: ReferencePlacement,
     pub footnote_reference_placement: ReferencePlacement,
+    pub link_format: LinkFormat,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Default, ValueEnum)]
+pub enum LinkFormat {
+    /// Leave links in whatever style they appeared in the source.
+    #[default]
+    Keep,
+
+    /// Write all links and images inline: `[text](https://example.com)`.
+    Inline,
+
+    /// Write all links and images as references: `[text][]`, with the URL in a separate
+    /// [link reference definition](https://github.github.com/gfm/#link-reference-definitions).
+    Reference,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
@@ -474,7 +489,12 @@ impl<'a> MdWriterState<'a> {
         out.write_char('[');
         label.write_to(self, out);
         out.write_char(']');
-        let reference_to_add = match &link.reference {
+        let effective_reference = match self.opts.link_format {
+            LinkFormat::Keep => &link.reference,
+            LinkFormat::Inline => &LinkReference::Inline,
+            LinkFormat::Reference => &LinkReference::Collapsed,
+        };
+        let reference_to_add = match effective_reference {
             LinkReference::Inline => {
                 out.write_char('(');
                 out.write_str(&link.url);
@@ -1769,6 +1789,82 @@ pub mod tests {
         }
     }
 
+    mod link_format {
+        use super::*;
+        use crate::fmt_md::LinkFormat;
+
+        fn options(format: LinkFormat) -> MdOptions {
+            MdOptions {
+                link_format: format,
+                ..MdOptions::default()
+            }
+        }
+
+        fn link(reference: LinkReference) -> Vec<MdElem> {
+            md_elems![Block::LeafBlock::Paragraph {
+                body: vec![m_node!(Inline::Link {
+                    text: vec![mdq_inline!("link text")],
+                    link_definition: LinkDefinition {
+                        url: "https://example.com".to_string(),
+                        title: None,
+                        reference,
+                    },
+                })]
+            }]
+        }
+
+        #[test]
+        fn force_inline() {
+            check_render_with(
+                &options(LinkFormat::Inline),
+                link(LinkReference::Full("1".to_string())),
+                "[link text](https://example.com)",
+            );
+        }
+
+        #[test]
+        fn force_reference() {
+            check_render_with(
+                &options(LinkFormat::Reference),
+                link(LinkReference::Inline),
+                indoc! {"
+                    [link text][]
+
+                       -----
+
+                    [link text]: https://example.com"},
+            );
+        }
+
+        #[test]
+        fn keep_inline() {
+            check_render_with(
+                &options(LinkFormat::Keep),
+                link(LinkReference::Inline),
+                "[link text](https://example.com)",
+            );
+        }
+
+        #[test]
+        fn image_force_inline() {
+            let nodes = md_elems![Block::LeafBlock::Paragraph {
+                body: vec![m_node!(Inline::Image {
+                    alt: "alt text".to_string(),
+                    link: LinkDefinition {
+                        url: "https://example.com/a.png".to_string(),
+                        title: None,
+                        reference: LinkReference::Full("1".to_string()),
+                    },
+                })]
+            }];
+            check_render_with(
+                &options(LinkFormat::Inline),
+                nodes,
+                "![alt text](https://example.com/a.png)",
+            );
+        }
+    }
+
     mod link {
         use super::*;
 
@@ -1962,7 +2058,7 @@ pub mod tests {
 
     mod annotation_and_footnote_layouts {
         use super::*;
-        use crate::fmt_md::ReferencePlacement;
+        use crate::fmt_md::{LinkFormat, ReferencePlacement};
 
         #[test]
         fn link_and_footnote() {
@@ -2002,6 +2098,8 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Section,
                     footnote_reference_placement: ReferencePlacement::Section,
+
+                    link_format: LinkFormat::Keep,
                 },
                 link_and_footnote_markdown(),
                 indoc! {r#"
@@ -2026,6 +2124,8 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Section,
                     footnote_reference_placement: ReferencePlacement::Doc,
+
+                    link_format: LinkFormat::Keep,
                 },
                 link_and_footnote_markdown(),
                 indoc! {r#"
@@ -2053,6 +2153,8 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Section,
                     footnote_reference_placement: ReferencePlacement::Section,
+
+                    link_format: LinkFormat::Keep,
                 },
                 md_elems![Block::LeafBlock::Paragraph {
                     body: vec![m_node!(Inline::Link {
@@ -2079,6 +2181,8 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Doc,
                     footnote_reference_placement: ReferencePlacement::Section,
+
+                    link_format: LinkFormat::Keep,
                 },
                 link_and_footnote_markdown(),
                 indoc! {r#"
@@ -2106,6 +2210,8 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Doc,
                     footnote_reference_placement: ReferencePlacement::Doc,
+
+                    link_format: LinkFormat::Keep,
                 },
                 link_and_footnote_markdown(),
                 indoc! {r#"
@@ -2132,6 +2238,8 @@ pub mod tests {
                 &MdOptions {
                     link_reference_placement: ReferencePlacement::Doc,
                     footnote_reference_placement: ReferencePlacement::Doc,
+
+                    link_format: LinkFormat::Keep,
                 },
                 // Define them in the opposite order that we'd expect them
                 md_elems![Block::LeafBlock::Paragraph {
