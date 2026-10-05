@@ -1328,6 +1328,32 @@ class Fermata(Expression):
         self.tieAttach = 'last'
 
 
+class ArpeggioMark(Expression):
+    '''
+    ArpeggioMark must be applied to a Chord (not to a single Note).
+
+    >>> am = expressions.ArpeggioMark()
+    >>> am.type is None
+    True
+
+    >>> am = expressions.ArpeggioMark('down')
+    >>> am.type
+    'down'
+
+    Raises a ValueError if the type is invalid:
+
+    >>> am = expressions.ArpeggioMark('random')
+    Traceback (most recent call last):
+    ValueError: Unexpected arpeggio type: random
+    '''
+
+    def __init__(self, arpeggioType: t.Optional[str] = None):
+        super().__init__()
+        if arpeggioType not in (None, 'up', 'down', 'non-arpeggio'):
+            raise ValueError(f'Unexpected arpeggio type: {arpeggioType}')
+        self.type = arpeggioType
+
+
 # ------------------------------------------------------------------------------
 # spanner expressions
 

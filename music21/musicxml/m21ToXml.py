@@ -42,6 +42,7 @@ from music21 import bar
 from music21 import clef
 from music21 import chord
 from music21 import duration
+from music21 import expressions
 from music21 import harmony
 from music21 import instrument
 from music21 import key
@@ -4463,6 +4464,18 @@ class MeasureExporter(XMLExporterBase):
                     mxArticulations = Element('articulations')
                 mxArticulations.append(self.articulationToXmlArticulation(artObj))
 
+        # Arpeggios are stored on the chord, but apply to every note of the chord
+        for expObj in chordOrNote.expressions:
+            if isinstance(expObj, expressions.ArpeggioMark):
+                if expObj.type == 'non-arpeggio':
+                    mxArpeggio = Element('non-arpeggiate')
+                else:
+                    mxArpeggio = Element('arpeggiate')
+                    if expObj.type is not None:
+                        mxArpeggio.set('direction', expObj.type)
+                self.setPrintStyle(mxArpeggio, expObj)
+                notations.append(mxArpeggio)
+
         # TODO: attrGroup: print-object (for individual notations)
         # TODO: editorial (hard! -- requires parsing again in order...)
 
@@ -4491,8 +4504,6 @@ class MeasureExporter(XMLExporterBase):
                 notations.append(x)
 
         # TODO: dynamics in notations
-        # TODO: arpeggiate
-        # TODO: non-arpeggiate
         # TODO: accidental-mark
         # TODO: other-notation
         return notations

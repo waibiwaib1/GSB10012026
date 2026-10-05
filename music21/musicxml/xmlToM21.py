@@ -2813,12 +2813,12 @@ class MeasureParser(XMLParserBase):
                 sp.replaceSpannedElement(n, c)
             for art in n.articulations:
                 if type(art) in seenArticulations:  # pylint: disable=unidiomatic-typecheck
-                    pass
+                    continue
                 c.articulations.append(art)
                 seenArticulations.add(type(art))
             for exp in n.expressions:
                 if type(exp) in seenExpressions:  # pylint: disable=unidiomatic-typecheck
-                    pass
+                    continue
                 c.expressions.append(exp)
                 seenExpressions.add(type(exp))
 
@@ -3594,6 +3594,22 @@ class MeasureParser(XMLParserBase):
         'upright'
         >>> n.expressions[0].shape
         'angled'
+
+        Arpeggios are also stored on expressions:
+
+        >>> mxNotations = EL('<notations><arpeggiate direction="up"/></notations>')
+        >>> n = note.Note()
+        >>> MP.xmlNotations(mxNotations, n)
+        >>> n.expressions
+        [<music21.expressions.ArpeggioMark>]
+        >>> n.expressions[0].type
+        'up'
+
+        >>> mxNotations = EL('<notations><non-arpeggiate type="bottom"/></notations>')
+        >>> n = note.Note()
+        >>> MP.xmlNotations(mxNotations, n)
+        >>> n.expressions[0].type
+        'non-arpeggio'
         '''
         # attr: print-object -- applies to all
         printObjectValue = mxNotations.get('print-object')
@@ -3611,8 +3627,6 @@ class MeasureParser(XMLParserBase):
         # tuplet is handled with time-modification.
 
         # TODO: dynamics
-        # TODO: arpeggiate  incl. musicxml 4: unbroken attribute
-        # TODO: non-arpeggiate
         # TODO: accidental-mark
         # TODO: other-notation
 
@@ -3644,6 +3658,19 @@ class MeasureParser(XMLParserBase):
             if textStripValid(mxObj):
                 fermata.shape = mxObj.text.strip()
             n.expressions.append(fermata)
+
+        for mxObj in mxNotations.findall('arpeggiate'):
+            # TODO: musicxml 4: unbroken attribute
+            arpeggio = expressions.ArpeggioMark(mxObj.get('direction'))
+            optionalHideObject(arpeggio)
+            self.setEditorial(mxNotations, arpeggio)
+            n.expressions.append(arpeggio)
+
+        for mxObj in mxNotations.findall('non-arpeggiate'):
+            nonArpeggio = expressions.ArpeggioMark('non-arpeggio')
+            optionalHideObject(nonArpeggio)
+            self.setEditorial(mxNotations, nonArpeggio)
+            n.expressions.append(nonArpeggio)
 
         for mxObj in flatten(mxNotations, 'ornaments'):
             if mxObj.tag in xmlObjects.ORNAMENT_MARKS:
