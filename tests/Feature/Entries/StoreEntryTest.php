@@ -222,6 +222,24 @@ class StoreEntryTest extends TestCase
             ->assertStatus(422);
     }
 
+    /** @test */
+    public function entry_gets_created_when_route_contains_id_and_home_page_exists()
+    {
+        [$user, $collection] = $this->seedUserAndCollection();
+        $collection->routes(['en' => '/{id}'])->save();
+
+        $pages = tap(Collection::make('pages')->routes(['en' => '{parent_uri}/{slug}'])->structureContents(['root' => true]))->save();
+        tap(Entry::make()->id('home')->collection('pages')->locale('en')->slug('home')->data(['title' => 'Home']))->save();
+        $this->assertEquals('/', Entry::find('home')->uri());
+
+        $this
+            ->actingAs($user)
+            ->submit($collection, ['title' => 'My Entry', 'slug' => 'my-entry'])
+            ->assertOk();
+
+        $this->assertCount(1, Entry::whereCollection('test'));
+    }
+
     private function seedUserAndCollection()
     {
         $this->setTestRoles(['test' => ['access cp', 'create test entries']]);
