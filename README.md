@@ -245,9 +245,9 @@ using `SetEnvPrefix`, you can tell Viper to use a prefix while reading from
 the environment variables. Both `BindEnv` and `AutomaticEnv` will use this
 prefix.
 
-`BindEnv` takes one or two parameters. The first parameter is the key name, the
-second is the name of the environment variable. The name of the environment
-variable is case sensitive. If the ENV variable name is not provided, then
+`BindEnv` takes one or more parameters. The first parameter is the key name, and
+the remaining parameters are environment variable names. Environment variable
+names are case sensitive. If an ENV variable name is not provided, then
 Viper will automatically assume that the ENV variable matches the following format: prefix + "_" + the key name in ALL CAPS. When you explicitly provide the ENV variable name (the second parameter),
 it **does not** automatically add the prefix. For example if the second parameter is "id",
 Viper will look for the ENV variable "ID".
@@ -283,6 +283,13 @@ BindEnv("id")
 os.Setenv("SPF_ID", "13") // typically done outside of the app
 
 id := Get("id") // 13
+```
+
+Multiple environment variable names can be bound to the same key. The first
+environment variable that is set takes precedence:
+
+```go
+BindEnv("my.key", "APP_MY_KEY", "MY_KEY")
 ```
 
 ### Working with Flags

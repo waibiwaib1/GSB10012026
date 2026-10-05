@@ -502,6 +502,37 @@ func TestEnv(t *testing.T) {
 	assert.Equal(t, "crunk", Get("name"))
 }
 
+func TestEnvMultiple(t *testing.T) {
+	v := New()
+	v.SetDefault("key", "default")
+	v.BindEnv("key", "NEW_KEY", "OLD_KEY")
+	defer os.Unsetenv("NEW_KEY")
+	defer os.Unsetenv("OLD_KEY")
+
+	os.Setenv("NEW_KEY", "new")
+	os.Setenv("OLD_KEY", "old")
+	assert.Equal(t, "new", v.Get("key"))
+
+	os.Unsetenv("NEW_KEY")
+	assert.Equal(t, "old", v.Get("key"))
+
+	os.Unsetenv("OLD_KEY")
+	assert.Equal(t, "default", v.Get("key"))
+}
+
+func TestEnvMultipleEmpty(t *testing.T) {
+	v := New()
+	v.AllowEmptyEnv(true)
+	v.BindEnv("key", "NEW_KEY", "OLD_KEY")
+	defer os.Unsetenv("NEW_KEY")
+	defer os.Unsetenv("OLD_KEY")
+
+	os.Setenv("NEW_KEY", "")
+	os.Setenv("OLD_KEY", "old")
+
+	assert.Equal(t, "", v.Get("key"))
+}
+
 func TestEmptyEnv(t *testing.T) {
 	initJSON()
 

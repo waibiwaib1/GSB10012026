@@ -205,7 +205,7 @@ type Viper struct {
 	defaults       map[string]interface{}
 	kvstore        map[string]interface{}
 	pflags         map[string]FlagValue
-	env            map[string]string
+	env            map[string][]string
 	aliases        map[string]string
 	typeByDefValue bool
 
@@ -228,7 +228,7 @@ func New() *Viper {
 	v.defaults = make(map[string]interface{})
 	v.kvstore = make(map[string]interface{})
 	v.pflags = make(map[string]FlagValue)
-	v.env = make(map[string]string)
+	v.env = make(map[string][]string)
 	v.aliases = make(map[string]string)
 	v.typeByDefValue = false
 
@@ -659,6 +659,8 @@ func (v *Viper) isPathShadowedInFlatMap(path []string, mi interface{}) string {
 	// unify input map
 	var m map[string]interface{}
 	switch mi.(type) {
+	case map[string][]string:
+		m = castMapStringSliceToMapInterface(mi.(map[string][]string))
 	case map[string]string, map[string]FlagValue:
 		m = cast.ToStringMap(mi)
 	default:
@@ -987,13 +989,14 @@ func (v *Viper) BindFlagValue(key string, flag FlagValue) error {
 	return nil
 }
 
-// BindEnv binds a Viper key to a ENV variable.
+// BindEnv binds a Viper key to one or more ENV variables.
 // ENV variables are case sensitive.
 // If only a key is provided, it will use the env key matching the key, uppercased.
 // EnvPrefix will be used when set when env name is not provided.
+// If multiple env names are provided, the first set env variable is used.
 func BindEnv(input ...string) error { return v.BindEnv(input...) }
 func (v *Viper) BindEnv(input ...string) error {
-	var key, envkey string
+	var key string
 	if len(input) == 0 {
 		return fmt.Errorf("missing key to bind to")
 	}
@@ -1001,12 +1004,10 @@ func (v *Viper) BindEnv(input ...string) error {
 	key = strings.ToLower(input[0])
 
 	if len(input) == 1 {
-		envkey = v.mergeWithEnvPrefix(key)
+		v.env[key] = []string{v.mergeWithEnvPrefix(key)}
 	} else {
-		envkey = input[1]
+		v.env[key] = input[1:]
 	}
-
-	v.env[key] = envkey
 
 	return nil
 }
@@ -1088,8 +1089,10 @@ func (v *Viper) find(lcaseKey string, flagDefault bool) interface{} {
 	}
 	envkey, exists := v.env[lcaseKey]
 	if exists {
-		if val, ok := v.getEnv(envkey); ok {
-			return val
+		for _, envkey := range envkey {
+			if val, ok := v.getEnv(envkey); ok {
+				return val
+			}
 		}
 	}
 	if nested && v.isPathShadowedInFlatMap(path, v.env) != "" {
@@ -1666,6 +1669,14 @@ func castMapStringToMapInterface(src map[string]string) map[string]interface{} {
 	return tgt
 }
 
+func castMapStringSliceToMapInterface(src map[string][]string) map[string]interface{} {
+	tgt := map[string]interface{}{}
+	for k, v := range src {
+		tgt[k] = v
+	}
+	return tgt
+}
+
 func castMapFlagToMapInterface(src map[string]FlagValue) map[string]interface{} {
 	tgt := map[string]interface{}{}
 	for k, v := range src {
@@ -1828,7 +1839,7 @@ func (v *Viper) AllKeys() []string {
 	m = v.flattenAndMergeMap(m, castMapStringToMapInterface(v.aliases), "")
 	m = v.flattenAndMergeMap(m, v.override, "")
 	m = v.mergeFlatMap(m, castMapFlagToMapInterface(v.pflags))
-	m = v.mergeFlatMap(m, castMapStringToMapInterface(v.env))
+	m = v.mergeFlatMap(m, castMapStringSliceToMapInterface(v.env))
 	m = v.flattenAndMergeMap(m, v.config, "")
 	m = v.flattenAndMergeMap(m, v.kvstore, "")
 	m = v.flattenAndMergeMap(m, v.defaults, "")
