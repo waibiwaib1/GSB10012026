@@ -1930,6 +1930,33 @@ pub fn main() {
     );
 }
 
+// https://github.com/gleam-lang/gleam/issues/3866
+#[test]
+fn variant_inference_does_not_treat_constructor_subject_as_local_variable() {
+    assert_module_infer!(
+        "
+pub type Wibble {
+  Wibble
+  Wobble
+}
+
+pub fn main() {
+  case Wibble, Wobble {
+    Wibble, Wibble -> 1
+    Wibble, Wobble -> 2
+    Wobble, Wibble -> 3
+    Wobble, Wobble -> 4
+  }
+}
+",
+        vec![
+            ("Wibble", "Wibble"),
+            ("Wobble", "Wibble"),
+            ("main", "fn() -> Int")
+        ]
+    );
+}
+
 #[test]
 fn record_update_variant_inference_for_original_variable() {
     assert_module_infer!(

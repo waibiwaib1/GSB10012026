@@ -31,6 +31,17 @@
   deprecated in code such as `@target`.
   ([Surya Rose](https://github.com/GearsDatapacks))
 
+- Fixed a compiler panic that could occur when a `case` expression's subject
+  was a bare value constructor, such as a variant constructor:
+
+  ```gleam
+  case Wibble, Wobble {
+    Wibble, Wibble -> todo
+  }
+  ```
+
+  ([Surya Rose](https://github.com/GearsDatapacks))
+
 ### Build tool
 
 - Improved the error message you get when trying to add a package that doesn't

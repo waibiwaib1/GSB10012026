@@ -214,7 +214,18 @@ impl<'a, 'b> PatternTyper<'a, 'b> {
         let mut typed_multi = Vec::with_capacity(multi_pattern.len());
         for (pattern, subject) in multi_pattern.into_iter().zip(subjects) {
             let subject_variable = match subject {
-                TypedExpr::Var { name, .. } => Some(name.clone()),
+                // Only local variables can be narrowed by variant inference; a
+                // subject that is a bare value constructor (e.g. a variant
+                // constructor such as `Wibble`), a constant or a function is
+                // not a variable and must not be inserted into the local scope.
+                TypedExpr::Var { name, constructor, .. }
+                    if matches!(
+                        constructor.variant,
+                        ValueConstructorVariant::LocalVariable { .. }
+                    ) =>
+                {
+                    Some(name.clone())
+                }
                 _ => None,
             };
 
