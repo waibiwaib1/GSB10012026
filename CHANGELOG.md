@@ -50,6 +50,25 @@
 
 ### Bug fixed
 
+- Fixed a bug where the compiler would crash when a variant of a custom type
+  was used as a subject of a case expression:
+
+  ```gleam
+  pub type Wibble {
+    Wibble
+    Wobble
+  }
+
+  pub fn main() {
+    case Wibble, Wobble {
+      Wibble, Wibble -> todo
+      _, _ -> todo
+    }
+  }
+  ```
+
+  ([yoshi](https://github.com/joshi-monster))
+
 - The compiler now throws an error when a float literal ends with an `e` and
   is missing an exponent.
   ([Surya Rose](https://github.com/GearsDatapacks))

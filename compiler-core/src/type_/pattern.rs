@@ -214,7 +214,9 @@ impl<'a, 'b> PatternTyper<'a, 'b> {
         let mut typed_multi = Vec::with_capacity(multi_pattern.len());
         for (pattern, subject) in multi_pattern.into_iter().zip(subjects) {
             let subject_variable = match subject {
-                TypedExpr::Var { name, .. } => Some(name.clone()),
+                TypedExpr::Var {
+                    name, constructor, ..
+                } if constructor.variant.is_local_variable() => Some(name.clone()),
                 _ => None,
             };
 

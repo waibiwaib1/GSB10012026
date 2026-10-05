@@ -130,3 +130,28 @@ pub fn main() {
         ]
     );
 }
+
+// https://github.com/gleam-lang/gleam/issues/3866
+#[test]
+fn case_subject_constructor_is_not_inferred_as_variable() {
+    assert_module_infer!(
+        r#"
+pub type Wibble {
+  Wibble
+  Wobble
+}
+
+pub fn main() {
+  case Wibble, Wobble {
+    Wibble, Wibble -> todo
+    _, _ -> todo
+  }
+}
+"#,
+        vec![
+            ("Wibble", "Wibble"),
+            ("Wobble", "Wibble"),
+            ("main", "fn() -> a")
+        ]
+    );
+}
