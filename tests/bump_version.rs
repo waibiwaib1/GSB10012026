@@ -112,6 +112,42 @@ fn multiple_packages(#[case] workflow: &str) {
     }
 }
 
+#[test]
+fn tag_on_another_branch_is_ignored() {
+    // A pre-release tag exists on a different branch and is therefore not reachable
+    // from HEAD — it must not be used when determining the current version.
+    let temp_dir = tempfile::tempdir().unwrap();
+    let temp_path = temp_dir.path();
+    init(temp_path);
+    commit(temp_path, "Initial commit");
+    tag(temp_path, "v1.2.3");
+
+    create_branch(temp_path, "rc");
+    commit(temp_path, "Release candidate commit");
+    tag(temp_path, "v1.3.0-rc.0");
+    switch_branch(temp_path, "main");
+    commit(temp_path, "Main branch commit");
+
+    let source_path = Path::new("tests/bump_version");
+    std::fs::copy(source_path.join("knope.toml"), temp_path.join("knope.toml")).unwrap();
+    std::fs::write(
+        temp_path.join("Cargo.toml"),
+        "[package]\nversion = \"1.2.3\"\n",
+    )
+    .unwrap();
+
+    let dry_run_assert = Command::new(cargo_bin!("knope"))
+        .arg("bump-pre")
+        .arg("--dry-run")
+        .current_dir(temp_path)
+        .assert();
+
+    dry_run_assert
+        .success()
+        .stdout_eq("Would add the following to Cargo.toml: 1.2.4-rc.0\n")
+        .stderr_eq("");
+}
+
 /// Test all the `BumpVersion` rules when multiple packages in pre-release versions are present.
 #[rstest]
 #[case("bump-pre")]

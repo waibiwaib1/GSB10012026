@@ -1,4 +1,9 @@
-use std::{collections::VecDeque, env::current_dir, path::PathBuf, str::FromStr};
+use std::{
+    collections::{HashSet, VecDeque},
+    env::current_dir,
+    path::PathBuf,
+    str::FromStr,
+};
 
 use git2::{build::CheckoutBuilder, Branch, BranchType, IndexAddOption, Repository};
 use gix::{object::Kind, refs::transaction::PreviousValue, trace::trace};
@@ -131,6 +136,8 @@ enum ErrorKind {
     Tags(#[from] gix::reference::iter::init::Error),
     #[error("Could not find head commit: {0}")]
     HeadCommit(#[from] gix::reference::head_commit::Error),
+    #[error("Could not traverse Git history: {0}")]
+    Ancestors(#[from] gix::revision::walk::Error),
     #[error("Could not determine Git committer to commit changes")]
     #[diagnostic(
         code(git::no_committer),
@@ -478,16 +485,32 @@ pub(crate) fn get_current_versions_from_tags(
     prefix: Option<&str>,
 ) -> Result<CurrentVersions, Error> {
     let repo = gix::open(current_dir().map_err(ErrorKind::CurrentDirectory)?)?;
+    let head_commit = repo.head_commit()?;
+
+    // Only tags whose target commit is an ancestor of (or equal to) HEAD are
+    // relevant — tags on other branches must not determine the version.
+    let mut reachable_commits = HashSet::new();
+    for ancestor in head_commit.ancestors().all()?.filter_map(Result::ok) {
+        reachable_commits.insert(ancestor.id().detach());
+    }
     let references = repo.references()?;
-    let tags = references.tags()?.flat_map(|tag| {
-        tag.map(|reference| {
+    let tags = references
+        .tags()?
+        .filter_map(Result::ok)
+        .filter(|reference| {
+            reference
+                .clone()
+                .into_fully_peeled_id()
+                .ok()
+                .is_some_and(|id| reachable_commits.contains(&id.detach()))
+        })
+        .map(|reference| {
             reference
                 .name()
                 .as_bstr()
                 .to_string()
                 .replace("refs/tags/", "")
-        })
-    });
+        });
     let mut current_versions = CurrentVersions::default();
     let pattern = prefix
         .as_ref()
