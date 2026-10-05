@@ -2,6 +2,8 @@ package controller
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 	"time"
 
@@ -16,6 +18,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
+	"k8s.io/client-go/rest"
 	k8stesting "k8s.io/client-go/testing"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
@@ -324,6 +327,12 @@ func TestClusterController(t *testing.T) {
 	cancel, controller := newController()
 	defer cancel()
 	controller.kubeclientset = kubernetes.Interface(&kubeClient)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		_, _ = writer.Write([]byte(`{"apiVersion":"argoproj.io/v1alpha1","kind":"ClusterWorkflowTemplateList","items":[]}`))
+	}))
+	defer server.Close()
+	controller.restConfig = &rest.Config{Host: server.URL}
 	controller.cwftmplInformer = nil
 	controller.createClusterWorkflowTemplateInformer(context.TODO())
 	assert.NotNil(t, controller.cwftmplInformer)

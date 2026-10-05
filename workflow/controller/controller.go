@@ -33,8 +33,6 @@ import (
 	"github.com/argoproj/argo/persist/sqldb"
 	wfv1 "github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	wfclientset "github.com/argoproj/argo/pkg/client/clientset/versioned"
-	wfextv "github.com/argoproj/argo/pkg/client/informers/externalversions"
-	wfextvv1alpha1 "github.com/argoproj/argo/pkg/client/informers/externalversions/workflow/v1alpha1"
 	authutil "github.com/argoproj/argo/util/auth"
 	"github.com/argoproj/argo/workflow/common"
 	controllercache "github.com/argoproj/argo/workflow/controller/cache"
@@ -71,8 +69,8 @@ type WorkflowController struct {
 
 	// datastructures to support the processing of workflows and workflow pods
 	wfInformer            cache.SharedIndexInformer
-	wftmplInformer        wfextvv1alpha1.WorkflowTemplateInformer
-	cwftmplInformer       wfextvv1alpha1.ClusterWorkflowTemplateInformer
+	wftmplInformer        util.WorkflowTemplateInformer
+	cwftmplInformer       util.ClusterWorkflowTemplateInformer
 	podInformer           cache.SharedIndexInformer
 	wfQueue               workqueue.RateLimitingInterface
 	podQueue              workqueue.RateLimitingInterface
@@ -775,12 +773,12 @@ func (wfc *WorkflowController) setWorkflowDefaults(wf *wfv1.Workflow) error {
 	return nil
 }
 
-func (wfc *WorkflowController) newWorkflowTemplateInformer() wfextvv1alpha1.WorkflowTemplateInformer {
-	return wfextv.NewSharedInformerFactoryWithOptions(wfc.wfclientset, workflowTemplateResyncPeriod, wfextv.WithNamespace(wfc.GetManagedNamespace())).Argoproj().V1alpha1().WorkflowTemplates()
+func (wfc *WorkflowController) newWorkflowTemplateInformer() util.WorkflowTemplateInformer {
+	return util.NewWorkflowTemplateInformerWithLister(wfc.restConfig, wfc.GetManagedNamespace(), workflowTemplateResyncPeriod)
 }
 
-func (wfc *WorkflowController) newClusterWorkflowTemplateInformer() wfextvv1alpha1.ClusterWorkflowTemplateInformer {
-	return wfextv.NewSharedInformerFactoryWithOptions(wfc.wfclientset, clusterWorkflowTemplateResyncPeriod).Argoproj().V1alpha1().ClusterWorkflowTemplates()
+func (wfc *WorkflowController) newClusterWorkflowTemplateInformer() util.ClusterWorkflowTemplateInformer {
+	return util.NewClusterWorkflowTemplateInformerWithLister(wfc.restConfig, clusterWorkflowTemplateResyncPeriod)
 }
 
 func (wfc *WorkflowController) GetManagedNamespace() string {

@@ -18,10 +18,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/util/workqueue"
 
-	"github.com/argoproj/argo/pkg/apis/workflow/v1alpha1"
 	"github.com/argoproj/argo/pkg/client/clientset/versioned"
-	"github.com/argoproj/argo/pkg/client/informers/externalversions"
-	extv1alpha1 "github.com/argoproj/argo/pkg/client/informers/externalversions/workflow/v1alpha1"
 	"github.com/argoproj/argo/workflow/common"
 	"github.com/argoproj/argo/workflow/metrics"
 	"github.com/argoproj/argo/workflow/util"
@@ -39,7 +36,7 @@ type Controller struct {
 	wfInformer         cache.SharedIndexInformer
 	wfLister           util.WorkflowLister
 	wfQueue            workqueue.RateLimitingInterface
-	cronWfInformer     extv1alpha1.CronWorkflowInformer
+	cronWfInformer     cache.SharedIndexInformer
 	cronWfQueue        workqueue.RateLimitingInterface
 	restConfig         *rest.Config
 	metrics            *metrics.Metrics
@@ -82,10 +79,9 @@ func (cc *Controller) Run(ctx context.Context) {
 		log.Infof("...with InstanceID: %s", cc.instanceId)
 	}
 
-	cc.cronWfInformer = externalversions.NewSharedInformerFactoryWithOptions(cc.wfClientset, cronWorkflowResyncPeriod, externalversions.WithNamespace(cc.managedNamespace),
-		externalversions.WithTweakListOptions(func(options *v1.ListOptions) {
-			cronWfInformerListOptionsFunc(options, cc.instanceId)
-		})).Argoproj().V1alpha1().CronWorkflows()
+	cc.cronWfInformer = util.NewCronWorkflowInformer(cc.restConfig, cc.managedNamespace, cronWorkflowResyncPeriod, func(options *v1.ListOptions) {
+		cronWfInformerListOptionsFunc(options, cc.instanceId)
+	})
 	cc.addCronWorkflowInformerHandler()
 
 	cc.wfInformer = util.NewWorkflowInformer(cc.restConfig, cc.managedNamespace, cronWorkflowResyncPeriod, func(options *v1.ListOptions) {
@@ -98,7 +94,7 @@ func (cc *Controller) Run(ctx context.Context) {
 	cc.cron.Start()
 	defer cc.cron.Stop()
 
-	go cc.cronWfInformer.Informer().Run(ctx.Done())
+	go cc.cronWfInformer.Run(ctx.Done())
 	go cc.wfInformer.Run(ctx.Done())
 
 	for i := 0; i < cronWorkflowWorkers; i++ {
@@ -125,7 +121,7 @@ func (cc *Controller) processNextCronItem() bool {
 	defer cc.cronWfQueue.Done(key)
 	log.Infof("Processing %s", key)
 
-	obj, exists, err := cc.cronWfInformer.Informer().GetIndexer().GetByKey(key.(string))
+	obj, exists, err := cc.cronWfInformer.GetIndexer().GetByKey(key.(string))
 	if err != nil {
 		log.WithError(err).Error(fmt.Sprintf("Failed to get CronWorkflow '%s' from informer index", key))
 		return true
@@ -141,9 +137,9 @@ func (cc *Controller) processNextCronItem() bool {
 		return true
 	}
 
-	cronWf, ok := obj.(*v1alpha1.CronWorkflow)
-	if !ok {
-		log.Warnf("Key '%s' in index is not a CronWorkflow", key)
+	cronWf, err := util.CronWorkflowFromUnstructured(obj.(*unstructured.Unstructured))
+	if err != nil {
+		log.Warnf("Failed to unmarshal CronWorkflow '%s': %v", key, err)
 		return true
 	}
 
@@ -255,7 +251,7 @@ func (cc *Controller) processNextWorkflowItem() bool {
 }
 
 func (cc *Controller) addCronWorkflowInformerHandler() {
-	cc.cronWfInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+	cc.cronWfInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		AddFunc: func(obj interface{}) {
 			key, err := cache.MetaNamespaceKeyFunc(obj)
 			if err == nil {

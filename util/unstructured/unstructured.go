@@ -24,19 +24,26 @@ func NewUnstructuredInformer(resource schema.GroupVersionResource, client dynami
 // Always prefer using an informer factory to get a shared informer instead of getting an independent
 // one. This reduces memory footprint and number of connections to the server.
 func NewFilteredUnstructuredInformer(resource schema.GroupVersionResource, client dynamic.Interface, namespace string, resyncPeriod time.Duration, indexers cache.Indexers, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
+	resourceClient := client.Resource(resource)
 	return cache.NewSharedIndexInformer(
 		&cache.ListWatch{
 			ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.Resource(resource).Namespace(namespace).List(options)
+				if namespace == "" {
+					return resourceClient.List(options)
+				}
+				return resourceClient.Namespace(namespace).List(options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.Resource(resource).Namespace(namespace).Watch(options)
+				if namespace == "" {
+					return resourceClient.Watch(options)
+				}
+				return resourceClient.Namespace(namespace).Watch(options)
 			},
 		},
 		&unstructured.Unstructured{},

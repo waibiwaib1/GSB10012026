@@ -22,13 +22,11 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/informers/internalinterfaces"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -44,7 +42,6 @@ import (
 	cmdutil "github.com/argoproj/argo/util/cmd"
 	intstrutil "github.com/argoproj/argo/util/intstr"
 	"github.com/argoproj/argo/util/retry"
-	unstructutil "github.com/argoproj/argo/util/unstructured"
 	"github.com/argoproj/argo/workflow/common"
 	"github.com/argoproj/argo/workflow/hydrator"
 	"github.com/argoproj/argo/workflow/packer"
@@ -58,25 +55,7 @@ import (
 // https://github.com/kubernetes/kubernetes/issues/57705
 // https://github.com/argoproj/argo/issues/632
 func NewWorkflowInformer(cfg *rest.Config, ns string, resyncPeriod time.Duration, tweakListOptions internalinterfaces.TweakListOptionsFunc) cache.SharedIndexInformer {
-	dclient, err := dynamic.NewForConfig(cfg)
-	if err != nil {
-		panic(err)
-	}
-
-	resource := schema.GroupVersionResource{
-		Group:    workflow.Group,
-		Version:  "v1alpha1",
-		Resource: workflow.WorkflowPlural,
-	}
-	informer := unstructutil.NewFilteredUnstructuredInformer(
-		resource,
-		dclient,
-		ns,
-		resyncPeriod,
-		cache.Indexers{},
-		tweakListOptions,
-	)
-	return informer
+	return newDynamicInformer(cfg, workflow.WorkflowPlural, ns, resyncPeriod, cache.Indexers{}, tweakListOptions)
 }
 
 // InstanceIDRequirement returns the label requirement to filter against a controller instance (or not)
