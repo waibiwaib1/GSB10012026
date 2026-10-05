@@ -29,6 +29,7 @@ pub(crate) mod ssl;
 pub use dial::{Dialer, DialerParseError};
 pub use dns::{DnsCache, ResolveMap};
 pub use redirect::RedirectPolicy;
+pub use request::ExpectContinue;
 pub use ssl::{CaCertificate, ClientCertificate, PrivateKey, SslOption};
 
 /// Provides additional methods when building a request for configuring various
@@ -163,6 +164,39 @@ pub trait Configurable: request::WithRequestConfig {
     fn auto_referer(self) -> Self {
         self.with_config(move |config| {
             config.auto_referer = Some(true);
+        })
+    }
+
+    /// Configure the use of the `Expect: 100-continue` header for request
+    /// bodies sent over HTTP/1.1.
+    ///
+    /// By default, libcurl automatically adds this header when sending a
+    /// large request body or a body of unknown length. Disable it to send the
+    /// request body immediately without waiting for a 100 (Continue) response.
+    ///
+    /// This option accepts [`ExpectContinue`], [`bool`], or [`Duration`]:
+    ///
+    /// - `ExpectContinue::disabled()` or `false` disables the header.
+    /// - `true` enables it with libcurl's default one-second wait.
+    /// - A duration enables it with that wait.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use isahc::{config::ExpectContinue, prelude::*, Request};
+    ///
+    /// let request = Request::post("https://example.org")
+    ///     .expect_continue(ExpectContinue::disabled())
+    ///     .body(())
+    ///     .unwrap();
+    /// # drop(request);
+    /// ```
+    fn expect_continue<T>(self, expect: T) -> Self
+    where
+        T: Into<ExpectContinue>,
+    {
+        self.with_config(move |config| {
+            config.expect_continue = Some(expect.into());
         })
     }
 

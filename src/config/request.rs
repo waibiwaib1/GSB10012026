@@ -68,6 +68,7 @@ define_request_config! {
     low_speed_timeout: Option<(u32, Duration)>,
     version_negotiation: Option<VersionNegotiation>,
     automatic_decompression: Option<bool>,
+    expect_continue: Option<ExpectContinue>,
     authentication: Option<Authentication>,
     credentials: Option<Credentials>,
     tcp_keepalive: Option<Duration>,
@@ -91,6 +92,82 @@ define_request_config! {
     redirect_policy: Option<RedirectPolicy>,
     auto_referer: Option<bool>,
     title_case_headers: Option<bool>,
+}
+
+/// Controls libcurl's automatic use of `Expect: 100-continue`.
+#[derive(Clone, Copy, Debug)]
+pub struct ExpectContinue {
+    timeout: Option<Duration>,
+}
+
+impl ExpectContinue {
+    /// Enable the header and wait for one second before sending the body.
+    pub const fn enabled() -> Self {
+        Self::timeout(Duration::from_secs(1))
+    }
+
+    /// Enable the header with a custom time to wait for a 100 response.
+    pub const fn timeout(timeout: Duration) -> Self {
+        Self {
+            timeout: Some(timeout),
+        }
+    }
+
+    /// Disable the automatic header entirely.
+    pub const fn disabled() -> Self {
+        Self { timeout: None }
+    }
+
+    pub(crate) fn is_disabled(&self) -> bool {
+        self.timeout.is_none()
+    }
+}
+
+impl Default for ExpectContinue {
+    fn default() -> Self {
+        Self::enabled()
+    }
+}
+
+impl From<bool> for ExpectContinue {
+    fn from(enabled: bool) -> Self {
+        if enabled {
+            Self::enabled()
+        } else {
+            Self::disabled()
+        }
+    }
+}
+
+impl From<Duration> for ExpectContinue {
+    fn from(timeout: Duration) -> Self {
+        Self::timeout(timeout)
+    }
+}
+
+impl SetOpt for ExpectContinue {
+    fn set_opt<H>(&self, easy: &mut Easy2<H>) -> Result<(), curl::Error> {
+        if let Some(timeout) = self.timeout {
+            let millis = timeout
+                .as_secs()
+                .saturating_mul(1000)
+                .saturating_add(u64::from(timeout.subsec_millis()));
+
+            #[allow(unsafe_code)]
+            unsafe {
+                match curl_sys::curl_easy_setopt(
+                    easy.raw(),
+                    curl_sys::CURLOPT_EXPECT_100_TIMEOUT_MS,
+                    millis.min(u64::from(u16::MAX)) as std::os::raw::c_long,
+                ) {
+                    curl_sys::CURLE_OK => Ok(()),
+                    code => Err(curl::Error::new(code)),
+                }
+            }
+        } else {
+            Ok(())
+        }
+    }
 }
 
 impl SetOpt for RequestConfig {
@@ -134,6 +211,10 @@ impl SetOpt for RequestConfig {
                     }
                 }
             }
+        }
+
+        if let Some(expect_continue) = self.expect_continue.as_ref() {
+            expect_continue.set_opt(easy)?;
         }
 
         if let Some(auth) = self.authentication.as_ref() {

@@ -1063,6 +1063,15 @@ impl HttpClient {
 
         easy.signal(false)?;
 
+        let disable_expect_header = request
+            .extensions()
+            .get::<RequestConfig>()
+            .unwrap()
+            .expect_continue
+            .as_ref()
+            .map(ExpectContinue::is_disabled)
+            .unwrap_or(false);
+
         request
             .extensions()
             .get::<RequestConfig>()
@@ -1142,6 +1151,10 @@ impl HttpClient {
 
         for (name, value) in request.headers().iter() {
             headers.append(&header_to_curl_string(name, value, title_case))?;
+        }
+
+        if disable_expect_header {
+            headers.append("Expect:")?;
         }
 
         easy.http_headers(headers)?;
