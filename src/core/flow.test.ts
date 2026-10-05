@@ -326,6 +326,19 @@ describe('turn', () => {
       expect(state.ctx.turn).toBe(2);
       expect(state.ctx.numMoves).toBe(0);
     });
+
+    test('endTurn with force ignores moveLimit', () => {
+      const flow = Flow({
+        turn: {
+          moveLimit: 2,
+        },
+      });
+      let state = flow.init({ ctx: flow.ctx(2) } as State);
+      expect(state.ctx.turn).toBe(1);
+      state = flow.processEvent(state, gameEvent('endTurn', { force: true }));
+      expect(state.ctx.turn).toBe(2);
+      expect(state.ctx.currentPlayer).toBe('1');
+    });
   });
 
   describe('endIf', () => {

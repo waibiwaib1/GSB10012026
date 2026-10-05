@@ -35,7 +35,7 @@ export interface EventsAPI {
   endGame(gameover?: any): void;
   endPhase(): void;
   endStage(): void;
-  endTurn(arg?: { next: PlayerID }): void;
+  endTurn(arg?: { next: PlayerID; force?: boolean }): void;
   pass(arg?: { remove: true }): void;
   setActivePlayers(arg: ActivePlayersArg): void;
   setPhase(newPhase: string): void;

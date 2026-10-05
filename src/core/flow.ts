@@ -723,8 +723,15 @@ export function Flow({
   }
 
   function EndTurnEvent(state: State, _playerID: PlayerID, arg: any): State {
+    let force = false;
+    if (arg && typeof arg === 'object' && arg.force === true) {
+      force = true;
+      arg = { ...arg };
+      delete arg.force;
+      if (Object.keys(arg).length === 0) arg = undefined;
+    }
     return Process(state, [
-      { fn: EndTurn, turn: state.ctx.turn, phase: state.ctx.phase, arg },
+      { fn: EndTurn, turn: state.ctx.turn, phase: state.ctx.phase, force, arg },
     ]);
   }
 
