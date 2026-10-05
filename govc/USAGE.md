@@ -1547,12 +1547,14 @@ Options:
 ```
 Usage: govc device.cdrom.insert [OPTIONS] ISO
 
-Insert media on datastore into CD-ROM device.
+Insert media into CD-ROM device.
 
 If device is not specified, the first CD-ROM device is used.
+Content Library ISO paths create and mount a new CD-ROM device and cannot use -device.
 
 Examples:
   govc device.cdrom.insert -vm vm-1 -device cdrom-3000 images/boot.iso
+  govc device.cdrom.insert -vm vm-1 /library/boot.iso
 
 Options:
   -device=               CD-ROM device name
@@ -3638,7 +3640,7 @@ Examples:
   govc library.info /lib1/item1
   govc library.info /lib1/item1/
   govc library.info */
-  govc device.cdrom.insert -vm $vm -device cdrom-3000 $(govc library.info -L /lib1/item1/file1)
+  govc device.cdrom.insert -vm $vm /lib1/item1/file1
   govc library.info -json | jq .
   govc library.info -json /lib1/item1 | jq .
 

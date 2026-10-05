@@ -19,9 +19,14 @@ package cdrom
 import (
 	"context"
 	"flag"
+	"fmt"
+	"strings"
 
 	"github.com/vmware/govmomi/govc/cli"
 	"github.com/vmware/govmomi/govc/flags"
+	"github.com/vmware/govmomi/vapi/library"
+	"github.com/vmware/govmomi/vapi/library/finder"
+	"github.com/vmware/govmomi/vapi/vcenter"
 )
 
 type insert struct {
@@ -59,12 +64,15 @@ func (cmd *insert) Usage() string {
 }
 
 func (cmd *insert) Description() string {
-	return `Insert media on datastore into CD-ROM device.
+	return `Insert media into CD-ROM device.
 
 If device is not specified, the first CD-ROM device is used.
+Content Library ISO paths create and mount a new CD-ROM device and cannot use -device.
 
 Examples:
-  govc device.cdrom.insert -vm vm-1 -device cdrom-3000 images/boot.iso`
+  govc device.cdrom.insert -vm vm-1 -device cdrom-3000 images/boot.iso
+  govc device.cdrom.insert -vm vm-1 /library/boot.iso
+`
 }
 
 func (cmd *insert) Run(ctx context.Context, f *flag.FlagSet) error {
@@ -77,6 +85,14 @@ func (cmd *insert) Run(ctx context.Context, f *flag.FlagSet) error {
 		return flag.ErrHelp
 	}
 
+	isoPath := f.Arg(0)
+	if strings.HasPrefix(isoPath, "/") {
+		if cmd.device != "" {
+			return fmt.Errorf("-device cannot be used with a Content Library ISO")
+		}
+		return cmd.insertLibraryISO(ctx, vm.Reference().Value, isoPath)
+	}
+
 	devices, err := vm.Device(ctx)
 	if err != nil {
 		return err
@@ -87,10 +103,50 @@ func (cmd *insert) Run(ctx context.Context, f *flag.FlagSet) error {
 		return err
 	}
 
-	iso, err := cmd.DatastorePath(f.Arg(0))
+	iso, err := cmd.DatastorePath(isoPath)
 	if err != nil {
 		return err
 	}
 
 	return vm.EditDevice(ctx, devices.InsertIso(c, iso))
+}
+
+func (cmd *insert) insertLibraryISO(ctx context.Context, vm string, path string) error {
+	c, err := cmd.RestClient()
+	if err != nil {
+		return err
+	}
+
+	results, err := finder.NewFinder(library.NewManager(c)).Find(ctx, path)
+	if err != nil {
+		return err
+	}
+	if len(results) != 1 {
+		return fmt.Errorf("Content Library ISO %q matches %d items", path, len(results))
+	}
+
+	var item *library.Item
+	switch result := results[0].GetResult().(type) {
+	case library.Item:
+		item = &result
+	case library.File:
+		parent, ok := results[0].GetParent().GetResult().(library.Item)
+		if !ok {
+			return fmt.Errorf("%q is not a Content Library ISO", path)
+		}
+		item = &parent
+	default:
+		return fmt.Errorf("%q is not a Content Library ISO", path)
+	}
+
+	if item.Type != library.ItemTypeISO {
+		return fmt.Errorf("Content Library item %q is type %q, expected %q", item.Name, item.Type, library.ItemTypeISO)
+	}
+
+	_, err = vcenter.NewManager(c).MountISOImage(ctx, vcenter.ISOMountSpec{
+		LibraryItem: item.ID,
+		VM:          vm,
+	})
+
+	return err
 }
