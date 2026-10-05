@@ -42,6 +42,7 @@ import com.google.common.io.BaseEncoding;
 import java.io.InputStream;
 import java.io.Serializable;
 import java.net.URL;
+import java.nio.file.Path;
 import java.security.Key;
 import java.util.Arrays;
 import java.util.Collections;
@@ -2535,6 +2536,49 @@ public interface Storage extends Service<StorageOptions> {
    * @throws StorageException upon failure
    */
   WriteChannel writer(URL signedURL);
+
+  /**
+   * Uploads a local file to a new blob, creating the blob if it does not exist.
+   *
+   * <p>Example of uploading a local file.
+   *
+   * <pre>{@code
+   * String bucketName = "my-unique-bucket";
+   * String blobName = "my-blob-name";
+   * BlobId blobId = BlobId.of(bucketName, blobName);
+   * BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType("text/plain").build();
+   * Path path = Paths.get("/local/path/to/file");
+   * storage.upload(blobInfo, path);
+   * }</pre>
+   *
+   * @param blobInfo the destination blob's information
+   * @param path the path of the file to upload
+   * @param options blob write options
+   * @throws StorageException upon failure
+   */
+  void upload(BlobInfo blobInfo, Path path, BlobWriteOption... options);
+
+  /**
+   * Uploads {@code content} to a new blob, creating the blob if it does not exist. The given
+   * {@code content} stream is not closed by this method.
+   *
+   * <p>Example of uploading an input stream.
+   *
+   * <pre>{@code
+   * String bucketName = "my-unique-bucket";
+   * String blobName = "my-blob-name";
+   * BlobId blobId = BlobId.of(bucketName, blobName);
+   * BlobInfo blobInfo = BlobInfo.newBuilder(blobId).setContentType("text/plain").build();
+   * InputStream content = new ByteArrayInputStream("Hello, World!".getBytes(UTF_8));
+   * storage.upload(blobInfo, content);
+   * }</pre>
+   *
+   * @param blobInfo the destination blob's information
+   * @param content the input stream with the blob's content
+   * @param options blob write options
+   * @throws StorageException upon failure
+   */
+  void upload(BlobInfo blobInfo, InputStream content, BlobWriteOption... options);
 
   /**
    * Generates a signed URL for a blob. If you have a blob that you want to allow access to for a

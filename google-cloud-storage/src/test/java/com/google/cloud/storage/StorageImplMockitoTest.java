@@ -41,7 +41,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.io.BaseEncoding;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.Key;
 import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
@@ -1128,5 +1131,45 @@ public class StorageImplMockitoTest {
     } catch (StorageException e) {
       assertSame(STORAGE_FAILURE, e.getCause());
     }
+  }
+
+  @Test
+  public void testUploadFromInputStream() throws IOException {
+    doReturn("upload-id")
+        .when(storageRpcMock)
+        .open(BLOB_INFO_WITHOUT_HASHES.toPb(), EMPTY_RPC_OPTIONS);
+    Mockito.doNothing()
+        .when(storageRpcMock)
+        .write(
+            Mockito.eq("upload-id"),
+            Mockito.any(byte[].class),
+            Mockito.eq(0),
+            Mockito.eq(0L),
+            Mockito.eq(BLOB_CONTENT.length),
+            Mockito.eq(true));
+    initializeService();
+    try (InputStream content = new ByteArrayInputStream(BLOB_CONTENT)) {
+      storage.upload(BLOB_INFO_WITH_HASHES, content);
+    }
+  }
+
+  @Test
+  public void testUploadFromPath() throws IOException {
+    doReturn("upload-id")
+        .when(storageRpcMock)
+        .open(BLOB_INFO_WITHOUT_HASHES.toPb(), EMPTY_RPC_OPTIONS);
+    Mockito.doNothing()
+        .when(storageRpcMock)
+        .write(
+            Mockito.eq("upload-id"),
+            Mockito.any(byte[].class),
+            Mockito.eq(0),
+            Mockito.eq(0L),
+            Mockito.eq(BLOB_CONTENT.length),
+            Mockito.eq(true));
+    initializeService();
+    Path path = Files.createTempFile("test", ".txt");
+    Files.write(path, BLOB_CONTENT);
+    storage.upload(BLOB_INFO_WITH_HASHES, path);
   }
 }

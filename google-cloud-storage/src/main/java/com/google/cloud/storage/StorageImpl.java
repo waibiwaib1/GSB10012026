@@ -48,6 +48,7 @@ import com.google.cloud.Policy;
 import com.google.cloud.ReadChannel;
 import com.google.cloud.RetryHelper.RetryHelperException;
 import com.google.cloud.Tuple;
+import com.google.cloud.WriteChannel;
 import com.google.cloud.storage.Acl.Entity;
 import com.google.cloud.storage.HmacKey.HmacKeyMetadata;
 import com.google.cloud.storage.PostPolicyV4.ConditionV4Type;
@@ -68,14 +69,19 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
+import com.google.common.io.ByteStreams;
 import com.google.common.primitives.Ints;
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.channels.Channels;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Collections;
@@ -635,6 +641,24 @@ final class StorageImpl extends BaseService<StorageOptions> implements Storage {
   private BlobWriteChannel writer(BlobInfo blobInfo, BlobTargetOption... options) {
     final Map<StorageRpc.Option, ?> optionsMap = optionMap(blobInfo, options);
     return new BlobWriteChannel(getOptions(), blobInfo, optionsMap);
+  }
+
+  @Override
+  public void upload(BlobInfo blobInfo, Path path, BlobWriteOption... options) {
+    try (InputStream content = Files.newInputStream(path)) {
+      upload(blobInfo, content, options);
+    } catch (IOException e) {
+      throw StorageException.translate(e);
+    }
+  }
+
+  @Override
+  public void upload(BlobInfo blobInfo, InputStream content, BlobWriteOption... options) {
+    try (WriteChannel writer = writer(blobInfo, options)) {
+      ByteStreams.copy(content, Channels.newOutputStream(writer));
+    } catch (IOException e) {
+      throw StorageException.translate(e);
+    }
   }
 
   @Override
