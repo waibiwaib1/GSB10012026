@@ -1,0 +1,57 @@
+import { createRequire } from "node:module";
+import { rule as noEmptyFields } from "./rules/no-empty-fields.js";
+import { rule as noRedundantFiles } from "./rules/no-redundant-files.js";
+import { rule as orderProperties } from "./rules/order-properties.js";
+import { rule as preferRepositoryShorthand } from "./rules/repository-shorthand.js";
+import { rules as requireRules } from "./rules/require-properties.js";
+import { rule as sortCollections } from "./rules/sort-collections.js";
+import { rule as uniqueDependencies } from "./rules/unique-dependencies.js";
+import { rule as validLocalDependency } from "./rules/valid-local-dependency.js";
+import { rule as validName } from "./rules/valid-name.js";
+import { rule as validPackageDefinition } from "./rules/valid-package-definition.js";
+import { rule as validRepositoryDirectory } from "./rules/valid-repository-directory.js";
+import { rule as validVersion } from "./rules/valid-version.js";
+const require2 = createRequire(import.meta.url || __filename);
+const { name, version } = require2("../package.json");
+const rules = {
+  "no-empty-fields": noEmptyFields,
+  "no-redundant-files": noRedundantFiles,
+  "order-properties": orderProperties,
+  ...requireRules,
+  "repository-shorthand": preferRepositoryShorthand,
+  "sort-collections": sortCollections,
+  "unique-dependencies": uniqueDependencies,
+  "valid-local-dependency": validLocalDependency,
+  "valid-name": validName,
+  "valid-package-definition": validPackageDefinition,
+  "valid-repository-directory": validRepositoryDirectory,
+  "valid-version": validVersion,
+  /** @deprecated use 'valid-package-definition' instead */
+  "valid-package-def": {
+    ...validPackageDefinition,
+    meta: {
+      ...validPackageDefinition.meta,
+      deprecated: true,
+      docs: {
+        ...validPackageDefinition.meta.docs,
+        recommended: false
+      },
+      replacedBy: ["valid-package-definition"]
+    }
+  }
+};
+const plugin = {
+  meta: {
+    name,
+    version
+  },
+  rules
+};
+const recommendedRuleSettings = Object.fromEntries(
+  Object.entries(rules).filter(([, rule]) => rule.meta.docs?.recommended).map(([name2]) => ["package-json/" + name2, "error"])
+);
+export {
+  plugin,
+  recommendedRuleSettings
+};
+//# sourceMappingURL=plugin.mjs.map

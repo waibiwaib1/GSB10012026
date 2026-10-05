@@ -1,0 +1,1 @@
+{"version":3,"sources":["../../src/utils/isPackageJson.ts"],"sourcesContent":["export const isPackageJson = (filePath: string) =>\n\t/(?:^|[/\\\\])package.json$/.test(filePath);\n"],"mappings":";;;;;;;;;;;;;;;;;;AAAA;AAAA;AAAA;AAAA;AAAA;AAAO,MAAM,gBAAgB,CAAC,aAC7B,2BAA2B,KAAK,QAAQ;","names":[]}

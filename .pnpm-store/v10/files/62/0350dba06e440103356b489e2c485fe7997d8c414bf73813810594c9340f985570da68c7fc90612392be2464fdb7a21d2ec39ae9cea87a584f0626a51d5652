@@ -1,0 +1,1 @@
+{"version":3,"sources":["../src/types.ts"],"sourcesContent":["import type * as babel from \"@babel/types\";\n\nexport type CollectibleNode =\n\t| babel.DoWhileStatement\n\t| babel.ForInStatement\n\t| babel.ForOfStatement\n\t| babel.ForStatement\n\t| babel.IfStatement\n\t| babel.WhileStatement;\n"],"mappings":";;;;;;;;;;;;;;AAAA;AAAA;","names":[]}

@@ -1,0 +1,109 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var unique_dependencies_exports = {};
+__export(unique_dependencies_exports, {
+  rule: () => rule
+});
+module.exports = __toCommonJS(unique_dependencies_exports);
+var import_eslint_fix_utils = require("eslint-fix-utils");
+var import_createRule = require("../createRule.js");
+var import_predicates = require("../utils/predicates.js");
+const dependencyPropertyNames = /* @__PURE__ */ new Set([
+  "bundledDependencies",
+  "bundleDependencies",
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "overrides",
+  "peerDependencies"
+]);
+const rule = (0, import_createRule.createRule)({
+  create(context) {
+    function check(elements, getNodeToRemove) {
+      const seen = /* @__PURE__ */ new Set();
+      for (const element of elements.filter(import_predicates.isNotNullish).filter(import_predicates.isJSONStringLiteral).reverse()) {
+        if (seen.has(element.value)) {
+          report(element, elements);
+        } else {
+          seen.add(element.value);
+        }
+      }
+      function report(node, elements2) {
+        const removal = getNodeToRemove(node);
+        context.report({
+          messageId: "overridden",
+          node,
+          suggest: [
+            {
+              fix: removal.type === "JSONProperty" ? (0, import_eslint_fix_utils.fixRemoveObjectProperty)(
+                context,
+                removal
+              ) : (0, import_eslint_fix_utils.fixRemoveArrayElement)(
+                context,
+                removal,
+                elements2
+              ),
+              messageId: "remove"
+            }
+          ]
+        });
+      }
+    }
+    return {
+      "Program > JSONExpressionStatement > JSONObjectExpression > JSONProperty[key.type=JSONLiteral]"(node) {
+        if (!dependencyPropertyNames.has(node.key.value)) {
+          return;
+        }
+        switch (node.value.type) {
+          case "JSONArrayExpression":
+            check(node.value.elements, (element) => element);
+            break;
+          case "JSONObjectExpression":
+            check(
+              node.value.properties.map(
+                (property) => property.key
+              ),
+              // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+              (property) => property.parent
+            );
+            break;
+        }
+      }
+    };
+  },
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Checks a dependency isn't specified more than once (i.e. in `dependencies` and `devDependencies`)",
+      recommended: true
+    },
+    hasSuggestions: true,
+    messages: {
+      overridden: "Package name is overridden by a duplicate listing later on.",
+      remove: "Remove this redundant dependency listing."
+    },
+    schema: [],
+    type: "suggestion"
+  }
+});
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  rule
+});
+//# sourceMappingURL=unique-dependencies.js.map

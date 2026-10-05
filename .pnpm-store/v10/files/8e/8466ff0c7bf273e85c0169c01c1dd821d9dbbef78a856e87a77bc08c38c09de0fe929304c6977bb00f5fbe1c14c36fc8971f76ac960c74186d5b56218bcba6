@@ -1,0 +1,41 @@
+import { parse } from "@babel/parser";
+function parseAst(code, options) {
+  return parse(code, getParseOptions(/(?:js|x)$/.test(options.filepath)));
+}
+function getParseOptions(isJsx) {
+  return {
+    allowImportExportEverywhere: true,
+    allowNewTargetOutsideFunction: true,
+    allowReturnOutsideFunction: true,
+    allowSuperOutsideMethod: true,
+    allowUndeclaredExports: true,
+    errorRecovery: true,
+    plugins: [
+      "doExpressions",
+      "exportDefaultFrom",
+      "functionBind",
+      "functionSent",
+      "throwExpressions",
+      "partialApplication",
+      "decorators",
+      "decimal",
+      "moduleBlocks",
+      "asyncDoExpressions",
+      "regexpUnicodeSets",
+      "destructuringPrivate",
+      "decoratorAutoAccessors",
+      "importReflection",
+      "explicitResourceManagement",
+      "decoratorAutoAccessors",
+      "typescript",
+      ...isJsx ? ["jsx"] : [],
+      ["importAttributes", { deprecatedAssertSyntax: true }]
+    ],
+    ranges: true,
+    sourceType: "module"
+  };
+}
+export {
+  parseAst
+};
+//# sourceMappingURL=parseAst.mjs.map

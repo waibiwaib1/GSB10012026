@@ -1,0 +1,12 @@
+import { parseAst } from "./parseAst.js";
+import { reprintAst } from "./reprintAst.js";
+import { traverseAndModifyAst } from "./traverseAndModifyAst.js";
+function preprocess(code, options) {
+  const ast = parseAst(code, options);
+  const modifiedNodes = traverseAndModifyAst(ast);
+  return reprintAst(code, Array.from(modifiedNodes));
+}
+export {
+  preprocess
+};
+//# sourceMappingURL=preprocess.mjs.map

@@ -1,0 +1,158 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var order_properties_exports = {};
+__export(order_properties_exports, {
+  rule: () => rule
+});
+module.exports = __toCommonJS(order_properties_exports);
+var import_detect_indent = __toESM(require("detect-indent"));
+var import_detect_newline = __toESM(require("detect-newline"));
+var import_sort_object_keys = __toESM(require("sort-object-keys"));
+var import_sort_package_json = require("sort-package-json");
+var import_createRule = require("../createRule.js");
+const standardOrderLegacy = [
+  "name",
+  "version",
+  "private",
+  "publishConfig",
+  "description",
+  "main",
+  "exports",
+  "browser",
+  "files",
+  "bin",
+  "directories",
+  "man",
+  "scripts",
+  "repository",
+  "keywords",
+  "author",
+  "license",
+  "bugs",
+  "homepage",
+  "config",
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+  "bundledDependencies",
+  "engines",
+  "os",
+  "cpu"
+];
+const rule = (0, import_createRule.createRule)({
+  create(context) {
+    return {
+      "Program:exit"() {
+        const { ast, text } = context.sourceCode;
+        const options = {
+          order: "sort-package-json",
+          ...context.options[0]
+        };
+        const requiredOrder = options.order === "legacy" ? standardOrderLegacy : options.order === "sort-package-json" ? import_sort_package_json.sortOrder : options.order;
+        const json = JSON.parse(text);
+        const orderedSource = (0, import_sort_object_keys.default)(json, [
+          ...requiredOrder,
+          ...Object.keys(json)
+        ]);
+        const orderedKeys = Object.keys(orderedSource);
+        const { properties } = ast.body[0].expression;
+        for (let i = 0; i < properties.length; i += 1) {
+          const property = properties[i].key;
+          const { value } = property;
+          if (value === orderedKeys[i]) {
+            continue;
+          }
+          context.report({
+            data: {
+              property: value
+            },
+            fix(fixer) {
+              const { indent, type } = (0, import_detect_indent.default)(text);
+              const endCharacters = text.endsWith("\n") ? "\n" : "";
+              const newline = import_detect_newline.default.graceful(text);
+              let result = JSON.stringify(
+                orderedSource,
+                null,
+                type === "tab" ? "	" : indent
+              ) + endCharacters;
+              if (newline === "\r\n") {
+                result = result.replace(/\n/g, newline);
+              }
+              return fixer.replaceText(
+                context.sourceCode.ast,
+                result
+              );
+            },
+            loc: properties[i].loc,
+            messageId: "incorrectOrder"
+          });
+        }
+      }
+    };
+  },
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Package properties must be declared in standard order",
+      recommended: true
+    },
+    fixable: "code",
+    messages: {
+      incorrectOrder: 'Package top-level property "{{property}}" is not ordered in the npm standard way. Run the ESLint auto-fixer to correct.'
+    },
+    schema: [
+      {
+        properties: {
+          order: {
+            anyOf: [
+              {
+                enum: ["legacy", "sort-package-json"],
+                type: ["string"]
+              },
+              {
+                items: {
+                  type: ["string"]
+                },
+                type: ["array"]
+              }
+            ]
+          }
+        },
+        type: "object"
+      }
+    ],
+    type: "layout"
+  }
+});
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  rule
+});
+//# sourceMappingURL=order-properties.js.map

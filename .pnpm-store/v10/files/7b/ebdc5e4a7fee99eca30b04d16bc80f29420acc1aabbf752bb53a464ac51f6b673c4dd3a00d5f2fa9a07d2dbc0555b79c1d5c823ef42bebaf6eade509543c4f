@@ -1,0 +1,61 @@
+import { execFileAsync, execFileSync } from "./exec.js";
+const environment = {
+  git: {
+    // non-interactive
+    GIT_TERMINAL_PROMPT: "0",
+    // don't use global config
+    GIT_CONFIG_GLOBAL: "/dev/null",
+    GIT_CONFIG_SYSTEM: "/dev/null",
+    // user config
+    GIT_COMMITTER_NAME: "alan",
+    GIT_COMMITTER_EMAIL: "alan@example.com",
+    GIT_AUTHOR_NAME: "alan",
+    GIT_AUTHOR_EMAIL: "alan@example.com"
+  },
+  hg: {
+    // don't use global config
+    HGRCPATH: "/dev/null",
+    // don't use global config
+    HGUSER: "alan",
+    EMAIL: "alan@example.com"
+  },
+  sl: {
+    // don't use global config
+    HGRCPATH: "/dev/null",
+    // don't use global config
+    HGUSER: "alan",
+    EMAIL: "alan@example.com"
+  },
+  svn: {},
+  svnadmin: {},
+  svnrdump: {}
+};
+async function repositoryExec(cwd, command, args) {
+  return execFileAsync(command, args, {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...environment[command]
+    }
+  }).then(({ stdout, stderr }) => {
+    return stderr ? Promise.reject(stderr.trim()) : stdout.trim();
+  });
+}
+function repositoryExecSync(cwd, command, args) {
+  const result = execFileSync(command, args, {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...environment[command]
+    }
+  }).trim();
+  return result;
+}
+const createExecForDirectory = (cwd) => repositoryExec.bind(null, cwd);
+export {
+  createExecForDirectory,
+  repositoryExec,
+  repositoryExecSync
+};

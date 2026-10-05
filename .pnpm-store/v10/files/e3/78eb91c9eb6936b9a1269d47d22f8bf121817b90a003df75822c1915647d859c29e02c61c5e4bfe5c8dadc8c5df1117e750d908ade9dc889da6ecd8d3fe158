@@ -1,0 +1,41 @@
+import traverse from "@babel/traverse";
+import { modifyNodeIfMissingBrackets } from "./modifyNodeIfMissingBrackets.js";
+function traverseAndModifyAst(ast) {
+  const modifiedNodes = /* @__PURE__ */ new Set();
+  const seenNodes = /* @__PURE__ */ new Set();
+  function collector({ node }) {
+    if (modifyNodeIfMissingBrackets(node) && nodeNotAlreadySeen(node, seenNodes)) {
+      delete node.leadingComments;
+      delete node.trailingComments;
+      modifiedNodes.add(node);
+    }
+  }
+  (traverse.default || traverse)(ast, {
+    DoWhileStatement: collector,
+    ForInStatement: collector,
+    ForOfStatement: collector,
+    ForStatement: collector,
+    IfStatement: collector,
+    noScope: true,
+    WhileStatement: collector
+  });
+  return modifiedNodes;
+}
+function nodeNotAlreadySeen(node, seenNodes) {
+  if (seenNodes.has(node)) {
+    return false;
+  }
+  (traverse.default || traverse)(node, {
+    // @ts-ignore
+    enter(path) {
+      seenNodes.add(path.node);
+    },
+    noScope: true
+  });
+  seenNodes.add(node);
+  return true;
+}
+export {
+  traverseAndModifyAst
+};
+//# sourceMappingURL=traverseAndModifyAst.mjs.map

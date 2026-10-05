@@ -1,0 +1,8 @@
+import * as _babel_parser from '@babel/parser';
+import * as babel from '@babel/types';
+import { RequiredOptions } from 'prettier';
+
+type ParseAstOptions = Partial<RequiredOptions> & Pick<RequiredOptions, "filepath">;
+declare function parseAst(code: string, options: ParseAstOptions): _babel_parser.ParseResult<babel.File>;
+
+export { type ParseAstOptions, parseAst };

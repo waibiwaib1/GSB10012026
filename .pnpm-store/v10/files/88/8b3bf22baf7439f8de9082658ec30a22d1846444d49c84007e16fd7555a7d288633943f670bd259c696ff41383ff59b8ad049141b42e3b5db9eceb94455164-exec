@@ -1,0 +1,71 @@
+#!/usr/bin/env node
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var import_node_fs = __toESM(require("node:fs"));
+var import_node_process = __toESM(require("node:process"));
+var import_yargs = __toESM(require("yargs"));
+var import_PJV = require("../PJV.js");
+const options = (0, import_yargs.default)(import_node_process.default.argv.slice(2)).options("filename", {
+  default: "package.json",
+  alias: "f",
+  description: "package.json file to validate"
+}).options("spec", {
+  default: "npm",
+  alias: "s",
+  choices: ["npm", "commonjs_1.0", "commonjs_1.1"],
+  description: "spec to use - npm|commonjs_1.0|commonjs_1.1"
+}).options("warnings", {
+  default: false,
+  alias: "w",
+  boolean: true,
+  description: "display warnings"
+}).options("recommendations", {
+  default: false,
+  alias: "r",
+  boolean: true,
+  description: "display recommendations"
+}).options("quiet", {
+  default: false,
+  alias: "q",
+  boolean: true,
+  description: "less output"
+}).usage("Validate package.json files").parse();
+if (!import_node_fs.default.existsSync(options.filename)) {
+  console.error("File does not exist: " + options.filename);
+  import_node_process.default.exitCode = 1;
+} else {
+  const contents = import_node_fs.default.readFileSync(options.filename).toString(), results = (0, import_PJV.validate)(contents, options.spec, {
+    warnings: options.warnings,
+    recommendations: options.recommendations
+  });
+  if (results.valid) {
+    if (!options.quiet) {
+      console.log(results);
+    }
+  } else {
+    console.error(options.filename + " is NOT valid");
+    console.error(results);
+    import_node_process.default.exitCode = 1;
+  }
+}

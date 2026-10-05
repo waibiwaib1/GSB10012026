@@ -1,0 +1,6 @@
+import { SpyCallArgs } from '../spies/spyTypes.js';
+import '../types.js';
+
+declare const formatComplaintCall: (call: SpyCallArgs) => string;
+
+export { formatComplaintCall };

@@ -1,0 +1,16 @@
+import { isPackageJson } from "./utils/isPackageJson.js";
+function createRule(rule) {
+  return {
+    ...rule,
+    create(context) {
+      if (!isPackageJson(context.filename)) {
+        return {};
+      }
+      return rule.create(context);
+    }
+  };
+}
+export {
+  createRule
+};
+//# sourceMappingURL=createRule.mjs.map

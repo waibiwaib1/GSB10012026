@@ -1,0 +1,6 @@
+import { SpyCallArgs } from '../spies/spyTypes.js';
+import '../types.js';
+
+declare const formatMethodComplaint: ([methodName, calls]: [keyof Console, SpyCallArgs[]]) => string;
+
+export { formatMethodComplaint };

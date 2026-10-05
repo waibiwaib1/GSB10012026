@@ -1,0 +1,80 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var selectTestFramework_exports = {};
+__export(selectTestFramework_exports, {
+  selectTestFramework: () => selectTestFramework
+});
+module.exports = __toCommonJS(selectTestFramework_exports);
+var import_ava = require("./ava.cjs");
+var import_jasmine = require("./jasmine.cjs");
+var import_jest = require("./jest.cjs");
+var import_lab = require("./lab.cjs");
+var import_mocha = require("./mocha.cjs");
+var import_nodeTap = require("./nodeTap.cjs");
+var import_vitest = require("./vitest.cjs");
+const testEnvironmentsByName = /* @__PURE__ */ new Map([
+  ["jasmine", import_jasmine.selectJasmineEnvironment],
+  ["jest", import_jest.selectJestEnvironment],
+  ["mocha", import_mocha.selectMochaEnvironment],
+  ["vitest", import_vitest.selectVitestEnvironment]
+]);
+const detectableTestEnvironmentSelectors = [
+  // These environments only work with received modules, so they should come first
+  import_ava.selectAvaEnvironment,
+  import_lab.selectLabEnvironment,
+  import_nodeTap.selectNodeTapEnvironment,
+  import_vitest.selectVitestEnvironment,
+  // Jest should come before Jasmine because Jest includes a monkey-patched Jasmine
+  import_jest.selectJestEnvironment,
+  import_jasmine.selectJasmineEnvironment,
+  // Mocha should be last because it's difficult to accurately detect
+  // See https://github.com/JoshuaKGoldberg/console-fail-test/issues/10
+  import_mocha.selectMochaEnvironment
+];
+const selectTestFramework = (request) => {
+  if (typeof request.testFramework === "string") {
+    const getter = testEnvironmentsByName.get(request.testFramework);
+    if (getter === void 0) {
+      throw new Error(
+        `Requested test framework '${request.testFramework}' not known by name in console-fail-test.`
+      );
+    }
+    const environment = getter(request);
+    if (environment === void 0) {
+      throw new Error(
+        `Requested test framework '${request.testFramework}' does not seem to be active.`
+      );
+    }
+    return environment;
+  }
+  for (const testEnvironmentGetter of detectableTestEnvironmentSelectors) {
+    const environment = testEnvironmentGetter(request);
+    if (environment !== void 0) {
+      return environment;
+    }
+  }
+  throw new Error(
+    "Could not auto-detect test environment; consider passing it directly to cft."
+  );
+};
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  selectTestFramework
+});
+//# sourceMappingURL=selectTestFramework.cjs.map

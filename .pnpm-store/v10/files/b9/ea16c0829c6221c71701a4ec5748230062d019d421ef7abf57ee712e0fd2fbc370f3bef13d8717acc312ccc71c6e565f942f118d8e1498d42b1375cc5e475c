@@ -1,0 +1,42 @@
+{
+  "name": "micromark-heading-id",
+  "version": "2.0.0",
+  "description": "micromark extension to support Markdown Extension for custom heading IDs",
+  "license": "MIT",
+  "keywords": [
+    "unified",
+    "micromark",
+    "extension",
+    "markdown",
+    "heading",
+    "heading-id"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Eyas/md-heading-id",
+    "directory": "packages/micromark-heading-id"
+  },
+  "bugs": "https://github.com/Eyas/md-heading-id/issues",
+  "author": "Eyas Sharaiha <npm@eyas.sh> (https://eyas.sh)",
+  "type": "module",
+  "sideEffects": false,
+  "main": "index.js",
+  "types": "types/index.d.ts",
+  "files": [
+    "index.js",
+    "types/index.d.ts"
+  ],
+  "dependencies": {
+    "micromark-util-symbol": "^2.0.0"
+  },
+  "devDependencies": {
+    "micromark": "^4.0.0",
+    "micromark-util-types": "^2.0.0"
+  },
+  "scripts": {
+    "prepack": "npm run build",
+    "clean": "rimraf --glob __test__/**/*.d.ts index.d.ts",
+    "build": "npm run clean && tsc",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage"
+  }
+}

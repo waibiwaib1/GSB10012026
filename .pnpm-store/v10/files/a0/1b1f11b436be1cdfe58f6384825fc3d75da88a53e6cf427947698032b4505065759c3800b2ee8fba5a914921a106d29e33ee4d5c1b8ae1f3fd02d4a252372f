@@ -1,0 +1,6 @@
+declare const parsers: {
+    babel: any;
+    typescript: any;
+};
+
+export { parsers };

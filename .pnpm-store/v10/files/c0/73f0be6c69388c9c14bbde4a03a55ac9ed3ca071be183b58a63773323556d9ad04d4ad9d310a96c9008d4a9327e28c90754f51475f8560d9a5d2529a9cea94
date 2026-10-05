@@ -1,0 +1,40 @@
+function wrapInBlock(node) {
+  return {
+    body: [node],
+    directives: [],
+    type: "BlockStatement"
+  };
+}
+const allowedBodyNodeTypes = /* @__PURE__ */ new Set(["BlockStatement", "EmptyStatement"]);
+const allowedIfAlternateNodeTypes = /* @__PURE__ */ new Set(["BlockStatement", "IfStatement"]);
+function modifyNodeIfMissingBrackets(node) {
+  switch (node.type) {
+    case "DoWhileStatement":
+    case "ForStatement":
+    case "ForInStatement":
+    case "ForOfStatement":
+    case "WhileStatement":
+      if (!allowedBodyNodeTypes.has(node.body.type)) {
+        node.body = wrapInBlock(node.body);
+        return true;
+      }
+      break;
+    case "IfStatement": {
+      let modified;
+      if (!allowedBodyNodeTypes.has(node.consequent.type)) {
+        node.consequent = wrapInBlock(node.consequent);
+        modified = true;
+      }
+      if (node.alternate && !allowedIfAlternateNodeTypes.has(node.alternate.type)) {
+        node.alternate = wrapInBlock(node.alternate);
+        modified = true;
+      }
+      return modified;
+    }
+  }
+  return false;
+}
+export {
+  modifyNodeIfMissingBrackets
+};
+//# sourceMappingURL=modifyNodeIfMissingBrackets.mjs.map

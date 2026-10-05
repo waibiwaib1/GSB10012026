@@ -69,7 +69,8 @@ export const base = createBase({
 ```
 
 :::tip
-Base `prepare()` functions are directly used as [Template `prepare()`](/build/apis/create-template#prepare) when a Stratum Template is generated.
+Base `prepare()` functions are used as [Template `prepare()`](/build/apis/create-template#prepare) when a Stratum Template is generated.
+If the Template also defines a `prepare()`, the two are composed, with the Template's values taking precedence.
 :::
 
 ## `createBlock`

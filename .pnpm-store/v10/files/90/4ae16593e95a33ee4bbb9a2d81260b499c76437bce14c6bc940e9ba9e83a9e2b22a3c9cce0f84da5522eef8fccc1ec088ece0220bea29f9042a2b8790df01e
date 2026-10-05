@@ -1,0 +1,3 @@
+export function remarkHeadingId(this: import("unified").Processor): import("mdast").Root extends string ? import("mdast").Root extends import("unified/lib").Node | undefined ? undefined | void : never : import("mdast").Root extends import("unified").CompileResults ? import("mdast").Root extends import("unified/lib").Node | undefined ? undefined | void : never : import("unified").Transformer<import("mdast").Root extends import("unified/lib").Node ? import("mdast").Root : import("unified/lib").Node, import("mdast").Root extends import("unified/lib").Node ? import("mdast").Root : import("unified/lib").Node> | undefined | void;
+export default remarkHeadingId;
+export type Root = import("mdast").Root;

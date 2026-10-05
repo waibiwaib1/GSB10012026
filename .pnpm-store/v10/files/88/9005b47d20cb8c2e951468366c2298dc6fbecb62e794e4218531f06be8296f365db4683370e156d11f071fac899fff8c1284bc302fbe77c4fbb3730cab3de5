@@ -1,0 +1,64 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var valid_package_definition_exports = {};
+__export(valid_package_definition_exports, {
+  rule: () => rule
+});
+module.exports = __toCommonJS(valid_package_definition_exports);
+var import_package_json_validator = require("package-json-validator");
+var import_createRule = require("../createRule.js");
+const unusedErrorPatterns = [
+  /^Url not valid/i,
+  /^Invalid version range for .+?: (?:file|npm|workspace):/i,
+  /^author field should have name/i
+];
+const isUsableError = (errorText) => unusedErrorPatterns.every((pattern) => !pattern.test(errorText));
+const rule = (0, import_createRule.createRule)({
+  create(context) {
+    return {
+      "Program:exit"() {
+        const validation = (0, import_package_json_validator.validate)(context.sourceCode.text);
+        validation.errors?.filter(isUsableError).forEach((message) => {
+          if (message) {
+            context.report({
+              // eslint-disable-next-line eslint-plugin/prefer-message-ids
+              message,
+              node: context.sourceCode.ast
+            });
+          }
+        });
+      }
+    };
+  },
+  // eslint-disable-next-line eslint-plugin/prefer-message-ids
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Enforce that package.json has all properties required by the npm spec",
+      recommended: true
+    },
+    schema: [],
+    type: "problem"
+  }
+});
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  rule
+});
+//# sourceMappingURL=valid-package-definition.js.map

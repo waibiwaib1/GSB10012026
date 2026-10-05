@@ -1,0 +1,2 @@
+import { CallId } from './call-id.js';
+export declare function getCallIdV8(distance?: number): CallId | null;

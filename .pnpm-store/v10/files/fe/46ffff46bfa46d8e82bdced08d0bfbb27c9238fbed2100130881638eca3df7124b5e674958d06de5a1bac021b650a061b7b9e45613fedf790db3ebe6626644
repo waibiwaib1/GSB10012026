@@ -1,0 +1,6 @@
+import { CollectibleNode } from './types.mjs';
+import '@babel/types';
+
+declare function reprintAst(code: string, collectedNodes: CollectibleNode[]): string;
+
+export { reprintAst };

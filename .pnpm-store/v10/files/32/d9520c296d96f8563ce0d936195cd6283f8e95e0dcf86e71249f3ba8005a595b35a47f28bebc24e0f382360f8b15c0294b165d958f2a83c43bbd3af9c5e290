@@ -1,0 +1,75 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var traverseAndModifyAst_exports = {};
+__export(traverseAndModifyAst_exports, {
+  traverseAndModifyAst: () => traverseAndModifyAst
+});
+module.exports = __toCommonJS(traverseAndModifyAst_exports);
+var import_traverse = __toESM(require("@babel/traverse"));
+var import_modifyNodeIfMissingBrackets = require("./modifyNodeIfMissingBrackets.js");
+function traverseAndModifyAst(ast) {
+  const modifiedNodes = /* @__PURE__ */ new Set();
+  const seenNodes = /* @__PURE__ */ new Set();
+  function collector({ node }) {
+    if ((0, import_modifyNodeIfMissingBrackets.modifyNodeIfMissingBrackets)(node) && nodeNotAlreadySeen(node, seenNodes)) {
+      delete node.leadingComments;
+      delete node.trailingComments;
+      modifiedNodes.add(node);
+    }
+  }
+  (import_traverse.default.default || import_traverse.default)(ast, {
+    DoWhileStatement: collector,
+    ForInStatement: collector,
+    ForOfStatement: collector,
+    ForStatement: collector,
+    IfStatement: collector,
+    noScope: true,
+    WhileStatement: collector
+  });
+  return modifiedNodes;
+}
+function nodeNotAlreadySeen(node, seenNodes) {
+  if (seenNodes.has(node)) {
+    return false;
+  }
+  (import_traverse.default.default || import_traverse.default)(node, {
+    // @ts-ignore
+    enter(path) {
+      seenNodes.add(path.node);
+    },
+    noScope: true
+  });
+  seenNodes.add(node);
+  return true;
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  traverseAndModifyAst
+});
+//# sourceMappingURL=traverseAndModifyAst.js.map

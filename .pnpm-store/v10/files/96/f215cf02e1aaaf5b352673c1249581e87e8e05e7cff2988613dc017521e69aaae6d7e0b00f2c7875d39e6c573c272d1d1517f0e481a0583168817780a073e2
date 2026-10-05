@@ -1,0 +1,74 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var valid_version_exports = {};
+__export(valid_version_exports, {
+  rule: () => rule
+});
+module.exports = __toCommonJS(valid_version_exports);
+var import_semver = __toESM(require("semver"));
+var import_createRule = require("../createRule.js");
+const rule = (0, import_createRule.createRule)({
+  create(context) {
+    return {
+      "Program > JSONExpressionStatement > JSONObjectExpression > JSONProperty[key.value=version]"(node) {
+        if (node.value.type !== "JSONLiteral" || typeof node.value.value !== "string") {
+          context.report({
+            messageId: "type",
+            node: node.value
+          });
+          return;
+        }
+        if (!import_semver.default.valid(node.value.value)) {
+          context.report({
+            messageId: "invalid",
+            node: node.value
+          });
+        }
+      }
+    };
+  },
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Enforce that package versions are valid semver specifiers",
+      recommended: true
+    },
+    messages: {
+      invalid: "Version is not a valid semver specifier.",
+      type: '"version" should be a string.'
+    },
+    schema: [],
+    type: "problem"
+  }
+});
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  rule
+});
+//# sourceMappingURL=valid-version.js.map

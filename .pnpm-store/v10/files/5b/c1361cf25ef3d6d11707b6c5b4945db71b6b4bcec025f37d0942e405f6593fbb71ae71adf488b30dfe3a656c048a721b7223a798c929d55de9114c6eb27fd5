@@ -1,0 +1,9 @@
+function findPropertyWithKeyValue(properties, value) {
+  return properties.find(
+    (property) => property.key.type === "JSONLiteral" && property.key.value === value
+  );
+}
+export {
+  findPropertyWithKeyValue
+};
+//# sourceMappingURL=findPropertyWithKeyValue.mjs.map

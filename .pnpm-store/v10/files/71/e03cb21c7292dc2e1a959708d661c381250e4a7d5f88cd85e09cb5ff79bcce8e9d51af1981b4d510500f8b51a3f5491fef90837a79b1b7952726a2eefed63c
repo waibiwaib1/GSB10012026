@@ -1,0 +1,5 @@
+const isPackageJson = (filePath) => /(?:^|[/\\])package.json$/.test(filePath);
+export {
+  isPackageJson
+};
+//# sourceMappingURL=isPackageJson.mjs.map

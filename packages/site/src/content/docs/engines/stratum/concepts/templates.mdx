@@ -62,3 +62,36 @@ export default createConfig(template, {
 	options: { preset: "everything" },
 });
 ```
+
+## Preparation
+
+Stratum Templates may define a `prepare()` function, the same as [Base `prepare()`](/engines/stratum/concepts/bases#preparation) and [Template `prepare()`](/build/apis/create-template#prepare).
+Unlike a Base's `prepare()`, a Stratum Template's `prepare()` may also provide a value for the `preset` option.
+
+This is useful for inferring a preset from an existing repository on disk, so that users running with `--mode transition` don't have to explicitly provide `--preset` again:
+
+```ts
+import { inputFromFileJSON } from "input-from-file-json";
+
+import { base } from "./base";
+import { presetCommon } from "./presetCommon";
+import { presetMinimal } from "./presetMinimal";
+
+export const template = base.createStratumTemplate({
+	prepare({ take }) {
+		return {
+			preset: async () => {
+				const devDependencies = (
+					await take(inputFromFileJSON, { fileName: "package.json" })
+				).devDependencies;
+
+				return devDependencies.vitest ? "common" : "minimal";
+			},
+		};
+	},
+	presets: [presetMinimal, presetCommon],
+	suggested: presetCommon,
+});
+```
+
+If both the Base and the Stratum Template define `prepare()`, the two are composed, with the Template's values taking precedence.

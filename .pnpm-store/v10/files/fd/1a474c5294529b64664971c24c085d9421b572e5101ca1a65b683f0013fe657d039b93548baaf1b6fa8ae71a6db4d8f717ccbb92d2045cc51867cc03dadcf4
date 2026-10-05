@@ -1,0 +1,87 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var repositoryCommand_exports = {};
+__export(repositoryCommand_exports, {
+  createExecForDirectory: () => createExecForDirectory,
+  repositoryExec: () => repositoryExec,
+  repositoryExecSync: () => repositoryExecSync
+});
+module.exports = __toCommonJS(repositoryCommand_exports);
+var import_exec = require("./exec.cjs");
+const environment = {
+  git: {
+    // non-interactive
+    GIT_TERMINAL_PROMPT: "0",
+    // don't use global config
+    GIT_CONFIG_GLOBAL: "/dev/null",
+    GIT_CONFIG_SYSTEM: "/dev/null",
+    // user config
+    GIT_COMMITTER_NAME: "alan",
+    GIT_COMMITTER_EMAIL: "alan@example.com",
+    GIT_AUTHOR_NAME: "alan",
+    GIT_AUTHOR_EMAIL: "alan@example.com"
+  },
+  hg: {
+    // don't use global config
+    HGRCPATH: "/dev/null",
+    // don't use global config
+    HGUSER: "alan",
+    EMAIL: "alan@example.com"
+  },
+  sl: {
+    // don't use global config
+    HGRCPATH: "/dev/null",
+    // don't use global config
+    HGUSER: "alan",
+    EMAIL: "alan@example.com"
+  },
+  svn: {},
+  svnadmin: {},
+  svnrdump: {}
+};
+async function repositoryExec(cwd, command, args) {
+  return (0, import_exec.execFileAsync)(command, args, {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...environment[command]
+    }
+  }).then(({ stdout, stderr }) => {
+    return stderr ? Promise.reject(stderr.trim()) : stdout.trim();
+  });
+}
+function repositoryExecSync(cwd, command, args) {
+  const result = (0, import_exec.execFileSync)(command, args, {
+    cwd,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      ...environment[command]
+    }
+  }).trim();
+  return result;
+}
+const createExecForDirectory = (cwd) => repositoryExec.bind(null, cwd);
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  createExecForDirectory,
+  repositoryExec,
+  repositoryExecSync
+});

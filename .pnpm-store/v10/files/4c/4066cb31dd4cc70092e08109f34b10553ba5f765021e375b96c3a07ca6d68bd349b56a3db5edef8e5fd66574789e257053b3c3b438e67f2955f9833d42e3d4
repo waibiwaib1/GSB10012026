@@ -1,0 +1,32 @@
+import { SpecName, SpecMap, People, FieldSpec, UrlOrMailTo, UrlType } from './types.mjs';
+
+type ValidationOptions = {
+    warnings?: boolean;
+    recommendations?: boolean;
+};
+type ValidationOutput = {
+    valid: boolean;
+    errors?: string[];
+    warnings?: string[];
+    recommendations?: string[];
+    critical?: string | Record<string, string>;
+};
+declare const validate: (data: string | object, specName?: SpecName, options?: ValidationOptions) => ValidationOutput;
+/** @deprecated please use the individual {@link validate} function */
+declare const PJV: {
+    emailFormat: RegExp;
+    packageFormat: RegExp;
+    urlFormat: RegExp;
+    versionFormat: RegExp;
+    getSpecMap: (specName: SpecName, isPrivate: boolean) => SpecMap | false;
+    parse: (data: string) => any;
+    isValidVersionRange: (v: string) => boolean;
+    validate: (data: string | object, specName?: SpecName, options?: ValidationOptions) => ValidationOutput;
+    validateDependencies: (name: string, deps: Record<string, string>) => string[];
+    validatePeople: (name: string, obj: People) => string[];
+    validateType: (name: string, field: FieldSpec, value: unknown[] | boolean | string | object) => string[];
+    validateUrlOrMailto: (name: string, obj: UrlOrMailTo) => string[];
+    validateUrlTypes: (name: string, obj: string | UrlType | UrlType[]) => string[];
+};
+
+export { PJV, validate };

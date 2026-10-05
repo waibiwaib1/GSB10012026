@@ -1,0 +1,71 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var selectSpyFactory_exports = {};
+__export(selectSpyFactory_exports, {
+  selectSpyFactory: () => selectSpyFactory
+});
+module.exports = __toCommonJS(selectSpyFactory_exports);
+var import_fallback = require("./fallback.cjs");
+var import_jasmine = require("./jasmine.cjs");
+var import_jest = require("./jest.cjs");
+var import_sinon = require("./sinon.cjs");
+var import_vitest = require("./vitest.cjs");
+const spyFactoriesByName = /* @__PURE__ */ new Map([
+  ["fallback", import_fallback.selectFallbackSpyFactory],
+  ["jasmine", import_jasmine.selectJasmineSpyFactory],
+  ["jest", import_jest.selectJestSpyFactory],
+  ["sinon", import_sinon.selectSinonSpyFactory],
+  ["vitest", import_vitest.selectVitestSpyFactory]
+]);
+const detectableSpyFactorySelectors = [
+  import_vitest.selectVitestSpyFactory,
+  // Jest should come before Jasmine because Jest includes a monkey-patched Jasmine
+  import_jest.selectJestSpyFactory,
+  import_jasmine.selectJasmineSpyFactory,
+  import_sinon.selectSinonSpyFactory
+];
+const selectSpyFactory = (request) => {
+  if (typeof request.spyLibrary === "string") {
+    const getter = spyFactoriesByName.get(request.spyLibrary);
+    if (getter === void 0) {
+      throw new Error(
+        `Requested spy library '${request.spyLibrary}' not known by name in console-fail-test.`
+      );
+    }
+    const library = getter(request);
+    if (library === void 0) {
+      throw new Error(
+        `Requested spy library '${request.spyLibrary}' does not seem to be active.`
+      );
+    }
+    return library;
+  }
+  for (const getter of detectableSpyFactorySelectors) {
+    const library = getter(request);
+    if (library !== void 0) {
+      return library;
+    }
+  }
+  return (0, import_fallback.selectFallbackSpyFactory)();
+};
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  selectSpyFactory
+});
+//# sourceMappingURL=selectSpyFactory.cjs.map

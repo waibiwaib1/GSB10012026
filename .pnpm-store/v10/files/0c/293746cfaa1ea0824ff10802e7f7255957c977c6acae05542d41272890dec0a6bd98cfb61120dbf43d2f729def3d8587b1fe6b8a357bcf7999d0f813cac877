@@ -1,0 +1,11 @@
+import * as markdownlint from 'markdownlint';
+
+declare const sentencesPerLine: {
+    description: string;
+    function: (params: markdownlint.RuleParams, onError: markdownlint.RuleOnError) => void;
+    names: string[];
+    parser: "none";
+    tags: string[];
+};
+
+export { sentencesPerLine as default };

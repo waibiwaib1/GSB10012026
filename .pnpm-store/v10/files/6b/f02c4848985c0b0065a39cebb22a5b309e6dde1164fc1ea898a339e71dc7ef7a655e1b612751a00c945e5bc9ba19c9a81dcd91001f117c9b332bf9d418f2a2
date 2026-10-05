@@ -1,0 +1,7 @@
+import { Node } from '@babel/traverse';
+import { CollectibleNode } from './types.mjs';
+import '@babel/types';
+
+declare function traverseAndModifyAst(ast: Node): Set<CollectibleNode>;
+
+export { traverseAndModifyAst };

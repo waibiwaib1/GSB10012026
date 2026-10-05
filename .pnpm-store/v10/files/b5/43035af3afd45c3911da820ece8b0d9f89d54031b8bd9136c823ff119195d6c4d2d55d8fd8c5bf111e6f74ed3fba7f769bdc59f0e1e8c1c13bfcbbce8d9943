@@ -1,0 +1,27 @@
+import generate from "@babel/generator";
+const printOptions = {
+  comments: true,
+  minified: true,
+  retainFunctionParens: true,
+  retainLines: true
+};
+function reprintAst(code, collectedNodes) {
+  if (!collectedNodes.length) {
+    return code;
+  }
+  let output = "";
+  let lastEnd = 0;
+  for (const collectedNode of collectedNodes) {
+    output += code.slice(lastEnd, collectedNode.start);
+    output += (generate.default || generate)(
+      collectedNode,
+      printOptions
+    ).code.trim();
+    lastEnd = collectedNode.end;
+  }
+  return output + code.slice(lastEnd);
+}
+export {
+  reprintAst
+};
+//# sourceMappingURL=reprintAst.mjs.map

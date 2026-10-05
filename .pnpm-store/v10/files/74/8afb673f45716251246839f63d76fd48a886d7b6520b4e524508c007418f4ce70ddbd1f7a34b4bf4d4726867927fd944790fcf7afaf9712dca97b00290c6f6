@@ -1,0 +1,54 @@
+import { toFileName } from './util.js';
+class ErrorWithCallSite extends Error {
+    constructor(from) {
+        super();
+        Error.captureStackTrace(this, from);
+    }
+    static prepareStackTrace(err, stack) {
+        return stack;
+    }
+}
+function getCallSite(from, distance) {
+    var _a;
+    const originalPrepare = Error.prepareStackTrace;
+    try {
+        Error.prepareStackTrace = ErrorWithCallSite.prepareStackTrace;
+        // @ts-expect-error This is really a call site, because of the new `prepareStackTrace` implementation
+        const stack = new ErrorWithCallSite(from).stack;
+        return (_a = stack[distance]) !== null && _a !== void 0 ? _a : null;
+    }
+    finally {
+        Error.prepareStackTrace = originalPrepare;
+    }
+}
+export function getCallIdV8(distance = 0) {
+    const callSite = getCallSite(getCallIdV8, distance);
+    return callSite && (tryParseEvalOrigin(callSite) || parseCallSite(callSite));
+}
+function tryParseEvalOrigin(callSite) {
+    var _a;
+    //"eval at <anonymous> (file:///home/nicojs/github/call-id/test/node.test.js:66:12)"
+    const origin = /.*\(([^)]+):(\d+):(\d+)\)/.exec((_a = callSite.getEvalOrigin()) !== null && _a !== void 0 ? _a : '');
+    if (origin) {
+        return {
+            file: toFileName(origin[1]),
+            line: parseInt(origin[2], 10),
+            column: parseInt(origin[3], 10),
+        };
+    }
+    return null;
+}
+function parseCallSite(callSite) {
+    var _a;
+    const fileUrl = callSite.getFileName();
+    const line = callSite.getLineNumber();
+    if (fileUrl !== null && line !== null) {
+        return {
+            column: (_a = callSite.getColumnNumber()) !== null && _a !== void 0 ? _a : 0,
+            line,
+            file: toFileName(fileUrl),
+        };
+    }
+    return null;
+}
+//# sourceMappingURL=v8.js.map

@@ -1,0 +1,2 @@
+import { AstroIntegration } from "astro";
+export declare function konamiEmojiBlast(): AstroIntegration;

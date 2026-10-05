@@ -1,0 +1,20 @@
+import { formatMethodComplaint } from "./formatMethodComplaint.js";
+const createComplaint = (methodsWithCalls) => {
+  const methodComplaints = methodsWithCalls.map(formatMethodComplaint).join("\n");
+  const s = methodsWithCalls.length === 1 ? "" : "s";
+  const error = new Error(
+    `Oh no! Your test called the following console method${s}:
+${methodComplaints}`
+  );
+  return {
+    error,
+    methodComplaints: methodsWithCalls.map(([methodName, methodCalls]) => ({
+      methodCalls,
+      methodName
+    }))
+  };
+};
+export {
+  createComplaint
+};
+//# sourceMappingURL=createComplaint.js.map

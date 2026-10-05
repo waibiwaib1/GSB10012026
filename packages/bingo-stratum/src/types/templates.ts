@@ -15,7 +15,9 @@ export interface StratumTemplate<OptionsShape extends AnyShape = AnyShape> {
 	about?: TemplateAbout;
 	base: Base<OptionsShape>;
 	options: OptionsShape & StratumTemplateOptionsShape;
-	prepare?: TemplatePrepare<InferredObject<OptionsShape>>;
+	prepare?: TemplatePrepare<
+		InferredObject<OptionsShape> & StratumTemplateOptions
+	>;
 	presets: Preset<OptionsShape>[];
 	produce: StratumTemplateProduce<InferredObject<OptionsShape>>;
 }
@@ -24,9 +26,15 @@ export interface StratumTemplateDefinition<
 	OptionsShape extends AnyShape = AnyShape,
 > {
 	about?: TemplateAbout;
-	prepare?: TemplatePrepare<InferredObject<OptionsShape>>;
+	prepare?: TemplatePrepare<
+		InferredObject<OptionsShape> & StratumTemplateOptions
+	>;
 	presets: Preset<OptionsShape>[];
 	suggested?: Preset<OptionsShape>;
+}
+
+export interface StratumTemplateOptions {
+	preset: string;
 }
 
 export interface StratumTemplateOptionsShape {

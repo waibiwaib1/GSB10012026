@@ -1,0 +1,9 @@
+/**
+ * @typedef {import('mdast-util-from-markdown').Extension} FromMarkdownExtension
+ * @typedef {import('./tree-extension').MdIdString} MdIdString
+ */
+/** @returns {FromMarkdownExtension} Fully-configured extension to add Heading ID nodes to Markdown. */
+export function mdastHeadingId(): FromMarkdownExtension;
+export default mdastHeadingId;
+export type FromMarkdownExtension = import("mdast-util-from-markdown").Extension;
+export type MdIdString = import("./tree-extension").MdIdString;

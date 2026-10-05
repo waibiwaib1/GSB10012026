@@ -1,0 +1,6 @@
+/**
+ * @returns {Extension} Fully-configured micromark extension for adding hading IDs
+ */
+export function micromarkHeadingId(): Extension;
+export default micromarkHeadingId;
+export type Extension = import("micromark-util-types").Extension;

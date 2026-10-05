@@ -1,0 +1,26 @@
+import { PackageJsonRuleModule } from '../createRule.js';
+import * as jsonc_eslint_parser from 'jsonc-eslint-parser';
+import 'estree';
+import 'eslint';
+
+declare const recommended: {
+    files: string[];
+    languageOptions: {
+        parser: typeof jsonc_eslint_parser;
+    };
+    name: string;
+    plugins: {
+        readonly "package-json": {
+            meta: {
+                name: string;
+                version: string;
+            };
+            rules: Record<string, PackageJsonRuleModule<unknown[]>>;
+        };
+    };
+    rules: {
+        [k: string]: "error";
+    };
+};
+
+export { recommended as default };

@@ -1,0 +1,6 @@
+import { SpyFactoryGetter } from './spyTypes.cjs';
+import '../types.cjs';
+
+declare const selectVitestSpyFactory: SpyFactoryGetter;
+
+export { selectVitestSpyFactory };

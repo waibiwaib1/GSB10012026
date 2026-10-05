@@ -1,0 +1,45 @@
+{
+  "name": "mdast-heading-id",
+  "version": "2.0.0",
+  "description": "mdast plugin to support Markdown Extension for custom heading IDs",
+  "license": "MIT",
+  "keywords": [
+    "unified",
+    "mdast",
+    "plugin",
+    "markdown",
+    "heading",
+    "heading-id"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Eyas/md-heading-id",
+    "directory": "packages/mdast-heading-id"
+  },
+  "bugs": "https://github.com/Eyas/md-heading-id/issues",
+  "author": "Eyas Sharaiha <npm@eyas.sh> (https://eyas.sh)",
+  "type": "module",
+  "sideEffects": false,
+  "main": "index.js",
+  "types": "types/index.d.ts",
+  "files": [
+    "index.js",
+    "types/index.d.ts",
+    "tree-extension.d.ts"
+  ],
+  "devDependencies": {
+    "@types/mdast": "^4.0.4",
+    "@types/unist": "^3.0.2",
+    "mdast-util-from-markdown": "^2.0.1",
+    "micromark-heading-id": "*"
+  },
+  "scripts": {
+    "prepack": "npm run build",
+    "clean": "rimraf --glob __tests__/**/*.d.ts index.d.ts",
+    "build": "npm run clean && tsc",
+    "test": "cross-env NODE_OPTIONS=--experimental-vm-modules jest --coverage"
+  },
+  "jest": {
+    "testRegex": "/__tests__/.*\\.js$"
+  }
+}

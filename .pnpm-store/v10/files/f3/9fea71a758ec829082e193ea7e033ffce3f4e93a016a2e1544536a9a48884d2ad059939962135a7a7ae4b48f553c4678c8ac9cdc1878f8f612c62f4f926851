@@ -1,0 +1,44 @@
+import { createComplaint } from "./complaining/index.js";
+import { consoleMethodNames } from "./console.js";
+import { setDefaults } from "./defaults.js";
+import { selectTestFramework } from "./environments/selectTestFramework.js";
+import { selectSpyFactory } from "./spies/selectSpyFactory.js";
+const defaultReportComplaint = ({ error }) => {
+  throw error;
+};
+const cft = (rawRequest) => {
+  const request = setDefaults(rawRequest);
+  const spyFactory = selectSpyFactory(request);
+  const testFramework = selectTestFramework(request);
+  const methodSpies = {};
+  const relevantMethodNames = consoleMethodNames.filter(
+    (name) => !request.console[name]
+  );
+  testFramework.beforeEach(() => {
+    for (const methodName of relevantMethodNames) {
+      methodSpies[methodName] = spyFactory(console, methodName);
+    }
+  });
+  testFramework.afterEach(
+    ({ reportComplaint = defaultReportComplaint } = {}) => {
+      const methodsWithCalls = [];
+      for (const methodName of relevantMethodNames) {
+        const spy = methodSpies[methodName];
+        const methodCalls = spy.getCalls();
+        const filteredCalls = testFramework.mapSpyCalls?.({ methodCalls, methodName }) ?? methodCalls;
+        spy.restore();
+        if (filteredCalls.length !== 0) {
+          methodsWithCalls.push([methodName, filteredCalls]);
+        }
+      }
+      if (methodsWithCalls.length === 0) {
+        return;
+      }
+      reportComplaint(createComplaint(methodsWithCalls));
+    }
+  );
+};
+export {
+  cft
+};
+//# sourceMappingURL=cft.js.map

@@ -1,0 +1,12 @@
+interface CftRequest {
+    console: ConsoleSettings;
+    spyLibrary?: SupportedSpyLibrary;
+    testFramework?: SupportedTestFramework;
+}
+type SupportedSpyLibrary = "fallback" | "jasmine" | "jest" | "sinon" | unknown;
+type SupportedTestFramework = "jasmine" | "jest" | "mocha" | unknown;
+type ConsoleSettings = {
+    [P in keyof Console]?: Console[P] extends Function ? boolean : never;
+};
+
+export type { CftRequest, ConsoleSettings, SupportedSpyLibrary, SupportedTestFramework };

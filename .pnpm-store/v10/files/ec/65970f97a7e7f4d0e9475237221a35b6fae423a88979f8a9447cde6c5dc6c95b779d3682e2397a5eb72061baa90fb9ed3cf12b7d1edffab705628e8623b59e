@@ -1,0 +1,10 @@
+const defaults = {
+  console: {}
+};
+const setDefaults = (request = {}) => {
+  return { ...defaults, ...request };
+};
+export {
+  setDefaults
+};
+//# sourceMappingURL=defaults.js.map

@@ -1,0 +1,123 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var valid_repository_directory_exports = {};
+__export(valid_repository_directory_exports, {
+  rule: () => rule
+});
+module.exports = __toCommonJS(valid_repository_directory_exports);
+var import_findRootSync = require("@altano/repository-tools/findRootSync.cjs");
+var path = __toESM(require("node:path"));
+var import_createRule = require("../createRule.js");
+var import_findPropertyWithKeyValue = require("../utils/findPropertyWithKeyValue.js");
+function pathEndsWith(parent, child) {
+  const segments = parent.split(path.sep);
+  if (parent === child) {
+    return true;
+  }
+  let pathToCheck = "";
+  return segments.reverse().some((segment) => {
+    pathToCheck = path.join(segment, pathToCheck);
+    if (pathToCheck === child) {
+      return true;
+    }
+  });
+}
+const rule = (0, import_createRule.createRule)({
+  create(context) {
+    return {
+      "Program > JSONExpressionStatement > JSONObjectExpression > JSONProperty[key.value=repository][value.type=JSONObjectExpression]"(node) {
+        const directoryProperty = (0, import_findPropertyWithKeyValue.findPropertyWithKeyValue)(
+          node.value.properties,
+          "directory"
+        );
+        if (directoryProperty?.value.type !== "JSONLiteral" || typeof directoryProperty.value.value !== "string") {
+          return;
+        }
+        const directoryValue = directoryProperty.value.value;
+        const fileDirectory = path.normalize(
+          path.dirname(context.filename)
+        );
+        const repositoryRoot = (0, import_findRootSync.findRootSync)(fileDirectory);
+        if (repositoryRoot == null) {
+          if (!pathEndsWith(
+            fileDirectory,
+            path.normalize(directoryValue)
+          )) {
+            context.report({
+              messageId: "mismatched",
+              node: directoryProperty.value
+            });
+          }
+        } else {
+          const expected = path.relative(
+            repositoryRoot,
+            fileDirectory
+          );
+          if (expected !== directoryValue) {
+            context.report({
+              messageId: "mismatched",
+              node: directoryProperty.value,
+              suggest: [
+                {
+                  data: { expected },
+                  fix(fixer) {
+                    return fixer.replaceText(
+                      directoryProperty.value,
+                      `"${expected}"`
+                    );
+                  },
+                  messageId: "replace"
+                }
+              ]
+            });
+          }
+        }
+      }
+    };
+  },
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Enforce that if repository directory is specified, it matches the path to the package.json file",
+      recommended: true
+    },
+    hasSuggestions: true,
+    messages: {
+      mismatched: "Directory does not match package.json directory.",
+      replace: "Replace with '{{ expected }}'."
+    },
+    schema: [],
+    type: "suggestion"
+  }
+});
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  rule
+});
+//# sourceMappingURL=valid-repository-directory.js.map

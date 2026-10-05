@@ -1,0 +1,6 @@
+import { CollectibleNode } from './types.js';
+import '@babel/types';
+
+declare function reprintAst(code: string, collectedNodes: CollectibleNode[]): string;
+
+export { reprintAst };

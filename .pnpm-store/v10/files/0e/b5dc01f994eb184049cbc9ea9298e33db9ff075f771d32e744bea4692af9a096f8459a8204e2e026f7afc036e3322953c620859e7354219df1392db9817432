@@ -1,0 +1,5 @@
+import { ConsoleSettings } from './types.cjs';
+
+declare const consoleMethodNames: (keyof ConsoleSettings)[];
+
+export { consoleMethodNames };

@@ -1,0 +1,124 @@
+import detectIndent from "detect-indent";
+import detectNewline from "detect-newline";
+import sortObjectKeys from "sort-object-keys";
+import { sortOrder } from "sort-package-json";
+import { createRule } from "../createRule.js";
+const standardOrderLegacy = [
+  "name",
+  "version",
+  "private",
+  "publishConfig",
+  "description",
+  "main",
+  "exports",
+  "browser",
+  "files",
+  "bin",
+  "directories",
+  "man",
+  "scripts",
+  "repository",
+  "keywords",
+  "author",
+  "license",
+  "bugs",
+  "homepage",
+  "config",
+  "dependencies",
+  "devDependencies",
+  "peerDependencies",
+  "optionalDependencies",
+  "bundledDependencies",
+  "engines",
+  "os",
+  "cpu"
+];
+const rule = createRule({
+  create(context) {
+    return {
+      "Program:exit"() {
+        const { ast, text } = context.sourceCode;
+        const options = {
+          order: "sort-package-json",
+          ...context.options[0]
+        };
+        const requiredOrder = options.order === "legacy" ? standardOrderLegacy : options.order === "sort-package-json" ? sortOrder : options.order;
+        const json = JSON.parse(text);
+        const orderedSource = sortObjectKeys(json, [
+          ...requiredOrder,
+          ...Object.keys(json)
+        ]);
+        const orderedKeys = Object.keys(orderedSource);
+        const { properties } = ast.body[0].expression;
+        for (let i = 0; i < properties.length; i += 1) {
+          const property = properties[i].key;
+          const { value } = property;
+          if (value === orderedKeys[i]) {
+            continue;
+          }
+          context.report({
+            data: {
+              property: value
+            },
+            fix(fixer) {
+              const { indent, type } = detectIndent(text);
+              const endCharacters = text.endsWith("\n") ? "\n" : "";
+              const newline = detectNewline.graceful(text);
+              let result = JSON.stringify(
+                orderedSource,
+                null,
+                type === "tab" ? "	" : indent
+              ) + endCharacters;
+              if (newline === "\r\n") {
+                result = result.replace(/\n/g, newline);
+              }
+              return fixer.replaceText(
+                context.sourceCode.ast,
+                result
+              );
+            },
+            loc: properties[i].loc,
+            messageId: "incorrectOrder"
+          });
+        }
+      }
+    };
+  },
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Package properties must be declared in standard order",
+      recommended: true
+    },
+    fixable: "code",
+    messages: {
+      incorrectOrder: 'Package top-level property "{{property}}" is not ordered in the npm standard way. Run the ESLint auto-fixer to correct.'
+    },
+    schema: [
+      {
+        properties: {
+          order: {
+            anyOf: [
+              {
+                enum: ["legacy", "sort-package-json"],
+                type: ["string"]
+              },
+              {
+                items: {
+                  type: ["string"]
+                },
+                type: ["array"]
+              }
+            ]
+          }
+        },
+        type: "object"
+      }
+    ],
+    type: "layout"
+  }
+});
+export {
+  rule
+};
+//# sourceMappingURL=order-properties.mjs.map
