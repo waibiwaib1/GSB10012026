@@ -130,8 +130,12 @@ func DeploymentCreator(data userclusterControllerData) reconciling.NamedDeployme
 				"-cloud-provider-name", data.GetKubernetesCloudProviderName(),
 				"-owner-email", data.Cluster().Status.UserEmail,
 				fmt.Sprintf("-enable-ssh-key-agent=%t", data.Cluster().Spec.EnableUserSSHKeyAgent),
-				fmt.Sprintf("-opa-integration=%t", data.Cluster().Spec.OPAIntegration != nil && data.Cluster().Spec.OPAIntegration.Enabled),
-			}, getNetworkArgs(data)...)
+			fmt.Sprintf("-opa-integration=%t", data.Cluster().Spec.OPAIntegration != nil && data.Cluster().Spec.OPAIntegration.Enabled),
+		}, getNetworkArgs(data)...)
+
+		if data.Cluster().Spec.OPAIntegration != nil && data.Cluster().Spec.OPAIntegration.WebhookTimeoutSeconds != nil {
+			args = append(args, fmt.Sprintf("-opa-webhook-timeout=%d", *data.Cluster().Spec.OPAIntegration.WebhookTimeoutSeconds))
+		}
 
 			if data.Cluster().Spec.ExposeStrategy == kubermaticv1.ExposeStrategyTunneling {
 				args = append(args, "-tunneling-agent-ip", data.Cluster().Address.IP)

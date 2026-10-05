@@ -165,6 +165,8 @@ const (
 	KubernetesDashboardKubeconfigSecretName = "kubernetes-dashboard-kubeconfig"
 	// GatekeeperWebhookServerCertSecretName is the name of the gatekeeper webhook cert secret name
 	GatekeeperWebhookServerCertSecretName = "gatekeeper-webhook-server-cert"
+	// DefaultGatekeeperWebhookTimeout is the default timeout in seconds for the gatekeeper validating webhook
+	DefaultGatekeeperWebhookTimeout = 10
 
 	// ImagePullSecretName specifies the name of the dockercfg secret used to access the private repo.
 	ImagePullSecretName = "dockercfg"

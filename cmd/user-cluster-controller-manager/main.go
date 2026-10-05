@@ -41,6 +41,7 @@ import (
 	kubermaticv1 "k8c.io/kubermatic/v2/pkg/crd/kubermatic/v1"
 	kubermaticlog "k8c.io/kubermatic/v2/pkg/log"
 	"k8c.io/kubermatic/v2/pkg/pprof"
+	"k8c.io/kubermatic/v2/pkg/resources"
 	"k8c.io/kubermatic/v2/pkg/resources/reconciling"
 	"k8c.io/kubermatic/v2/pkg/util/cli"
 	"k8c.io/kubermatic/v2/pkg/util/flagopts"
@@ -77,6 +78,7 @@ type controllerRunOptions struct {
 	updateWindowLength string
 	dnsClusterIP       string
 	opaIntegration     bool
+	opaWebhookTimeout  int
 	useSSHKeyAgent     bool
 }
 
@@ -106,6 +108,7 @@ func main() {
 	flag.StringVar(&runOp.updateWindowStart, "update-window-start", "", "The start time of the update window, e.g. 02:00")
 	flag.StringVar(&runOp.updateWindowLength, "update-window-length", "", "The length of the update window, e.g. 1h")
 	flag.BoolVar(&runOp.opaIntegration, "opa-integration", false, "Enable OPA integration in user cluster")
+	flag.IntVar(&runOp.opaWebhookTimeout, "opa-webhook-timeout", resources.DefaultGatekeeperWebhookTimeout, "Timeout in seconds for the OPA (Gatekeeper) validating webhook")
 	flag.BoolVar(&runOp.useSSHKeyAgent, "enable-ssh-key-agent", false, "Enable UserSSHKeyAgent integration in user cluster")
 	flag.Parse()
 
@@ -210,6 +213,7 @@ func main() {
 		mgr.AddReadyzCheck,
 		runOp.dnsClusterIP,
 		runOp.opaIntegration,
+		runOp.opaWebhookTimeout,
 		versions,
 		runOp.useSSHKeyAgent,
 		log,

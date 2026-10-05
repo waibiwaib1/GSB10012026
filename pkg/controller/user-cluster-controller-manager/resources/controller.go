@@ -70,6 +70,7 @@ func Add(
 	registerReconciledCheck func(name string, check healthz.Checker) error,
 	dnsClusterIP string,
 	opaIntegration bool,
+	opaWebhookTimeout int,
 	versions kubermatic.Versions,
 	userSSHKeyAgent bool,
 	log *zap.SugaredLogger) error {
@@ -85,6 +86,7 @@ func Add(
 		platform:          cloudProviderName,
 		dnsClusterIP:      dnsClusterIP,
 		opaIntegration:    opaIntegration,
+		opaWebhookTimeout: opaWebhookTimeout,
 		userSSHKeyAgent:   userSSHKeyAgent,
 		versions:          versions,
 	}
@@ -194,6 +196,7 @@ type reconciler struct {
 	platform          string
 	dnsClusterIP      string
 	opaIntegration    bool
+	opaWebhookTimeout int
 	userSSHKeyAgent   bool
 	versions          kubermatic.Versions
 

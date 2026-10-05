@@ -330,6 +330,9 @@ type AuditLoggingSettings struct {
 
 type OPAIntegrationSettings struct {
 	Enabled bool `json:"enabled,omitempty"`
+	// WebhookTimeoutSeconds is the timeout in seconds for the Gatekeeper validating webhook.
+	// If not set, the default value of 10 seconds is used.
+	WebhookTimeoutSeconds *int32 `json:"webhookTimeoutSeconds,omitempty"`
 }
 
 type ServiceAccountSettings struct {

@@ -17,6 +17,9 @@ type OPAIntegrationSettings struct {
 
 	// enabled
 	Enabled bool `json:"enabled,omitempty"`
+
+	// WebhookTimeoutSeconds is the timeout in seconds for the Gatekeeper validating webhook.
+	WebhookTimeoutSeconds int32 `json:"webhookTimeoutSeconds,omitempty"`
 }
 
 // Validate validates this o p a integration settings

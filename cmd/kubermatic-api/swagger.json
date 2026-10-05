@@ -16991,6 +16991,12 @@
         "enabled": {
           "type": "boolean",
           "x-go-name": "Enabled"
+        },
+        "webhookTimeoutSeconds": {
+          "description": "WebhookTimeoutSeconds is the timeout in seconds for the Gatekeeper validating webhook.",
+          "type": "integer",
+          "format": "int32",
+          "x-go-name": "WebhookTimeoutSeconds"
         }
       },
       "x-go-package": "k8c.io/kubermatic/v2/pkg/crd/kubermatic/v1"
