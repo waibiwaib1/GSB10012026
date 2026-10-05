@@ -2,7 +2,9 @@
 
 use crate::combinator::*;
 use crate::error::{AddContext, FromExternalError, IResult, PResult, ParseError, ParserError};
-use crate::stream::{AsChar, Compare, Location, ParseSlice, Stream, StreamIsPartial};
+use crate::stream::{
+    AsChar, CaseInsensitive, Compare, Location, ParseSlice, SliceLen, Stream, StreamIsPartial,
+};
 
 /// Core trait for parsing
 ///
@@ -702,6 +704,37 @@ where
     #[inline(always)]
     fn parse_next(&mut self, i: &mut I) -> PResult<<I as Stream>::Token, E> {
         crate::token::one_of(*self).parse_next(i)
+    }
+}
+
+/// This is a shortcut for [`tag`][crate::token::tag].
+///
+/// # Example
+/// ```rust
+/// # use winnow::prelude::*;
+/// # use winnow::{error::ErrMode, error::{ErrorKind, InputError}};
+/// use winnow::stream::CaseInsensitive;
+///
+/// fn parser<'s>(i: &mut &'s str) -> PResult<&'s str, InputError<&'s str>> {
+///     CaseInsensitive("hello").parse_next(i)
+/// }
+///
+/// assert_eq!(parser.parse_peek("Hello, World!"), Ok((", World!", "Hello")));
+/// assert_eq!(parser.parse_peek("hello, World!"), Ok((", World!", "hello")));
+/// assert_eq!(parser.parse_peek("HeLlO, World!"), Ok((", World!", "HeLlO")));
+/// assert_eq!(parser.parse_peek("Something"), Err(ErrMode::Backtrack(InputError::new("Something", ErrorKind::Tag))));
+/// assert_eq!(parser.parse_peek(""), Err(ErrMode::Backtrack(InputError::new("", ErrorKind::Tag))));
+/// ```
+impl<T, I, E> Parser<I, <I as Stream>::Slice, E> for CaseInsensitive<T>
+where
+    T: SliceLen + Clone,
+    I: Compare<CaseInsensitive<T>> + StreamIsPartial,
+    I: Stream,
+    E: ParserError<I>,
+{
+    #[inline(always)]
+    fn parse_next(&mut self, i: &mut I) -> PResult<<I as Stream>::Slice, E> {
+        crate::token::tag(self.clone()).parse_next(i)
     }
 }
 

@@ -9,7 +9,9 @@ use crate::error::Needed;
 use crate::error::ParserError;
 use crate::lib::std::result::Result::Ok;
 use crate::stream::Range;
-use crate::stream::{Compare, CompareResult, ContainsToken, FindSlice, SliceLen, Stream};
+use crate::stream::{
+    CaseInsensitive, Compare, CompareResult, ContainsToken, FindSlice, SliceLen, Stream,
+};
 use crate::stream::{StreamIsPartial, ToUsize};
 use crate::trace::trace;
 use crate::PResult;
@@ -156,7 +158,9 @@ where
     }
 }
 
-/// Recognizes a case insensitive literal.
+/// Recognizes a case-insensitive literal.
+///
+/// This is deprecated; use `tag(CaseInsensitive(_))` instead.
 ///
 /// The input data will be compared to the tag combinator's argument and will return the part of
 /// the input that matches the argument with no regard to case.
@@ -168,10 +172,11 @@ where
 /// ```rust
 /// # use winnow::{error::ErrMode, error::{InputError, ErrorKind}, error::Needed};
 /// # use winnow::prelude::*;
-/// use winnow::token::tag_no_case;
+/// use winnow::stream::CaseInsensitive;
+/// use winnow::token::tag;
 ///
 /// fn parser(s: &str) -> IResult<&str, &str> {
-///   tag_no_case("hello").parse_peek(s)
+///   tag(CaseInsensitive("hello")).parse_peek(s)
 /// }
 ///
 /// assert_eq!(parser("Hello, World!"), Ok((", World!", "Hello")));
@@ -185,10 +190,11 @@ where
 /// # use winnow::{error::ErrMode, error::{InputError, ErrorKind}, error::Needed};
 /// # use winnow::prelude::*;
 /// # use winnow::Partial;
-/// use winnow::token::tag_no_case;
+/// use winnow::stream::CaseInsensitive;
+/// use winnow::token::tag;
 ///
 /// fn parser(s: Partial<&str>) -> IResult<Partial<&str>, &str> {
-///   tag_no_case("hello").parse_peek(s)
+///   tag(CaseInsensitive("hello")).parse_peek(s)
 /// }
 ///
 /// assert_eq!(parser(Partial::new("Hello, World!")), Ok((Partial::new(", World!"), "Hello")));
@@ -201,45 +207,16 @@ where
 #[doc(alias = "literal")]
 #[doc(alias = "bytes")]
 #[doc(alias = "just")]
+#[deprecated(since = "0.5.20", note = "Replaced with `tag(CaseInsensitive(_))`")]
 pub fn tag_no_case<T, I, Error: ParserError<I>>(
     tag: T,
 ) -> impl Parser<I, <I as Stream>::Slice, Error>
 where
     I: StreamIsPartial,
-    I: Stream + Compare<T>,
+    I: Stream + Compare<CaseInsensitive<T>>,
     T: SliceLen + Clone,
 {
-    trace("tag_no_case", move |i: &mut I| {
-        let t = tag.clone();
-        if <I as StreamIsPartial>::is_partial_supported() {
-            tag_no_case_::<_, _, _, true>(i, t)
-        } else {
-            tag_no_case_::<_, _, _, false>(i, t)
-        }
-    })
-}
-
-fn tag_no_case_<T, I, Error: ParserError<I>, const PARTIAL: bool>(
-    i: &mut I,
-    t: T,
-) -> PResult<<I as Stream>::Slice, Error>
-where
-    I: StreamIsPartial,
-    I: Stream + Compare<T>,
-    T: SliceLen,
-{
-    let tag_len = t.slice_len();
-
-    match i.compare_no_case(t) {
-        CompareResult::Ok => Ok(i.next_slice(tag_len)),
-        CompareResult::Incomplete if PARTIAL && i.is_partial() => {
-            Err(ErrMode::Incomplete(Needed::new(tag_len - i.eof_offset())))
-        }
-        CompareResult::Incomplete | CompareResult::Error => {
-            let e: ErrorKind = ErrorKind::Tag;
-            Err(ErrMode::from_error_kind(i, e))
-        }
-    }
+    trace("tag_no_case", crate::token::tag(CaseInsensitive(tag)))
 }
 
 /// Recognize a token that matches the [pattern][ContainsToken]

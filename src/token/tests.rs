@@ -617,6 +617,7 @@ fn partial_length_bytes() {
 
 #[cfg(feature = "alloc")]
 #[test]
+#[allow(deprecated)]
 fn partial_case_insensitive() {
     fn test(i: Partial<&[u8]>) -> IResult<Partial<&[u8]>, &[u8]> {
         tag_no_case("ABcd").parse_peek(i)
@@ -685,6 +686,19 @@ fn partial_case_insensitive() {
             ErrorKind::Tag
         )))
     );
+}
+
+#[test]
+fn complete_case_insensitive() {
+    fn bytes(input: &[u8]) -> IResult<&[u8], &[u8]> {
+        tag(crate::stream::CaseInsensitive(b"ABcd")).parse_peek(input)
+    }
+    assert_eq!(bytes(b"aBCdefgh"), Ok((&b"efgh"[..], &b"aBCd"[..])));
+
+    fn string(input: &str) -> IResult<&str, &str> {
+        crate::stream::CaseInsensitive("ABcd").parse_peek(input)
+    }
+    assert_eq!(string("aBCdefgh"), Ok(("efgh", "aBCd")));
 }
 
 #[test]

@@ -332,6 +332,13 @@ pub trait SliceLen {
     fn slice_len(&self) -> usize;
 }
 
+impl<T: SliceLen> SliceLen for CaseInsensitive<T> {
+    #[inline(always)]
+    fn slice_len(&self) -> usize {
+        self.0.slice_len()
+    }
+}
+
 impl<'a, T> SliceLen for &'a [T] {
     #[inline]
     fn slice_len(&self) -> usize {
@@ -1570,18 +1577,29 @@ pub enum CompareResult {
     Error,
 }
 
+/// Marks a literal as being compared without regard to case
+///
+/// See [`Compare`] for the supported input and literal types.
+///
+/// # Example
+///
+/// ```rust
+/// use winnow::stream::CaseInsensitive;
+/// use winnow::Parser;
+///
+/// fn parser(input: &str) -> winnow::IResult<&str, &str> {
+///     CaseInsensitive("hello").parse_peek(input)
+/// }
+///
+/// assert_eq!(parser("Hello, world!"), Ok((", world!", "Hello")));
+/// ```
+#[derive(Copy, Clone, Debug, Default, Eq, PartialEq, Ord, PartialOrd, Hash)]
+pub struct CaseInsensitive<T>(pub T);
+
 /// Abstracts comparison operations
 pub trait Compare<T> {
     /// Compares self to another value for equality
     fn compare(&self, t: T) -> CompareResult;
-    /// Compares self to another value for equality
-    /// independently of the case.
-    ///
-    /// Warning: for `&str`, the comparison is done
-    /// by lowercasing both strings and comparing
-    /// the result. This is a temporary solution until
-    /// a better one appears
-    fn compare_no_case(&self, t: T) -> CompareResult;
 }
 
 fn lowercase_byte(c: u8) -> u8 {
@@ -1607,16 +1625,18 @@ impl<'a, 'b> Compare<&'b [u8]> for &'a [u8] {
             }
         }
     }
+}
 
+impl<'a, 'b> Compare<CaseInsensitive<&'b [u8]>> for &'a [u8] {
     #[inline]
-    fn compare_no_case(&self, t: &'b [u8]) -> CompareResult {
+    fn compare(&self, t: CaseInsensitive<&'b [u8]>) -> CompareResult {
         if self
             .iter()
-            .zip(t)
+            .zip(t.0)
             .any(|(a, b)| lowercase_byte(*a) != lowercase_byte(*b))
         {
             CompareResult::Error
-        } else if self.len() < t.len() {
+        } else if self.len() < t.0.len() {
             CompareResult::Incomplete
         } else {
             CompareResult::Ok
@@ -1629,10 +1649,12 @@ impl<'a, const LEN: usize> Compare<[u8; LEN]> for &'a [u8] {
     fn compare(&self, t: [u8; LEN]) -> CompareResult {
         self.compare(&t[..])
     }
+}
 
+impl<'a, const LEN: usize> Compare<CaseInsensitive<[u8; LEN]>> for &'a [u8] {
     #[inline(always)]
-    fn compare_no_case(&self, t: [u8; LEN]) -> CompareResult {
-        self.compare_no_case(&t[..])
+    fn compare(&self, t: CaseInsensitive<[u8; LEN]>) -> CompareResult {
+        self.compare(CaseInsensitive(&t.0[..]))
     }
 }
 
@@ -1641,10 +1663,12 @@ impl<'a, 'b, const LEN: usize> Compare<&'b [u8; LEN]> for &'a [u8] {
     fn compare(&self, t: &'b [u8; LEN]) -> CompareResult {
         self.compare(&t[..])
     }
+}
 
+impl<'a, 'b, const LEN: usize> Compare<CaseInsensitive<&'b [u8; LEN]>> for &'a [u8] {
     #[inline(always)]
-    fn compare_no_case(&self, t: &'b [u8; LEN]) -> CompareResult {
-        self.compare_no_case(&t[..])
+    fn compare(&self, t: CaseInsensitive<&'b [u8; LEN]>) -> CompareResult {
+        self.compare(CaseInsensitive(&t.0[..]))
     }
 }
 
@@ -1653,9 +1677,12 @@ impl<'a, 'b> Compare<&'b str> for &'a [u8] {
     fn compare(&self, t: &'b str) -> CompareResult {
         self.compare(t.as_bytes())
     }
+}
+
+impl<'a, 'b> Compare<CaseInsensitive<&'b str>> for &'a [u8] {
     #[inline(always)]
-    fn compare_no_case(&self, t: &'b str) -> CompareResult {
-        self.compare_no_case(t.as_bytes())
+    fn compare(&self, t: CaseInsensitive<&'b str>) -> CompareResult {
+        self.compare(CaseInsensitive(t.0.as_bytes()))
     }
 }
 
@@ -1664,24 +1691,20 @@ impl<'a, 'b> Compare<&'b str> for &'a str {
     fn compare(&self, t: &'b str) -> CompareResult {
         self.as_bytes().compare(t.as_bytes())
     }
+}
 
-    //FIXME: this version is too simple and does not use the current locale
+impl<'a, 'b> Compare<CaseInsensitive<&'b str>> for &'a str {
     #[inline]
-    fn compare_no_case(&self, t: &'b str) -> CompareResult {
+    fn compare(&self, t: CaseInsensitive<&'b str>) -> CompareResult {
         let pos = self
             .chars()
-            .zip(t.chars())
+            .zip(t.0.chars())
             .position(|(a, b)| a.to_lowercase().ne(b.to_lowercase()));
 
         match pos {
             Some(_) => CompareResult::Error,
-            None => {
-                if self.len() >= t.len() {
-                    CompareResult::Ok
-                } else {
-                    CompareResult::Incomplete
-                }
-            }
+            None if self.len() >= t.0.len() => CompareResult::Ok,
+            None => CompareResult::Incomplete,
         }
     }
 }
@@ -1691,9 +1714,12 @@ impl<'a, 'b> Compare<&'b [u8]> for &'a str {
     fn compare(&self, t: &'b [u8]) -> CompareResult {
         AsBStr::as_bstr(self).compare(t)
     }
+}
+
+impl<'a, 'b> Compare<CaseInsensitive<&'b [u8]>> for &'a str {
     #[inline(always)]
-    fn compare_no_case(&self, t: &'b [u8]) -> CompareResult {
-        AsBStr::as_bstr(self).compare_no_case(t)
+    fn compare(&self, t: CaseInsensitive<&'b [u8]>) -> CompareResult {
+        AsBStr::as_bstr(self).compare(t)
     }
 }
 
@@ -1707,11 +1733,6 @@ where
         bytes.compare(t)
     }
 
-    #[inline(always)]
-    fn compare_no_case(&self, t: T) -> CompareResult {
-        let bytes = (*self).as_bytes();
-        bytes.compare_no_case(t)
-    }
 }
 
 impl<'a, T> Compare<T> for &'a BStr
@@ -1724,11 +1745,6 @@ where
         bytes.compare(t)
     }
 
-    #[inline(always)]
-    fn compare_no_case(&self, t: T) -> CompareResult {
-        let bytes = (*self).as_bytes();
-        bytes.compare_no_case(t)
-    }
 }
 
 impl<I, U> Compare<U> for Located<I>
@@ -1740,10 +1756,6 @@ where
         self.input.compare(other)
     }
 
-    #[inline(always)]
-    fn compare_no_case(&self, other: U) -> CompareResult {
-        self.input.compare_no_case(other)
-    }
 }
 
 impl<I, S, U> Compare<U> for Stateful<I, S>
@@ -1755,10 +1767,6 @@ where
         self.input.compare(other)
     }
 
-    #[inline(always)]
-    fn compare_no_case(&self, other: U) -> CompareResult {
-        self.input.compare_no_case(other)
-    }
 }
 
 impl<I, T> Compare<T> for Partial<I>
@@ -1770,10 +1778,6 @@ where
         self.input.compare(t)
     }
 
-    #[inline(always)]
-    fn compare_no_case(&self, t: T) -> CompareResult {
-        self.input.compare_no_case(t)
-    }
 }
 
 /// Look for a slice in self

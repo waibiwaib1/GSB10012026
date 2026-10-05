@@ -13,7 +13,7 @@ use crate::combinator::opt;
 use crate::error::ParserError;
 use crate::error::{ErrMode, ErrorKind, Needed};
 use crate::stream::{AsBStr, AsChar, ParseSlice, Stream, StreamIsPartial};
-use crate::stream::{Compare, CompareResult};
+use crate::stream::{CaseInsensitive, Compare, CompareResult};
 use crate::token::one_of;
 use crate::token::take_till0;
 use crate::token::take_while;
@@ -1308,7 +1308,7 @@ pub fn float<I, O, E: ParserError<I>>(input: &mut I) -> PResult<O, E>
 where
     I: StreamIsPartial,
     I: Stream,
-    I: Compare<&'static str>,
+    I: Compare<&'static str> + Compare<CaseInsensitive<&'static str>>,
     <I as Stream>::Slice: ParseSlice<O>,
     <I as Stream>::Token: AsChar + Clone,
     <I as Stream>::IterOffsets: Clone,
@@ -1329,16 +1329,16 @@ fn recognize_float_or_exceptions<I, E: ParserError<I>>(
 where
     I: StreamIsPartial,
     I: Stream,
-    I: Compare<&'static str>,
+    I: Compare<&'static str> + Compare<CaseInsensitive<&'static str>>,
     <I as Stream>::Token: AsChar + Clone,
     <I as Stream>::IterOffsets: Clone,
     I: AsBStr,
 {
     alt((
         recognize_float,
-        crate::token::tag_no_case("nan"),
-        crate::token::tag_no_case("infinity"),
-        crate::token::tag_no_case("inf"),
+        crate::token::tag(CaseInsensitive::<&'static str>("nan")),
+        crate::token::tag(CaseInsensitive::<&'static str>("infinity")),
+        crate::token::tag(CaseInsensitive::<&'static str>("inf")),
     ))
     .parse_next(input)
 }
