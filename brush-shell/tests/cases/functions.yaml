@@ -90,3 +90,46 @@ cases:
 
       echo "Calling inner from toplevel"
       inner
+
+  - name: "Export function to child shell process"
+    stdin: |
+      myfunc() {
+        echo "In myfunc()"
+      }
+      export -f myfunc
+      bash -c myfunc
+
+  - name: "Export function to child shell process and re-export to grandchild"
+    stdin: |
+      myfunc() {
+        echo "In myfunc()"
+      }
+      export -f myfunc
+      bash -c 'bash -c myfunc'
+
+  - name: "List exported functions"
+    stdin: |
+      myfunc() {
+        :
+      }
+      export -f myfunc
+      export -pf
+      declare -F myfunc
+
+  - name: "Unexport function"
+    stdin: |
+      myfunc() {
+        :
+      }
+      export -f myfunc
+      export -fn myfunc
+      export -pf
+      echo "done"
+
+  - name: "Mark function exported via declare"
+    stdin: |
+      myfunc() {
+        :
+      }
+      declare -fx myfunc
+      export -pf

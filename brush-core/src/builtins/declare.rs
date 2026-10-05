@@ -161,6 +161,29 @@ impl builtins::Command for DeclareCommand {
 }
 
 impl DeclareCommand {
+    fn try_update_function_exported_attr(
+        context: &mut crate::commands::ExecutionContext<'_>,
+        declaration: &commands::CommandArg,
+        exported: bool,
+    ) -> Result<bool, error::Error> {
+        let commands::CommandArg::String(name) = declaration else {
+            writeln!(context.stderr(), "declare: {declaration}: not a function")?;
+            return Ok(false);
+        };
+
+        if let Some(registration) = context.shell.funcs.get_mut(name) {
+            if exported {
+                registration.export();
+            } else {
+                registration.unexport();
+            }
+            Ok(true)
+        } else {
+            writeln!(context.stderr(), "declare: {name}: not a function")?;
+            Ok(false)
+        }
+    }
+
     fn try_display_declaration(
         &self,
         context: &mut crate::commands::ExecutionContext<'_>,
@@ -185,7 +208,8 @@ impl DeclareCommand {
             if let Some(func_registration) = context.shell.funcs.get(name) {
                 if self.function_names_only {
                     if self.print {
-                        writeln!(context.stdout(), "declare -f {name}")?;
+                        let xflag = if func_registration.is_exported() { "x" } else { "" };
+                        writeln!(context.stdout(), "declare -f{xflag} {name}")?;
                     } else {
                         writeln!(context.stdout(), "{name}")?;
                     }
@@ -233,6 +257,10 @@ impl DeclareCommand {
             || (context.shell.in_function() && !self.create_global);
 
         if self.function_names_or_defs_only || self.function_names_only {
+            if let Some(exported) = self.make_exported.to_bool() {
+                return Self::try_update_function_exported_attr(context, declaration, exported);
+            }
+
             return self.try_display_declaration(context, declaration, verb);
         }
 
@@ -499,7 +527,8 @@ impl DeclareCommand {
     ) -> Result<(), error::Error> {
         for (name, registration) in context.shell.funcs.iter().sorted_by_key(|v| v.0) {
             if self.function_names_only {
-                writeln!(context.stdout(), "declare -f {name}")?;
+                let xflag = if registration.is_exported() { "x" } else { "" };
+                writeln!(context.stdout(), "declare -f{xflag} {name}")?;
             } else {
                 writeln!(context.stdout(), "{}", registration.definition)?;
             }

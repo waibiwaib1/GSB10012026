@@ -263,6 +263,21 @@ impl Shell {
         // Seed parameters from environment (unless requested not to do so).
         if !options.do_not_inherit_env {
             for (k, v) in std::env::vars() {
+                // Check for a function exported to us through the environment (e.g., by
+                // bash or another instance of this shell).
+                if let Some(func_name) = k
+                    .strip_prefix(functions::EXPORTED_FUNCTION_ENV_VAR_PREFIX)
+                    .and_then(|s| s.strip_suffix(functions::EXPORTED_FUNCTION_ENV_VAR_SUFFIX))
+                {
+                    if let Some(definition) = self.try_parse_exported_function(func_name, &v) {
+                        self.funcs.update(func_name.to_owned(), definition);
+                        if let Some(registration) = self.funcs.get_mut(func_name) {
+                            registration.export();
+                        }
+                        continue;
+                    }
+                }
+
                 let mut var = ShellVariable::new(ShellValue::String(v));
                 var.export();
                 self.env.set_global(k, var)?;
@@ -960,6 +975,28 @@ impl Shell {
         s: S,
     ) -> Result<brush_parser::ast::Program, brush_parser::ParseError> {
         parse_string_impl(s.into(), self.parser_options())
+    }
+
+    /// Tries to parse a function definition from its serialized exported form
+    /// (as found in the environment of a process).
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - The name of the function.
+    /// * `value` - The serialized form of the function definition.
+    fn try_parse_exported_function(
+        &self,
+        name: &str,
+        value: &str,
+    ) -> Option<Arc<brush_parser::ast::FunctionDefinition>> {
+        // The serialized form of an exported function is expected to look like: "() { ... }".
+        if !value.trim_start().starts_with("()") {
+            return None;
+        }
+
+        // Reconstruct a parseable function definition by prepending the function's name.
+        let program = self.parse_string(format!("{name} {value}")).ok()?;
+        extract_function_definition(&program)
     }
 
     /// Applies basic shell expansion to the provided string.
@@ -1697,6 +1734,37 @@ fn parse_string_impl(
 
     tracing::debug!(target: trace_categories::PARSE, "Parsing string as program...");
     parser.parse()
+}
+
+/// If the given program consists of exactly one function definition, returns it;
+/// otherwise, returns None.
+fn extract_function_definition(
+    program: &brush_parser::ast::Program,
+) -> Option<Arc<brush_parser::ast::FunctionDefinition>> {
+    if program.complete_commands.len() != 1 {
+        return None;
+    }
+
+    let items = &program.complete_commands[0].0;
+    if items.len() != 1 {
+        return None;
+    }
+
+    let and_or_list = &items[0].0;
+    if !and_or_list.additional.is_empty() {
+        return None;
+    }
+
+    let pipeline = &and_or_list.first;
+    if pipeline.bang || pipeline.timed.is_some() || pipeline.seq.len() != 1 {
+        return None;
+    }
+
+    if let brush_parser::ast::Command::Function(definition) = &pipeline.seq[0] {
+        Some(Arc::new(definition.clone()))
+    } else {
+        None
+    }
 }
 
 fn repeated_char_str(c: char, count: usize) -> String {

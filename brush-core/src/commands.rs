@@ -215,6 +215,17 @@ pub(crate) fn compose_std_command<S: AsRef<OsStr>>(
         for (k, v) in shell.env.iter_exported() {
             cmd.env(k.as_str(), v.value().to_cow_str(shell).as_ref());
         }
+
+        // Add in exported functions, serializing them in the same format used by bash.
+        for (name, registration) in shell.funcs.iter_exported() {
+            let var_name = format!(
+                "{}{name}{}",
+                crate::functions::EXPORTED_FUNCTION_ENV_VAR_PREFIX,
+                crate::functions::EXPORTED_FUNCTION_ENV_VAR_SUFFIX
+            );
+            let var_value = format!("() {}", registration.definition.body);
+            cmd.env(var_name, var_value);
+        }
     }
 
     // Redirect stdin, if applicable.

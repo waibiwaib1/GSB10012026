@@ -40,8 +40,12 @@ impl builtins::DeclarationCommand for ExportCommand {
 impl builtins::Command for ExportCommand {
     async fn execute(
         &self,
-        context: commands::ExecutionContext<'_>,
+        mut context: commands::ExecutionContext<'_>,
     ) -> Result<crate::builtins::ExitCode, crate::error::Error> {
+        if self.names_are_functions {
+            return Self::execute_for_functions(&mut context, self.unexport, &self.declarations);
+        }
+
         if !self.declarations.is_empty() {
             for decl in &self.declarations {
                 match decl {
@@ -101,6 +105,50 @@ impl builtins::Command for ExportCommand {
                         writeln!(context.stdout(), "declare -x {name}")?;
                     }
                 }
+            }
+        }
+
+        Ok(builtins::ExitCode::Success)
+    }
+}
+
+impl ExportCommand {
+    fn execute_for_functions(
+        context: &mut commands::ExecutionContext<'_>,
+        unexport: bool,
+        declarations: &[commands::CommandArg],
+    ) -> Result<crate::builtins::ExitCode, crate::error::Error> {
+        if !declarations.is_empty() {
+            for decl in declarations {
+                match decl {
+                    commands::CommandArg::String(name) => {
+                        if let Some(registration) = context.shell.funcs.get_mut(name) {
+                            if unexport {
+                                registration.unexport();
+                            } else {
+                                registration.export();
+                            }
+                        } else {
+                            writeln!(context.stderr(), "export: {name}: not a function")?;
+                            return Ok(builtins::ExitCode::Custom(1));
+                        }
+                    }
+                    commands::CommandArg::Assignment(_) => {
+                        writeln!(context.stderr(), "export: {decl}: not a function")?;
+                        return Ok(builtins::ExitCode::InvalidUsage);
+                    }
+                }
+            }
+        } else {
+            // Enumerate exported functions, sorted by name.
+            for (name, registration) in context
+                .shell
+                .funcs
+                .iter_exported()
+                .sorted_by_key(|v| v.0)
+            {
+                writeln!(context.stdout(), "{}", registration.definition)?;
+                writeln!(context.stdout(), "declare -fx {name}")?;
             }
         }
 
