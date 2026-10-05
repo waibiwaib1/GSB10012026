@@ -9,7 +9,6 @@ from pathlib import (  # type: ignore
     PosixPath,
     PurePosixPath,
     WindowsPath,
-    _PathParents,
 )
 
 import shutil
@@ -56,15 +55,27 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-if sys.version_info >= (3, 12):
+if sys.version_info < (3, 12):
+    from pathlib import _posix_flavour  # type: ignore[attr-defined] # noqa: F811
+    from pathlib import _make_selector as _make_selector_pathlib  # type: ignore[attr-defined] # noqa: F811
+    from pathlib import _PathParents  # type: ignore[attr-defined]
+
+    def _make_selector(pattern_parts, _flavour, case_sensitive=True):  # noqa: F811
+        return _make_selector_pathlib(tuple(pattern_parts), _flavour)
+
+elif sys.version_info[:2] == (3, 12):
+    from pathlib import _PathParents  # type: ignore[attr-defined]
     from pathlib import posixpath as _posix_flavour  # type: ignore[attr-defined]
     from pathlib import _make_selector  # type: ignore[attr-defined]
-else:
-    from pathlib import _posix_flavour  # type: ignore[attr-defined]
-    from pathlib import _make_selector as _make_selector_pathlib  # type: ignore[attr-defined]
+elif sys.version_info[:2] == (3, 13):
+    from pathlib._local import _PathParents
+    import posixpath as _posix_flavour  # type: ignore[attr-defined]   # noqa: F811
 
-    def _make_selector(pattern_parts, _flavour, case_sensitive=True):
-        return _make_selector_pathlib(tuple(pattern_parts), _flavour)
+    from .legacy.glob import _make_selector  # noqa: F811
+elif sys.version_info >= (3, 14):
+    from pathlib import _PathParents  # type: ignore[attr-defined]
+    import posixpath as _posix_flavour  # type: ignore[attr-defined]
+    from .legacy.glob import _make_selector  # noqa: F811
 
 
 from cloudpathlib.enums import FileCacheMode
