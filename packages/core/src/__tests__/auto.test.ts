@@ -116,12 +116,31 @@ describe('Auto', () => {
     await auto.loadConfig();
 
     expect([...auto.semVerLabels!.values()]).toEqual([
-      'Version: Major',
-      'Version: Minor',
-      'Version: Patch',
-      'skip-release',
-      'release',
-      'prerelease'
+      ['Version: Major'],
+      ['Version: Minor'],
+      ['Version: Patch'],
+      ['skip-release'],
+      ['release'],
+      ['prerelease']
+    ]);
+  });
+
+  test('should allow multiple labels to map to the same version', async () => {
+    search.mockReturnValueOnce({
+      config: {
+        ...defaults,
+        labels: {
+          minor: [{ name: 'minor' }, { name: 'new-component' }]
+        }
+      }
+    });
+    const auto = new Auto();
+    auto.logger = dummyLog();
+    await auto.loadConfig();
+
+    expect(auto.semVerLabels!.get(SEMVER.minor)).toEqual([
+      'minor',
+      'new-component'
     ]);
   });
 
@@ -944,7 +963,7 @@ describe('hooks', () => {
 
       auto.hooks.onCreateLogParse.tap('test', logParse => {
         logParse.hooks.parseCommit.tap('test parse', commit => {
-          commit.labels = [auto.semVerLabels!.get(SEMVER.major)!];
+          commit.labels = auto.semVerLabels!.get(SEMVER.major)!;
           return commit;
         });
       });
@@ -964,7 +983,7 @@ describe('hooks', () => {
 
       auto.hooks.onCreateLogParse.tap('test', logParse => {
         logParse.hooks.parseCommit.tap('test parse', commit => {
-          commit.labels = [auto.semVerLabels!.get(SEMVER.major)!];
+          commit.labels = auto.semVerLabels!.get(SEMVER.major)!;
           return commit;
         });
       });

@@ -163,6 +163,7 @@ You can configure multiple labels to skip releases.
 If you want to `auto create-labels` to add other labels to your project (ones that aren't used for
 versioning or the changelog), you can use the `labels` section. Just omit the `title` property.
 
+
 ```json
 {
   "labels": {
@@ -171,6 +172,28 @@ versioning or the changelog), you can use the `labels` section. Just omit the `t
       "color": "purple"
     },
     ...
+  }
+}
+```
+
+#### Multiple Labels for a Version
+
+You can map multiple labels to the same semver bump by providing an array of
+label definitions. Each entry can be a label name or a full label definition.
+The following makes both the `minor` and `new-component` labels create a
+`minor` release when merged.
+
+```json
+{
+  "labels": {
+    "minor": [
+      "minor",
+      {
+        "name": "new-component",
+        "title": "New Component",
+        "description": "Add a new component to the project"
+      }
+    ]
   }
 }
 ```

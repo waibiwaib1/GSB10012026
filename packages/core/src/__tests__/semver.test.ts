@@ -1,4 +1,4 @@
-import { getVersionMap } from '../release';
+import { defaultLabelDefinition, getVersionMap } from '../release';
 import SEMVER, { calculateSemVerBump, getHigherSemverTag } from '../semver';
 
 const semverMap = getVersionMap();
@@ -40,5 +40,19 @@ describe('calculateSemVerBump', () => {
         skipReleaseLabels: ['documentation']
       })
     ).toBe(SEMVER.major);
+  });
+  test('should be able to map multiple labels to a version', () => {
+    const labelMap = getVersionMap({
+      ...defaultLabelDefinition,
+      minor: [{ name: 'minor' }, { name: 'new-component' }]
+    });
+
+    expect(calculateSemVerBump([['new-component']], labelMap)).toBe(
+      SEMVER.minor
+    );
+    expect(calculateSemVerBump([['minor']], labelMap)).toBe(SEMVER.minor);
+    expect(calculateSemVerBump([['new-component', 'major']], labelMap)).toBe(
+      SEMVER.major
+    );
   });
 });

@@ -111,7 +111,7 @@ export default class Auto {
   release?: Release;
   git?: Git;
   labels?: ILabelDefinitionMap;
-  semVerLabels?: Map<VersionLabel, string>;
+  semVerLabels?: Map<VersionLabel, string[]>;
 
   private versionBump?: SEMVER;
 
@@ -327,8 +327,12 @@ export default class Auto {
       sha = res.data.head.sha;
 
       const labels = await this.git.getLabels(prNumber);
-      const labelTexts = [...this.semVerLabels.values()];
-      const releaseTag = labels.find(l => l === 'release');
+      const labelTexts = [...this.semVerLabels.values()].reduce(
+        (all, labelNames) => [...all, ...labelNames],
+        [] as string[]
+      );
+      const releaseLabels = this.semVerLabels.get('release') || [];
+      const releaseTag = labels.find(l => releaseLabels.includes(l));
 
       const skipReleaseTag = labels.find(
         l =>
@@ -339,7 +343,7 @@ export default class Auto {
           labelTexts.includes(l) &&
           !!this.release &&
           !this.release.options.skipReleaseLabels.includes(l) &&
-          l !== 'release'
+          !releaseLabels.includes(l)
       );
 
       if (semverTag === undefined && !skipReleaseTag) {

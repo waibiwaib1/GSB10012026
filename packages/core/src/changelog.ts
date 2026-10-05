@@ -3,7 +3,7 @@ import { URL } from 'url';
 import join from 'url-join';
 
 import { ICommitAuthor, IExtendedCommit } from './log-parse';
-import { ILabelDefinitionMap } from './release';
+import { ILabelDefinition, ILabelDefinitionMap } from './release';
 import { ILogger } from './utils/logger';
 import { makeChangelogHooks } from './utils/make-hooks';
 
@@ -141,6 +141,10 @@ export default class Changelog {
     let currentCommits = [...commits];
     const order = ['major', 'minor', 'patch'];
     const sections = Object.values(this.options.labels)
+      .reduce<ILabelDefinition[]>(
+        (acc, label) => [...acc, ...(Array.isArray(label) ? label : [label])],
+        []
+      )
       .filter(label => label.title)
       .sort((a, b) => {
         const bIndex = order.indexOf(b.name) + 1 || order.length + 1;
@@ -278,9 +282,13 @@ export default class Changelog {
   private async createLabelSection(split: ICommitSplit, sections: string[]) {
     const changelogTitles = Object.entries(this.options.labels).reduce(
       (titles, [, labelDef]) => {
-        if (labelDef.title) {
-          titles[labelDef.name] = labelDef.title;
-        }
+        const definitions = Array.isArray(labelDef) ? labelDef : [labelDef];
+
+        definitions.forEach(definition => {
+          if (definition.title) {
+            titles[definition.name] = definition.title;
+          }
+        });
 
         return titles;
       },

@@ -12,26 +12,39 @@ import {
 import { ILogger } from './utils/logger';
 import tryRequire from './utils/try-require';
 
+type LabelConfig =
+  | Partial<ILabelDefinition>
+  | string
+  | (Partial<ILabelDefinition> | string)[];
+
 function normalizeLabels(config: cosmiconfig.Config) {
   let labels = defaultLabelDefinition;
 
   if (config.labels) {
-    const definitions = Object.entries<Partial<ILabelDefinition> | string>(
-      config.labels
-    ).map(([label, labelDef]) => {
-      const definition =
-        typeof labelDef === 'string' ? { name: labelDef } : labelDef;
+    const definitions = Object.entries<LabelConfig>(config.labels).map(
+      ([label, labelDef]) => {
+      const labelDefinitions = Array.isArray(labelDef)
+        ? labelDef
+        : [labelDef];
+      const normalized = labelDefinitions.map(definition => {
+        const normalizedDefinition =
+          typeof definition === 'string' ? { name: definition } : definition;
 
-      if (!definition.name) {
-        definition.name = label;
-      }
+        if (!normalizedDefinition.name) {
+          normalizedDefinition.name = label;
+        }
+
+        return normalizedDefinition;
+      });
 
       return {
-        [label]: definition
+        [label]: normalized.length === 1 ? normalized[0] : normalized
       };
     });
 
-    labels = merge(labels, Object.assign({}, ...definitions));
+    labels = merge(labels, Object.assign({}, ...definitions), {
+      arrayMerge: (target, source) => source
+    });
   }
 
   return labels;
@@ -80,9 +93,11 @@ export default class Config {
 
     const skipReleaseLabels = rawConfig.skipReleaseLabels || [];
 
-    if (!skipReleaseLabels.includes(semVerLabels.get('skip-release')!)) {
-      skipReleaseLabels.push(semVerLabels.get('skip-release')!);
-    }
+    const skipLabels = semVerLabels.get('skip-release')!;
+
+    skipReleaseLabels.push(
+      ...skipLabels.filter(label => !skipReleaseLabels.includes(label))
+    );
 
     return {
       ...rawConfig,

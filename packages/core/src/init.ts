@@ -83,7 +83,10 @@ async function getCustomLabels(onlyLabels = false) {
   let customLabels = {};
 
   if (useCustomChangelogTitles.value) {
-    const labels = Object.entries(defaultLabelDefinition);
+    const labels = Object.entries(defaultLabelDefinition) as [
+      string,
+      ILabelDefinition
+    ][];
     let i = 0;
 
     while (labels[i]) {

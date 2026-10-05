@@ -82,7 +82,7 @@ export interface ILabelDefinition {
 }
 
 export interface ILabelDefinitionMap {
-  [label: string]: ILabelDefinition;
+  [label: string]: ILabelDefinition | ILabelDefinition[];
 }
 
 export const defaultLabelDefinition: ILabelDefinitionMap = {
@@ -129,12 +129,17 @@ export const defaultLabelDefinition: ILabelDefinitionMap = {
 export const getVersionMap = (labels = defaultLabelDefinition) =>
   Object.entries(labels).reduce((semVer, [label, labelDef]) => {
     if (isVersionLabel(label)) {
-      semVer.set(label, labelDef.name);
+      const definitions = Array.isArray(labelDef) ? labelDef : [labelDef];
+
+      semVer.set(
+        label,
+        definitions.map(definition => definition.name)
+      );
     }
 
     return semVer;
     // tslint:disable-next-line align
-  }, new Map<VersionLabel, string>());
+  }, new Map<VersionLabel, string[]>());
 
 const readFile = promisify(fs.readFile);
 const writeFile = promisify(fs.writeFile);
@@ -238,7 +243,7 @@ export default class Release {
 
   private readonly git: Git;
   private readonly logger: ILogger;
-  private readonly versionLabels: Map<VersionLabel, string>;
+  private readonly versionLabels: Map<VersionLabel, string[]>;
 
   constructor(
     git: Git,
@@ -475,11 +480,19 @@ export default class Release {
             return;
           }
 
-          if (oldLabels && oldLabels.includes(labelDef.name)) {
-            await this.git.updateLabel(label, labelDef);
-          } else {
-            await this.git.createLabel(label, labelDef);
-          }
+          const definitions = Array.isArray(labelDef)
+            ? labelDef
+            : [labelDef];
+
+          await Promise.all(
+            definitions.map(async definition => {
+              if (oldLabels && oldLabels.includes(definition.name)) {
+                await this.git.updateLabel(label, definition);
+              } else {
+                await this.git.createLabel(label, definition);
+              }
+            })
+          );
         })
       );
     }
