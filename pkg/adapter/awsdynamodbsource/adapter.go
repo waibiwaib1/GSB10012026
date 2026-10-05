@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -38,6 +39,9 @@ import (
 	"github.com/triggermesh/aws-event-sources/pkg/adapter/common"
 	"github.com/triggermesh/aws-event-sources/pkg/apis/sources/v1alpha1"
 )
+
+// pollInterval is the interval at which the DynamoDB Streams API is polled.
+const pollInterval = 5 * time.Second
 
 // envConfig is a set parameters sourced from the environment for the source's
 // adapter.
@@ -112,7 +116,10 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 
 	a.logger.Debugf("Streams descriptions: %v", streamsDescriptions)
 
-	for {
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
 		shardIterators, err := a.getShardIterators(streamsDescriptions)
 		if err != nil {
 			a.logger.Errorw("Failed to get shard iterators", zap.Error(err))
@@ -125,6 +132,8 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 			}
 		}
 	}
+
+	return nil
 }
 
 func (a *adapter) getStreams() ([]*dynamodbstreams.Stream, error) {

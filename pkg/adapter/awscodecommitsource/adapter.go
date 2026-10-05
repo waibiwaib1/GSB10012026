@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -47,6 +48,9 @@ var (
 const (
 	pushEventType = "push"
 	prEventType   = "pull_request"
+
+	// pollInterval is the interval at which the CodeCommit API is polled.
+	pollInterval = 5 * time.Second
 )
 
 // envConfig is a set parameters sourced from the environment for the source's
@@ -140,8 +144,10 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 		a.logger.Errorw("Failed to process pull requests", "error", err)
 	}
 
-	//range time.Tick(time.Duration(syncTime) * time.Second)
-	for {
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
 		if strings.Contains(a.gitEvents, pushEventType) {
 			err := a.processCommits()
 			if err != nil {
@@ -166,6 +172,8 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 			}
 		}
 	}
+
+	return nil
 }
 
 func (a *adapter) processCommits() error {

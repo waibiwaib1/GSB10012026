@@ -19,6 +19,7 @@ package awskinesissource
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -38,6 +39,9 @@ import (
 	"github.com/triggermesh/aws-event-sources/pkg/adapter/common"
 	"github.com/triggermesh/aws-event-sources/pkg/apis/sources/v1alpha1"
 )
+
+// pollInterval is the interval at which the Kinesis API is polled.
+const pollInterval = 5 * time.Second
 
 // envConfig is a set parameters sourced from the environment for the source's
 // adapter.
@@ -104,12 +108,17 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 	// Obtain records inputs for different shards
 	inputs, shardIDs := a.getRecordsInputs(myStream.StreamDescription.Shards)
 
-	for {
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for range ticker.C {
 		err := a.processInputs(inputs, shardIDs, streamARN)
 		if err != nil {
 			a.logger.Errorw("Failed to process inputs", zap.Error(err))
 		}
 	}
+
+	return nil
 }
 
 func (a *adapter) getRecordsInputs(shards []*kinesis.Shard) ([]kinesis.GetRecordsInput, []*string) {

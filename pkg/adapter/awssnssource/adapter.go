@@ -99,7 +99,10 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 	// Setup subscription in the background. Will keep us from having chicken/egg between server
 	// being ready to respond and us having the info we need for the subscription request
 	go func() {
-		for {
+		ticker := time.NewTicker(defaultSubscriptionPeriod)
+		defer ticker.Stop()
+
+		for range ticker.C {
 			if err := a.attempSubscription(defaultSubscriptionPeriod); err != nil {
 				a.logger.Error(err)
 			}
@@ -114,8 +117,6 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 }
 
 func (a *adapter) attempSubscription(period time.Duration) error {
-	time.Sleep(period)
-
 	topic, err := a.snsClient.CreateTopic(&sns.CreateTopicInput{Name: &a.arn.Resource})
 	if err != nil {
 		return err
