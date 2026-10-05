@@ -502,6 +502,21 @@ func TestEnv(t *testing.T) {
 	assert.Equal(t, "crunk", Get("name"))
 }
 
+func TestMultipleEnv(t *testing.T) {
+	initJSON()
+
+	BindEnv("f", "FOOD", "OLD_FOOD")
+
+	os.Setenv("OLD_FOOD", "old apple")
+	os.Setenv("FOOD", "apple")
+
+	assert.Equal(t, "apple", Get("f"))
+
+	os.Unsetenv("FOOD")
+
+	assert.Equal(t, "old apple", Get("f"))
+}
+
 func TestEmptyEnv(t *testing.T) {
 	initJSON()
 
