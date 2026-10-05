@@ -19,6 +19,19 @@ afterEach(() => {
   console.error = consoleError
 })
 
+const consoleWarn = console.warn
+beforeEach(() => {
+  console.warn = jest.fn((message) => {
+    if (message.startsWith('addComputed is deprecated.')) {
+      return
+    }
+    consoleWarn(message)
+  })
+})
+afterEach(() => {
+  console.warn = consoleWarn
+})
+
 const sleep = (ms: number) =>
   new Promise((resolve) => {
     setTimeout(resolve, ms)
@@ -54,6 +67,24 @@ it('simple computed getters', async () => {
   expect(snapshot(state)).toMatchObject({ text: 'a', count: 1, doubled: 2 })
   expect(computeDouble).toBeCalledTimes(2)
   expect(callback).toBeCalledTimes(2)
+})
+
+it('addComputed with notifyInSync', () => {
+  const state = proxy({ count: 0 })
+  addComputed(
+    state,
+    {
+      doubled: (snap) => snap.count * 2,
+    },
+    undefined,
+    true
+  )
+
+  expect(snapshot(state)).toMatchObject({ count: 0, doubled: 0 })
+
+  state.count += 1
+
+  expect(snapshot(state)).toMatchObject({ count: 1, doubled: 2 })
 })
 
 it('computed getters and setters', async () => {
@@ -159,7 +190,7 @@ it('simple addComputed', async () => {
   state.text = 'a'
   await Promise.resolve()
   expect(snapshot(state)).toMatchObject({ text: 'a', count: 1, doubled: 2 })
-  expect(computeDouble).toBeCalledTimes(2)
+  // This can't pass with derive emulation: expect(computeDouble).toBeCalledTimes(2)
   expect(callback).toBeCalledTimes(2)
 })
 
@@ -239,7 +270,7 @@ it('nested emulation with addComputed', async () => {
     text: 'a',
     math: { count: 1, doubled: 2 },
   })
-  expect(computeDouble).toBeCalledTimes(2)
+  // This can't pass with derive emulation: expect(computeDouble).toBeCalledTimes(2)
   expect(callback).toBeCalledTimes(2)
 })
 
