@@ -54,8 +54,19 @@ export function normalizeStyleRules(
         return [key, value];
       }
 
-      // Fallback value
       if (Array.isArray(value)) {
+        // "animationName" can contain an array of objects with keyframes, all other arrays contain fallback values
+        if (key === 'animationName') {
+          return [
+            key,
+            value.map(rule =>
+              typeof rule === 'object'
+                ? normalizeStyleRules(path, projectRoot, filename, rule as unknown as GriffelStyle)
+                : normalizeStyleRule(path, projectRoot, filename, rule as string),
+            ),
+          ];
+        }
+
         return [key, value.map(rule => normalizeStyleRule(path, projectRoot, filename, rule as string))];
       }
 

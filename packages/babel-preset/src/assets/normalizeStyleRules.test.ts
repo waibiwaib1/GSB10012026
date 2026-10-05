@@ -128,4 +128,92 @@ describe('normalizeStyleRules', () => {
       },
     });
   });
+
+  it('handles keyframes in animationName', () => {
+    expect(
+      normalizeStyleRules(
+        path.posix,
+        '/home/projects/foo',
+        '/home/projects/foo/src/styles/Component.styles.ts',
+
+        {
+          root: {
+            animationName: {
+              from: {
+                backgroundImage: 'url(../../assets/keyframeImage.jpg)',
+              },
+              to: {
+                backgroundImage: 'red',
+              },
+            },
+          },
+        },
+      ),
+    ).toEqual({
+      root: {
+        animationName: {
+          from: {
+            backgroundImage: 'url(assets/keyframeImage.jpg)',
+          },
+          to: {
+            backgroundImage: 'red',
+          },
+        },
+      },
+    });
+  });
+
+  it('handles array of keyframes in animationName', () => {
+    expect(
+      normalizeStyleRules(
+        path.posix,
+        '/home/projects/foo',
+        '/home/projects/foo/src/styles/Component.styles.ts',
+
+        {
+          root: {
+            animationName: [
+              {
+                from: {
+                  backgroundImage: 'url(../../assets/firstKeyframeImage.jpg)',
+                },
+                to: {
+                  backgroundImage: 'red',
+                },
+              },
+              {
+                from: {
+                  backgroundImage: 'url(../../assets/secondKeyframeImage.jpg)',
+                },
+                to: {
+                  backgroundImage: 'blue',
+                },
+              },
+            ],
+          },
+        },
+      ),
+    ).toEqual({
+      root: {
+        animationName: [
+          {
+            from: {
+              backgroundImage: 'url(assets/firstKeyframeImage.jpg)',
+            },
+            to: {
+              backgroundImage: 'red',
+            },
+          },
+          {
+            from: {
+              backgroundImage: 'url(assets/secondKeyframeImage.jpg)',
+            },
+            to: {
+              backgroundImage: 'blue',
+            },
+          },
+        ],
+      },
+    });
+  });
 });

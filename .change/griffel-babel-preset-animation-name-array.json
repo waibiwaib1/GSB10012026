@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "fix: support arrays of keyframes in "animationName" without throwing",
+  "packageName": "@griffel/babel-preset",
+  "email": "griffel@microsoft.com",
+  "dependentChangeType": "patch"
+}
