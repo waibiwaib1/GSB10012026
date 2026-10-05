@@ -29,8 +29,6 @@ from textwrap import dedent
 from typing import Any, Callable, Dict, Optional, Pattern, Union
 
 from jinja2 import Template
-from packaging.specifiers import SpecifierSet
-
 import robocop.exceptions
 from robocop.utils import ROBOT_VERSION
 
@@ -304,7 +302,7 @@ class Rule:
     def supported_in_rf_version(version: str) -> bool:
         if not version:
             return True
-        return ROBOT_VERSION in SpecifierSet(version, prereleases=True)
+        return ROBOT_VERSION.matches(version)
 
     @staticmethod
     def get_template(msg: str) -> Optional[Template]:

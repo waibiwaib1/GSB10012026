@@ -15,14 +15,101 @@ try:
 except ImportError:
     from robot.parsing.model.statements import Variable
 
-from packaging import version
 from robot.version import VERSION as RF_VERSION
 
 from robocop.exceptions import InvalidExternalCheckerError
 from robocop.version import __version__
 
-ROBOT_VERSION = version.parse(RF_VERSION)
-ROBOT_WITH_LANG = version.parse("6.0")
+
+class RobotVersion:
+    def __init__(self, release: Tuple[int, ...], is_prerelease: bool = False):
+        self.release = release
+        self.is_prerelease = is_prerelease
+
+    @property
+    def major(self) -> int:
+        return self.release[0] if self.release else 0
+
+    @property
+    def minor(self) -> int:
+        return self.release[1] if len(self.release) > 1 else 0
+
+    def matches(self, specifiers: str) -> bool:
+        return all(self._matches_specifier(specifier.strip()) for specifier in specifiers.split(","))
+
+    def _matches_specifier(self, specifier: str) -> bool:
+        match = re.fullmatch(r"(===|==|!=|>=|<=|>|<)?\s*([^;\s]+)", specifier)
+        if match is None:
+            raise ValueError(f"Invalid Robot Framework version specifier: '{specifier}'")
+        operator, expected_version = match.groups()
+        operator = operator or "=="
+        if expected_version.endswith(".*"):
+            prefix = parse_robot_version(expected_version[:-2]).release
+            matches_prefix = self.release[: len(prefix)] == prefix
+            return matches_prefix if operator == "==" else not matches_prefix
+
+        expected = parse_robot_version(expected_version).release
+        current = self.release + (0,) * max(0, len(expected) - len(self.release))
+        expected = expected + (0,) * max(0, len(self.release) - len(expected))
+        if self.is_prerelease and current == expected:
+            current = current[:-1] + (current[-1] - 1,)
+
+        if operator in ("==", "==="):
+            return current == expected
+        if operator == "!=":
+            return current != expected
+        if operator == ">=":
+            return current >= expected
+        if operator == "<=":
+            return current <= expected
+        if operator == ">":
+            return current > expected
+        if operator == "<":
+            return current < expected
+        raise ValueError(f"Invalid Robot Framework version specifier: '{specifier}'")
+
+    def _compare(self, other: "RobotVersion") -> int:
+        current = self.release + (0,) * max(0, len(other.release) - len(self.release))
+        expected = other.release + (0,) * max(0, len(self.release) - len(other.release))
+        return (current > expected) - (current < expected)
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, RobotVersion)
+            and self.release == other.release
+            and self.is_prerelease == other.is_prerelease
+        )
+
+    def __lt__(self, other):
+        return self._compare(other) < 0
+
+    def __le__(self, other):
+        return self._compare(other) <= 0
+
+    def __gt__(self, other):
+        return self._compare(other) > 0
+
+    def __ge__(self, other):
+        return self._compare(other) >= 0
+
+    def __hash__(self):
+        return hash((self.release, self.is_prerelease))
+
+    def __repr__(self):
+        return f"RobotVersion({'.'.join(str(part) for part in self.release)})"
+
+
+def parse_robot_version(version_string: str) -> RobotVersion:
+    match = re.match(r"\d+(?:\.\d+)*", version_string)
+    if match is None:
+        return RobotVersion(())
+    release = tuple(int(part) for part in match.group(0).split("."))
+    remainder = version_string[match.end() :]
+    return RobotVersion(release, bool(remainder))
+
+
+ROBOT_VERSION = parse_robot_version(RF_VERSION)
+ROBOT_WITH_LANG = parse_robot_version("6.0")
 
 
 def rf_supports_lang():

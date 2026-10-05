@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import List, Optional
 
 import pytest
-from packaging.specifiers import Specifier
 
 from robocop import Robocop
 from robocop.config import Config
@@ -147,4 +146,4 @@ class RuleAcceptance:
     def enabled_in_version(target_version):
         if target_version is None:
             return True
-        return ROBOT_VERSION in Specifier(target_version)
+        return ROBOT_VERSION.matches(target_version)

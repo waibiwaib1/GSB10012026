@@ -9,6 +9,7 @@ from robocop.utils import (
     pattern_type,
     remove_robot_vars,
 )
+from robocop.utils.misc import parse_robot_version
 
 
 def detect_from_file(file):
@@ -138,6 +139,53 @@ class TestRecommendationFinder:
 
 
 class TestMisc:
+    @pytest.mark.parametrize(
+        "version_string, major, minor",
+        [
+            ("3", 3, 0),
+            ("4.0", 4, 0),
+            ("5.1.2", 5, 1),
+            ("6.0.dev1", 6, 0),
+            ("7.1rc1", 7, 1),
+        ],
+    )
+    def test_parse_robot_version(self, version_string, major, minor):
+        parsed_version = parse_robot_version(version_string)
+
+        assert parsed_version.major == major
+        assert parsed_version.minor == minor
+
+    @pytest.mark.parametrize(
+        "version_string, other_version, expected",
+        [
+            ("4", "4.0", False),
+            ("5.1", "5.0", True),
+            ("6.0.1", "6.1", False),
+            ("7.0", "6.9", True),
+        ],
+    )
+    def test_compare_robot_version(self, version_string, other_version, expected):
+        assert (parse_robot_version(version_string) > parse_robot_version(other_version)) is expected
+
+    @pytest.mark.parametrize(
+        "version_string, specifiers, expected",
+        [
+            ("3.2.2", "<4.0", True),
+            ("4.0", "<4.0", False),
+            ("4.1.3", "==4.1.3", True),
+            ("4.1.4", "==4.1.3", False),
+            ("4.9", "==4.*", True),
+            ("5.0", "==4.*", False),
+            ("5.1", "!=5.*", False),
+            ("6.0", ">=5,<7", True),
+            ("7.0", ">=5,<7", False),
+            ("6.0.dev1", ">=6.0", False),
+            ("6.0.dev1", "==6.*", True),
+        ],
+    )
+    def test_version_matches_specifiers(self, version_string, specifiers, expected):
+        assert parse_robot_version(version_string).matches(specifiers) is expected
+
     @pytest.mark.parametrize(
         "string, replaced",
         [
