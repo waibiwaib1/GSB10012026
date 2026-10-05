@@ -51,6 +51,17 @@ impl Rbool {
 }
 
 gen_trait_impl!(Rbool, bool, |x: &Rbool| x.inner() == i32::MIN, i32::MIN);
+gen_partial_ord!(Rbool);
+
+impl PartialOrd<bool> for Rbool {
+    fn partial_cmp(&self, other: &bool) -> Option<std::cmp::Ordering> {
+        if self.is_na() {
+            None
+        } else {
+            self.inner().partial_cmp(&(i32::from(*other)))
+        }
+    }
+}
 gen_from_primitive!(Rbool, i32);
 
 impl From<bool> for Rbool {

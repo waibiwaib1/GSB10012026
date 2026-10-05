@@ -444,3 +444,41 @@ fn test_rfloat_opassign() {
         assert!(b.is_nan());
     }
 }
+
+#[test]
+fn test_partial_ord() {
+    test! {
+        // Rint
+        assert!(Rint::from(1) < Rint::from(2));
+        assert!(Rint::from(2) > Rint::from(1));
+        assert!(Rint::from(1) <= Rint::from(1));
+        assert!(Rint::from(1) >= Rint::from(1));
+        assert!(Rint::from(1) < 2);
+        assert!(Rint::from(1).partial_cmp(&Rint::na()).is_none());
+        assert!(Rint::na().partial_cmp(&Rint::from(1)).is_none());
+        assert!(Rint::na().partial_cmp(&1).is_none());
+
+        // Rfloat
+        assert!(Rfloat::from(1.0) < Rfloat::from(2.0));
+        assert!(Rfloat::from(2.0) > Rfloat::from(1.0));
+        assert!(Rfloat::from(1.0) <= Rfloat::from(1.0));
+        assert!(Rfloat::from(1.0) >= Rfloat::from(1.0));
+        assert!(Rfloat::from(1.0) < 2.0);
+        assert!(Rfloat::from(1.0).partial_cmp(&Rfloat::na()).is_none());
+        assert!(Rfloat::na().partial_cmp(&Rfloat::from(1.0)).is_none());
+        assert!(Rfloat::na().partial_cmp(&1.0).is_none());
+
+        // min/max of two Rfloats
+        let x = Rfloat::from(1.0);
+        let y = Rfloat::from(2.0);
+        assert_eq!(if x < y { x } else { y }, Rfloat::from(1.0));
+        assert_eq!(if x > y { x } else { y }, Rfloat::from(2.0));
+
+        // Rbool
+        assert!(Rbool::from_bool(false) < Rbool::from_bool(true));
+        assert!(Rbool::from_bool(true) > Rbool::from_bool(false));
+        assert!(Rbool::from_bool(true) > false);
+        assert!(Rbool::from_bool(true).partial_cmp(&Rbool::na()).is_none());
+        assert!(Rbool::na().partial_cmp(&true).is_none());
+    }
+}

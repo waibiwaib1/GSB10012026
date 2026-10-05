@@ -855,11 +855,57 @@ macro_rules! gen_sum_iter {
     };
 }
 
+/// Generates an implementation of PartialOrd for a scalar type
+///
+/// NA values are treated like NaN: any comparison involving NA
+/// returns None from partial_cmp, so the comparison operators
+/// (<, <=, >, >=) evaluate to false.
+///
+/// This macro requires the following arguments:
+///
+/// * $type      - The Type the Trait is implemented for
+/// * $type_prim - The primitive Rust scalar type that corresponds to $type
+///
+/// Example Usage:
+///
+///     gen_partial_ord!(Rint, i32);
+///
+/// The 'example usage' implements the following trait definitions:
+///
+/// - impl PartialOrd<Rint> for Rint
+/// - impl PartialOrd<i32> for Rint
+macro_rules! gen_partial_ord {
+    ($type : tt) => {
+        impl PartialOrd<$type> for $type {
+            fn partial_cmp(&self, other: &$type) -> Option<std::cmp::Ordering> {
+                if self.is_na() || other.is_na() {
+                    None
+                } else {
+                    self.0.partial_cmp(&other.0)
+                }
+            }
+        }
+    };
+    ($type : tt, $type_prim : tt) => {
+        gen_partial_ord!($type);
+        impl PartialOrd<$type_prim> for $type {
+            fn partial_cmp(&self, other: &$type_prim) -> Option<std::cmp::Ordering> {
+                if self.is_na() {
+                    None
+                } else {
+                    self.0.partial_cmp(other)
+                }
+            }
+        }
+    };
+}
+
 pub(in crate::scalar) use gen_binop;
 pub(in crate::scalar) use gen_binopassign;
 pub(in crate::scalar) use gen_from_primitive;
 pub(in crate::scalar) use gen_from_scalar;
 pub(in crate::scalar) use gen_impl;
+pub(in crate::scalar) use gen_partial_ord;
 pub(in crate::scalar) use gen_sum_iter;
 pub(in crate::scalar) use gen_trait_impl;
 pub(in crate::scalar) use gen_unop;
