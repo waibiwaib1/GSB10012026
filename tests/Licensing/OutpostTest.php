@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\RequestException;
 use GuzzleHttp\Handler\MockHandler;
 use GuzzleHttp\Psr7\Request;
 use GuzzleHttp\Psr7\Response;
+use Illuminate\Cache\NullStore;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Statamic\Facades\Addon;
@@ -68,6 +69,22 @@ class OutpostTest extends TestCase
         $this->assertCachedResponseEquals($expectedResponse);
         Carbon::setTestNow(now()->addSeconds(1));
         $this->assertResponseNotCached();
+    }
+
+    /** @test */
+    public function it_contacts_the_outpost_when_the_cache_store_doesnt_support_locking()
+    {
+        Cache::extend('no-lock', fn () => Cache::repository(new NullStore));
+        config(['cache.stores.outpost' => ['driver' => 'no-lock']]);
+        Cache::purge('outpost');
+
+        $outpost = $this->outpostWithJsonResponse(['foo' => 'bar']);
+
+        $this->assertEquals([
+            'foo' => 'bar',
+            'expiry' => now()->addHour()->timestamp,
+            'payload' => $outpost->payload(),
+        ], $outpost->response());
     }
 
     /** @test */
