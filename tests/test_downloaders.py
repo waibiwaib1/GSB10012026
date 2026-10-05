@@ -1,4 +1,5 @@
 import argparse
+import importlib
 import mock
 import os
 import shutil
@@ -12,6 +13,7 @@ from fuel.downloaders import (binarized_mnist, caltech101_silhouettes,
 from fuel.downloaders.base import (download, default_downloader,
                                    filename_from_url, NeedURLPrefix,
                                    ensure_directory_exists)
+from fuel.utils import import_function_by_name
 from picklable_itertools import chain
 from six.moves import range
 
@@ -101,7 +103,7 @@ def test_mnist():
     urls = ['http://yann.lecun.com/exdb/mnist/' + f for f in filenames]
     assert_equal(args.filenames, filenames)
     assert_equal(args.urls, urls)
-    assert args.func is default_downloader
+    assert_equal(args.func, 'fuel.downloaders.base.default_downloader')
 
 
 def test_binarized_mnist():
@@ -115,7 +117,7 @@ def test_binarized_mnist():
     filenames = ['binarized_mnist_{}.amat'.format(s) for s in sets]
     assert_equal(args.filenames, filenames)
     assert_equal(args.urls, urls)
-    assert args.func is default_downloader
+    assert_equal(args.func, 'fuel.downloaders.base.default_downloader')
 
 
 def test_caltech101_silhouettes():
@@ -125,7 +127,9 @@ def test_caltech101_silhouettes():
         subparsers.add_parser('caltech101_silhouettes'))
     args = parser.parse_args(['caltech101_silhouettes', '16'])
     assert_equal(args.size, 16)
-    assert args.func is caltech101_silhouettes.silhouettes_downloader
+    assert_equal(
+        args.func,
+        'fuel.downloaders.caltech101_silhouettes.silhouettes_downloader')
 
 
 def test_iris():
@@ -138,7 +142,7 @@ def test_iris():
     filenames = ['iris.data']
     assert_equal(args.filenames, filenames)
     assert_equal(args.urls, urls)
-    assert args.func is default_downloader
+    assert_equal(args.func, 'fuel.downloaders.base.default_downloader')
 
 
 def test_cifar10():
@@ -150,7 +154,7 @@ def test_cifar10():
     urls = ['http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz']
     assert_equal(args.filenames, filenames)
     assert_equal(args.urls, urls)
-    assert args.func is default_downloader
+    assert_equal(args.func, 'fuel.downloaders.base.default_downloader')
 
 
 def test_cifar100():
@@ -162,7 +166,7 @@ def test_cifar100():
     urls = ['http://www.cs.toronto.edu/~kriz/cifar-100-python.tar.gz']
     assert_equal(args.filenames, filenames)
     assert_equal(args.urls, urls)
-    assert args.func is default_downloader
+    assert_equal(args.func, 'fuel.downloaders.base.default_downloader')
 
 
 class TestSVHNDownloader(object):
@@ -176,13 +180,13 @@ class TestSVHNDownloader(object):
     def test_fill_subparser(self):
         args = self.parser.parse_args(['svhn', '1'])
         assert_equal(args.which_format, 1)
-        assert args.func is svhn.svhn_downloader
+        assert_equal(args.func, 'fuel.downloaders.svhn.svhn_downloader')
 
     @mock.patch('fuel.downloaders.svhn.default_downloader')
     def test_svhn_downloader_format_1(self, mock_default_downloader):
         args = self.parser.parse_args(['svhn', '1'])
         args_dict = vars(args)
-        func = args_dict.pop('func')
+        func = import_function_by_name(args_dict.pop('func'))
         func(**args_dict)
         mock_default_downloader.assert_called_with(
             directory='./',
@@ -195,7 +199,7 @@ class TestSVHNDownloader(object):
     def test_svhn_downloader_format_2(self, mock_default_downloader):
         args = self.parser.parse_args(['svhn', '2'])
         args_dict = vars(args)
-        func = args_dict.pop('func')
+        func = import_function_by_name(args_dict.pop('func'))
         func(**args_dict)
         mock_default_downloader.assert_called_with(
             directory='./',
