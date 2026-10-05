@@ -100,6 +100,8 @@ type Agent struct {
 
 	selectedPair *candidatePair
 	validPairs   []*candidatePair
+	// The pair we have sent USE-CANDIDATE for (controlling agent only)
+	nominatedPair *candidatePair
 
 	buffer *packetio.Buffer
 
@@ -274,7 +276,7 @@ func (a *Agent) startConnectivityChecks(isControlling bool, remoteUfrag, remoteP
 	})
 }
 
-func (a *Agent) pingCandidate(local, remote *Candidate) {
+func (a *Agent) pingCandidate(local, remote *Candidate, useCandidate bool) {
 	var msg *stun.Message
 	var err error
 
@@ -285,16 +287,28 @@ func (a *Agent) pingCandidate(local, remote *Candidate) {
 
 	transactionID := stun.GenerateTransactionID()
 	if a.isControlling {
-		msg, err = stun.Build(stun.ClassRequest, stun.MethodBinding, transactionID,
-			&stun.Username{Username: a.remoteUfrag + ":" + a.localUfrag},
-			&stun.UseCandidate{},
-			&stun.IceControlling{TieBreaker: a.tieBreaker},
-			&stun.Priority{Priority: local.Priority()},
-			&stun.MessageIntegrity{
-				Key: []byte(a.remotePwd),
-			},
-			&stun.Fingerprint{},
-		)
+		if useCandidate {
+			msg, err = stun.Build(stun.ClassRequest, stun.MethodBinding, transactionID,
+				&stun.Username{Username: a.remoteUfrag + ":" + a.localUfrag},
+				&stun.UseCandidate{},
+				&stun.IceControlling{TieBreaker: a.tieBreaker},
+				&stun.Priority{Priority: local.Priority()},
+				&stun.MessageIntegrity{
+					Key: []byte(a.remotePwd),
+				},
+				&stun.Fingerprint{},
+			)
+		} else {
+			msg, err = stun.Build(stun.ClassRequest, stun.MethodBinding, transactionID,
+				&stun.Username{Username: a.remoteUfrag + ":" + a.localUfrag},
+				&stun.IceControlling{TieBreaker: a.tieBreaker},
+				&stun.Priority{Priority: local.Priority()},
+				&stun.MessageIntegrity{
+					Key: []byte(a.remotePwd),
+				},
+				&stun.Fingerprint{},
+			)
+		}
 	} else {
 		msg, err = stun.Build(stun.ClassRequest, stun.MethodBinding, transactionID,
 			&stun.Username{Username: a.remoteUfrag + ":" + a.localUfrag},
@@ -339,7 +353,6 @@ func (a *Agent) updateConnectionState(newState ConnectionState) {
 }
 
 func (a *Agent) setValidPair(local, remote *Candidate, selected, controlling bool) {
-	// TODO: avoid duplicates
 	p := newCandidatePair(local, remote, controlling)
 	a.log.Tracef("Found valid candidate pair: %s (selected? %t)", p, selected)
 
@@ -356,6 +369,11 @@ func (a *Agent) setValidPair(local, remote *Candidate, selected, controlling boo
 		// keep track of pairs with succesfull bindings since any of them
 		// can be used for communication until the final pair is selected:
 		// https://tools.ietf.org/html/draft-ietf-ice-rfc5245bis-20#section-12
+		for _, validPair := range a.validPairs {
+			if validPair.Equal(p) {
+				return
+			}
+		}
 		a.validPairs = append(a.validPairs, p)
 		// Sort the candidate pairs by priority of the remotes
 		sort.Sort(byPairPriority{a.validPairs})
@@ -390,6 +408,7 @@ func (a *Agent) taskLoop() {
 		} else {
 			a.log.Trace("pinging all candidates")
 			a.pingAllCandidates()
+			a.nominateBestCandidate()
 		}
 	}
 
@@ -449,12 +468,33 @@ func (a *Agent) pingAllCandidates() {
 
 			for _, localCandidate := range localCandidates {
 				for _, remoteCandidate := range remoteCandidates {
-					a.pingCandidate(localCandidate, remoteCandidate)
+					a.pingCandidate(localCandidate, remoteCandidate, false)
 				}
 			}
 
 		}
 	}
+}
+
+// nominateBestCandidate sends a Binding Request with the USE-CANDIDATE
+// attribute for the best (highest priority) valid pair. This implements
+// regular nomination: only the controlling agent nominates, and it
+// nominates a single pair so both sides agree on the selected pair.
+// Note: the caller should hold the agent lock.
+func (a *Agent) nominateBestCandidate() {
+	if !a.isControlling || len(a.validPairs) == 0 {
+		return
+	}
+
+	best := a.validPairs[0]
+	if a.nominatedPair.Equal(best) {
+		// Already nominated this pair
+		return
+	}
+
+	a.log.Tracef("nominating candidate pair: %s", best)
+	a.nominatedPair = best
+	a.pingCandidate(best.local, best.remote, true)
 }
 
 // AddRemoteCandidate adds a new remote candidate
@@ -657,8 +697,15 @@ func (a *Agent) handleInbound(m *stun.Message, local *Candidate, remote net.Addr
 
 		a.log.Tracef("inbound STUN (SuccessResponse) from %s to %s", remote.String(), local.String())
 
-		// Remember the working pair and select it when receiving a success response
-		a.setValidPair(local, remoteCandidate, true, true)
+		// Remember the working pair; the controlling agent selects it once
+		// the nomination (USE-CANDIDATE) for it succeeds
+		a.setValidPair(local, remoteCandidate, false, true)
+		p := newCandidatePair(local, remoteCandidate, true)
+		if a.nominatedPair.Equal(p) {
+			a.setValidPair(local, remoteCandidate, true, true)
+		} else {
+			a.nominateBestCandidate()
+		}
 	} else {
 		if err = assertInboundUsername(m, a.localUfrag+":"+a.remoteUfrag); err != nil {
 			a.log.Warnf("discard message from (%s), %v", remote, err)
@@ -690,6 +737,12 @@ func (a *Agent) handleInbound(m *stun.Message, local *Candidate, remote net.Addr
 
 		// Send success response
 		a.sendBindingSuccess(m, local, remoteCandidate)
+
+		// The controlled agent selects the pair the controlling agent
+		// nominated via the USE-CANDIDATE attribute
+		if _, useCandidate := m.GetOneAttribute(stun.AttrUseCandidate); useCandidate {
+			a.setValidPair(local, remoteCandidate, true, false)
+		}
 	}
 
 	remoteCandidate.seen(false)
