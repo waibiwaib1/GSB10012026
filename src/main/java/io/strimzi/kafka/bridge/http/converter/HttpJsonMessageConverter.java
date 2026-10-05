@@ -24,6 +24,9 @@ import io.vertx.kafka.client.consumer.KafkaConsumerRecord;
 import io.vertx.kafka.client.consumer.KafkaConsumerRecords;
 import io.vertx.kafka.client.producer.KafkaProducerRecord;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class HttpJsonMessageConverter implements MessageConverter<String,byte[],Buffer, Buffer> {
 
     @Override
@@ -49,6 +52,22 @@ public class HttpJsonMessageConverter implements MessageConverter<String,byte[],
         KafkaProducerRecord<String, byte[]> record = KafkaProducerRecord.create(kafkaTopic,(String) key, value, (Integer) partition);
 
         return record;
+    }
+
+    @Override
+    public List<KafkaProducerRecord<String, byte[]>> toKafkaRecords(String kafkaTopic, Buffer messages) {
+
+        List<KafkaProducerRecord<String, byte[]>> records = new ArrayList<>();
+
+        JsonObject json = messages.toJsonObject();
+        JsonArray jsonArray = json.getJsonArray("records");
+
+        for (Object message : jsonArray) {
+            JsonObject jsonObject = (JsonObject) message;
+            records.add(this.toKafkaRecord(kafkaTopic, jsonObject.toBuffer()));
+        }
+
+        return records;
     }
 
     @Override

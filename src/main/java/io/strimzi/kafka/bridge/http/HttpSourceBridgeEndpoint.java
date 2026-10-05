@@ -20,13 +20,21 @@ import io.strimzi.kafka.bridge.Endpoint;
 import io.strimzi.kafka.bridge.SourceBridgeEndpoint;
 import io.strimzi.kafka.bridge.converter.MessageConverter;
 import io.strimzi.kafka.bridge.http.converter.HttpJsonMessageConverter;
+import io.strimzi.kafka.bridge.http.model.HttpBridgeError;
+import io.strimzi.kafka.bridge.http.model.HttpBridgeResult;
+import io.vertx.core.CompositeFuture;
+import io.vertx.core.Future;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.http.HttpServerResponse;
+import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import io.vertx.kafka.client.producer.KafkaProducerRecord;
 import io.vertx.kafka.client.producer.RecordMetadata;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class HttpSourceBridgeEndpoint extends SourceBridgeEndpoint {
     private MessageConverter messageConverter;
@@ -48,24 +56,30 @@ public class HttpSourceBridgeEndpoint extends SourceBridgeEndpoint {
         String topic = params[params.length - 1];
 
         httpServerRequest.bodyHandler(buffer -> {
-            KafkaProducerRecord<String , byte[]> kafkaProducerRecord = messageConverter.toKafkaRecord(topic, buffer);
+            List<KafkaProducerRecord<String, byte[]>> records = messageConverter.toKafkaRecords(topic, buffer);
+            List<HttpBridgeResult<?>> results = new ArrayList<>(records.size());
+            List<Future> sendHandlers = new ArrayList<>(records.size());
 
-            this.send(kafkaProducerRecord, writeResult -> {
-                if (writeResult.failed()) {
+            for (KafkaProducerRecord<String, byte[]> record : records) {
+                Future<RecordMetadata> future = Future.future();
+                sendHandlers.add(future);
+                this.send(record, future.completer());
+            }
 
-                    log.error("Error on delivery to Kafka {}", writeResult.cause());
-                    this.sendRejectedDeliveryResponse(httpServerRequest.response());
-
-                } else {
-                    RecordMetadata metadata = writeResult.result();
-                    log.debug("Delivered to Kafka on topic {} at partition {} [{}]", metadata.getTopic(), metadata.getPartition(), metadata.getOffset());
-                    this.sendAcceptedDeliveryResponse(metadata, httpServerRequest.response());
-
+            CompositeFuture.join(sendHandlers).setHandler(done -> {
+                for (int i = 0; i < sendHandlers.size(); i++) {
+                    if (done.result().succeeded(i)) {
+                        RecordMetadata metadata = done.result().resultAt(i);
+                        log.debug("Delivered to Kafka on topic {} at partition {} [{}]", metadata.getTopic(), metadata.getPartition(), metadata.getOffset());
+                        results.add(new HttpBridgeResult<>(metadata));
+                    } else {
+                        log.error("Error on delivery to Kafka {}", done.result().cause(i));
+                        results.add(new HttpBridgeResult<>(new HttpBridgeError(0, done.result().cause(i).getMessage())));
+                    }
                 }
+                this.sendMetadataResponse(results, httpServerRequest.response());
             });
-
         });
-
     }
 
     @Override
@@ -73,22 +87,25 @@ public class HttpSourceBridgeEndpoint extends SourceBridgeEndpoint {
 
     }
 
-    private void sendAcceptedDeliveryResponse(RecordMetadata metadata, HttpServerResponse response){
-
+    private void sendMetadataResponse(List<HttpBridgeResult<?>> results, HttpServerResponse response) {
         JsonObject jsonResponse = new JsonObject();
-        jsonResponse.put("status", "Accepted");
-        jsonResponse.put("topic", metadata.getTopic());
-        jsonResponse.put("partition", metadata.getPartition());
-        jsonResponse.put("offset", metadata.getOffset());
+        JsonArray offsets = new JsonArray();
 
-        response.putHeader("Content-length", String.valueOf(jsonResponse.toBuffer().length()));
-        response.write(jsonResponse.toBuffer());
-        response.end();
-    }
+        for (HttpBridgeResult<?> result : results) {
+            JsonObject offset = new JsonObject();
+            if (result.getResult() instanceof RecordMetadata) {
+                RecordMetadata metadata = (RecordMetadata) result.getResult();
+                offset.put("partition", metadata.getPartition());
+                offset.put("offset", metadata.getOffset());
+            } else if (result.getResult() instanceof HttpBridgeError) {
+                HttpBridgeError error = (HttpBridgeError) result.getResult();
+                offset.put("error_code", error.getCode());
+                offset.put("error", error.getMessage());
+            }
+            offsets.add(offset);
+        }
 
-    private void sendRejectedDeliveryResponse(HttpServerResponse response){
-        JsonObject jsonResponse = new JsonObject();
-        jsonResponse.put("status", "rejected");
+        jsonResponse.put("offsets", offsets);
 
         response.putHeader("Content-length", String.valueOf(jsonResponse.toBuffer().length()));
         response.write(jsonResponse.toBuffer());

@@ -21,6 +21,8 @@ import io.vertx.kafka.client.consumer.KafkaConsumerRecord;
 import io.vertx.kafka.client.consumer.KafkaConsumerRecords;
 import io.vertx.kafka.client.producer.KafkaProducerRecord;
 
+import java.util.List;
+
 /**
  * Interface for a message converter between Kafka record and AMQP message
  */
@@ -34,6 +36,10 @@ public interface MessageConverter<K, V, M, C> {
 	 * @return	Kafka record
 	 */
 	KafkaProducerRecord<K, V> toKafkaRecord(String kafkaTopic, M message);
+
+	default List<KafkaProducerRecord<K, V>> toKafkaRecords(String kafkaTopic, C messages) {
+		throw new UnsupportedOperationException();
+	}
 	
 	/**
 	 * Converts a Kafka record to a message
