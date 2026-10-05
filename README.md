@@ -139,6 +139,7 @@ Click on the desired API to see usage and more information
 * [Templates](/docs/resources/templates.md) - `client.templates` ([examples](/examples/templates))
 * [Transmissions](/docs/resources/transmissions.md) - `client.transmissions` ([examples](/examples/transmissions))
 * [Webhooks](/docs/resources/webhooks.md) - `client.webhooks` ([examples](/examples/webhooks))
+* [Relay Webhooks](/docs/resources/relayWebhooks.md) - `client.relayWebhooks` ([examples](/examples/relayWebhooks))
 
 
 ## Development
