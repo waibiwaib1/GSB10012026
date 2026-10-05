@@ -27,6 +27,8 @@ class Metadata(metaclass=ABCMeta):
 
     """
 
+    DATA_FORMAT = None
+
     def __iter__(self):
         """Return an iterator over the metadata keys."""
         return iter(self.keys())
@@ -224,6 +226,12 @@ class Metadata(metaclass=ABCMeta):
     def index_keys(self):
         r"""Return the keys to be used with the :meth:`indices` method."""
         return []
+
+    def data_format(self):
+        return self.DATA_FORMAT
+
+    def _hide_internal_keys(self):
+        return self
 
 
 class RawMetadata(Metadata):

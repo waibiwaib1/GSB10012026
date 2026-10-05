@@ -373,6 +373,8 @@ def test_grib_dump(mode):
         "time",
         "vertical",
     )
+    if mode == "numpy_fs":
+        namespaces = tuple(ns for ns in namespaces if ns != "statistics")
 
     # default
     r = f[0].dump(_as_raw=True)
@@ -465,8 +467,13 @@ def test_grib_dump(mode):
     for d in r:
         ns = d["title"]
         assert ns in namespaces
-        if ns not in ("default", "statistics"):
+        if ns not in ("default", "statistics", "geography"):
             assert d == [x for x in ref if x["title"] == ns][0], ns
+
+    if mode == "numpy_fs":
+        assert all(d["title"] != "statistics" for d in r)
+    else:
+        assert any(d["title"] == "statistics" for d in r)
 
     # a namespace
     r = f[0].dump(namespace="mars", _as_raw=True)

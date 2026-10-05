@@ -87,6 +87,10 @@ class NumpyFieldListCore(PandasMixIn, XarrayMixIn, FieldList):
         else:
             raise TypeError("array must be an ndarray or a list of ndarrays")
 
+        self._metadata = [
+            metadata._hide_internal_keys() for metadata in self._metadata
+        ]
+
         super().__init__(*args, **kwargs)
 
     def _shape_match(self, shape1, shape2):

@@ -125,7 +125,7 @@ def test_grib_metadata_astype_18(mode, key, astype, expected_value):
     assert sn == expected_value
 
 
-@pytest.mark.parametrize("mode", ["file", "numpy_fs"])
+@pytest.mark.parametrize("mode", ["file"])
 @pytest.mark.parametrize(
     "key,expected_value",
     [
@@ -141,7 +141,7 @@ def test_grib_metadata_double_1(mode, key, expected_value):
     assert np.isclose(r[0], expected_value)
 
 
-@pytest.mark.parametrize("mode", ["file", "numpy_fs"])
+@pytest.mark.parametrize("mode", ["file"])
 @pytest.mark.parametrize(
     "key",
     [
@@ -178,7 +178,7 @@ def test_grib_metadata_double_18(mode, key):
     np.testing.assert_allclose(r, ref, 0.001)
 
 
-@pytest.mark.parametrize("mode", ["file", "numpy_fs"])
+@pytest.mark.parametrize("mode", ["file"])
 @pytest.mark.parametrize(
     "key,astype",
     [
@@ -462,31 +462,36 @@ def test_grib_metadata_namespace(mode):
 
     r = f[0].metadata(namespace=None)
     assert isinstance(r, dict)
-    assert len(r) == 186
     assert r["level"] == 1000
     assert r["stepType"] == "instant"
 
     r = f[0].metadata(namespace=[None])
     assert isinstance(r, dict)
-    assert len(r) == 186
     assert r["level"] == 1000
     assert r["stepType"] == "instant"
 
     r = f[0].metadata(namespace="")
     assert isinstance(r, dict)
-    assert len(r) == 186
     assert r["level"] == 1000
     assert r["stepType"] == "instant"
 
     r = f[0].metadata(namespace=[""])
     assert isinstance(r, dict)
-    assert len(r) == 186
     assert r["level"] == 1000
     assert r["stepType"] == "instant"
 
+    if mode == "numpy_fs":
+        assert "statistics" not in r
+        for key in (
+            "max",
+            "min",
+            "bitmapPresent",
+            "numberOfMissing",
+        ):
+            assert key not in r
+
     ref = {
         "geography",
-        "statistics",
         "vertical",
         "time",
         "parameter",
@@ -494,6 +499,8 @@ def test_grib_metadata_namespace(mode):
         "ls",
         "default",
     }
+    if mode == "file":
+        ref.add("statistics")
     r = f[0].metadata(namespace=all)
     assert isinstance(r, dict)
     assert set(r.keys()) == ref

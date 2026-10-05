@@ -199,6 +199,8 @@ class GribMetadata(Metadata):
         "vertical",
     ]
 
+    DATA_FORMAT = "grib"
+
     __handle_type = None
 
     def __init__(self, handle):
@@ -393,18 +395,24 @@ class GribMetadata(Metadata):
         from earthkit.data.utils.summary import format_namespace_dump
 
         namespace = self.NAMESPACES if namespace is all else [namespace]
-        r = [
-            {
-                "title": ns if ns else "default",
-                "data": self.as_namespace(ns),
-                "tooltip": f"Keys in the ecCodes {ns} namespace",
-            }
-            for ns in namespace
-        ]
+        r = []
+        for ns in namespace:
+            data = self.as_namespace(ns)
+            if data:
+                r.append(
+                    {
+                        "title": ns if ns else "default",
+                        "data": data,
+                        "tooltip": f"Keys in the ecCodes {ns} namespace",
+                    }
+                )
 
         return format_namespace_dump(
             r, selected="parameter", details=self.__class__.__name__, **kwargs
         )
+
+    def _hide_internal_keys(self):
+        return RestrictedGribMetadata(self)
 
     def ls_keys(self):
         r"""Return the keys to be used with the :meth:`ls` method."""
@@ -417,3 +425,95 @@ class GribMetadata(Metadata):
     def index_keys(self):
         r"""Return the keys to be used with the :meth:`indices` method."""
         return self.INDEX_KEYS
+
+
+class RestrictedGribMetadata(GribMetadata):
+    EKD_NAMESPACE = "grib"
+    INTERNAL_KEYS = [
+        "min",
+        "max",
+        "avg",
+        "sd",
+        "skew",
+        "kurt",
+        "const",
+        "isConstant",
+        "numberOfMissing",
+        "numberOfCodedValues",
+        "bitmapPresent",
+        "offsetValuesBy",
+        "packingError",
+        "referenceValue",
+        "referenceValueError",
+        "unpackedError",
+        "minimum",
+        "maximum",
+        "average",
+        "standardDeviation",
+        "skewness",
+        "kurtosis",
+    ]
+    INTERNAL_NAMESPACES = ["statistics"]
+
+    def __init__(self, metadata):
+        super().__init__(metadata._handle)
+
+    def _is_internal(self, key):
+        namespace, _, name = key.partition(".")
+        if not name:
+            name = key
+            namespace = ""
+
+        return namespace != self.EKD_NAMESPACE and name in self.INTERNAL_KEYS
+
+    def __len__(self):
+        return len(self.keys())
+
+    def __contains__(self, key):
+        return not self._is_internal(key) and super().__contains__(key)
+
+    def keys(self):
+        return [key for key in super().keys() if key not in self.INTERNAL_KEYS]
+
+    def items(self):
+        return {
+            key: value
+            for key, value in super().items()
+            if key not in self.INTERNAL_KEYS
+        }.items()
+
+    def _get_key(self, key, astype=None, default=None, raise_on_missing=True):
+        if self._is_internal(key):
+            if raise_on_missing:
+                raise KeyError(key)
+            return default
+
+        namespace, _, name = key.partition(".")
+        if namespace == self.EKD_NAMESPACE:
+            key = name
+
+        return super()._get_key(
+            key,
+            astype=astype,
+            default=default,
+            raise_on_missing=raise_on_missing,
+        )
+
+    def namespaces(self):
+        return [
+            namespace
+            for namespace in super().namespaces()
+            if namespace not in self.INTERNAL_NAMESPACES
+        ]
+
+    def as_namespace(self, namespace=None):
+        if namespace in self.INTERNAL_NAMESPACES:
+            return {}
+
+        result = super().as_namespace(namespace)
+        for key in self.INTERNAL_KEYS:
+            result.pop(key, None)
+        return result
+
+    def _hide_internal_keys(self):
+        return self
