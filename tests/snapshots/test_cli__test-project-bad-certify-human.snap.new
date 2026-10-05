@@ -1,0 +1,14 @@
+---
+source: tests/test-cli.rs
+assertion_line: 299
+expression: format_outputs(&output)
+---
+stdout:
+
+stderr:
+ WARN Couldn't find cargo registry: reference 'refs/heads/master' not found; class=Reference (4); code=NotFound (-3)    
+ WARN Couldn't find cargo registry: reference 'refs/heads/master' not found; class=Reference (4); code=NotFound (-3)    
+ERROR 
+  × 'asdfsdfs' isn't one of your foreign packages
+  help: use --force to ignore this error
+

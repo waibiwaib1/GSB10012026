@@ -1,0 +1,11 @@
+---
+source: tests/test-cli.rs
+assertion_line: 324
+expression: format_outputs(&output)
+---
+stdout:
+{"error": {"message": "'asdfsdfs' isn't one of your foreign packages","severity": "error","help": "use --force to ignore this error","labels": [],"related": []}}
+
+stderr:
+ WARN Couldn't find cargo registry: there is no TLS stream available; class=Ssl (16)    
+ WARN Couldn't find cargo registry: reference 'refs/heads/master' not found; class=Reference (4); code=NotFound (-3)    
