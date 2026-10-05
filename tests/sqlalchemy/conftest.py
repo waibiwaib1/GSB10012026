@@ -45,6 +45,19 @@ class TierModel(Base):
     tests = relationship("ModelTest", back_populates="tier")
 
 
+class PersonModel(Base):
+    __tablename__ = "person"
+    id = Column(Integer, primary_key=True)
+    name = Column(String)
+
+
+class ProjectModel(Base):
+    __tablename__ = "project"
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("person.id"))
+    member_id = Column(Integer, ForeignKey("person.id"))
+
+
 class CreateSchemaTest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     name: str
@@ -69,6 +82,15 @@ class DeleteSchemaTest(BaseModel):
 
 class TierSchemaTest(BaseModel):
     name: str
+
+
+class PersonSchemaTest(BaseModel):
+    id: int
+    name: str
+
+
+class ProjectSchemaTest(BaseModel):
+    id: int
 
 
 class TierDeleteSchemaTest(BaseModel):

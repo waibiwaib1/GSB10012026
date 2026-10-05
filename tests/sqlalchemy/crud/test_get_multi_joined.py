@@ -6,6 +6,10 @@ from ...sqlalchemy.conftest import (
     CreateSchemaTest,
     TierSchemaTest,
     ReadSchemaTest,
+    PersonModel,
+    PersonSchemaTest,
+    ProjectModel,
+    ProjectSchemaTest,
     CategoryModel,
     CategorySchemaTest,
 )
@@ -304,3 +308,38 @@ async def test_get_multi_joined_with_additional_join_model(
     assert all(
         "tier_name" in item and "category_name" in item for item in result["data"]
     )
+
+
+@pytest.mark.asyncio
+async def test_get_multi_joined_same_model_with_different_aliases(async_session):
+    owner = PersonModel(id=1, name="Owner")
+    member = PersonModel(id=2, name="Member")
+    project = ProjectModel(id=1, owner_id=1, member_id=2)
+    async_session.add_all([owner, member, project])
+    await async_session.commit()
+
+    crud = FastCRUD(ProjectModel)
+    result = await crud.get_multi_joined(
+        db=async_session,
+        schema_to_select=ProjectSchemaTest,
+        joins_config=[
+            JoinConfig(
+                model=PersonModel,
+                join_on=ProjectModel.owner_id == PersonModel.id,
+                join_prefix="owner_",
+                schema_to_select=PersonSchemaTest,
+                join_type="inner",
+            ),
+            JoinConfig(
+                model=PersonModel,
+                join_on=ProjectModel.member_id == PersonModel.id,
+                join_prefix="member_",
+                schema_to_select=PersonSchemaTest,
+                join_type="inner",
+            ),
+        ],
+    )
+
+    assert result["total_count"] == 1
+    assert result["data"][0]["owner_name"] == "Owner"
+    assert result["data"][0]["member_name"] == "Member"

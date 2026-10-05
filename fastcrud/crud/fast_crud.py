@@ -13,8 +13,8 @@ from sqlalchemy.sql.elements import BinaryExpression
 from sqlalchemy.sql.selectable import Select
 
 from .helper import (
+    _prepare_joins,
     _extract_matching_columns_from_schema,
-    _auto_detect_join_condition,
     _add_column_with_prefix,
     JoinConfig,
 )
@@ -688,6 +688,7 @@ class FastCRUD(
                     join_type=join_type,
                 )
             )
+        join_definitions = _prepare_joins(join_definitions, self.model)
 
         for join in join_definitions:
             join_select = _extract_matching_columns_from_schema(
@@ -890,8 +891,7 @@ class FastCRUD(
             joins.append(
                 JoinConfig(
                     model=join_model,
-                    join_on=join_on
-                    or _auto_detect_join_condition(self.model, join_model),
+                    join_on=join_on,
                     join_prefix=join_prefix,
                     schema_to_select=join_schema_to_select,
                     join_type=join_type,
@@ -899,6 +899,7 @@ class FastCRUD(
             )
         elif joins_config:
             joins.extend(joins_config)
+        joins = _prepare_joins(joins, self.model)
 
         primary_select = _extract_matching_columns_from_schema(
             model=self.model, schema=schema_to_select
@@ -911,7 +912,7 @@ class FastCRUD(
                     join.model, join.schema_to_select
                 )
             else:
-                join_select = inspect(join.model).c
+                join_select = join.model.__table__.c
 
             if join.join_prefix:
                 join_select = [

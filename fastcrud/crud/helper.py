@@ -1,8 +1,10 @@
+from collections import Counter
 from typing import Any, Union, Optional, NamedTuple
 from sqlalchemy import inspect
-from sqlalchemy.orm import DeclarativeMeta
+from sqlalchemy.orm import DeclarativeMeta, aliased
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql import ColumnElement
+from sqlalchemy.sql.visitors import replacement_traverse
 from sqlalchemy.sql.schema import Column
 from sqlalchemy.sql.elements import Label
 
@@ -15,6 +17,71 @@ class JoinConfig(NamedTuple):
     join_prefix: Optional[str] = None
     schema_to_select: Optional[type[BaseModel]] = None
     join_type: str = "left"
+
+
+def _rewrite_join_condition(
+    join_on: ColumnElement,
+    model: Any,
+    model_alias: Any,
+    base_model: Optional[Any] = None,
+) -> ColumnElement:
+    """Rewrites references to a mapped model in a join condition to use its alias."""
+    model_table = model.__table__
+    base_table = base_model.__table__ if base_model is not None else None
+
+    def replace_column(element: Any, **kwargs: Any) -> Any:
+        if (
+            getattr(element, "table", None) is model_table
+            and not (
+                base_table is model_table
+                and getattr(element, "foreign_keys", set())
+            )
+        ):
+            return getattr(model_alias, element.name)
+        return None
+
+    return replacement_traverse(join_on, {}, replace_column)
+
+
+def _prepare_joins(
+    joins: list[JoinConfig], base_model: Any
+) -> list[JoinConfig]:
+    """Assigns SQL aliases to repeated or self-referential joined models."""
+    join_counts = Counter(join.model.__table__ for join in joins)
+    join_occurrences: Counter[Any] = Counter()
+    prepared_joins: list[JoinConfig] = []
+
+    for join in joins:
+        table = join.model.__table__
+        join_occurrences[table] += 1
+        occurrence = join_occurrences[table]
+        requires_alias = join_counts[table] > 1 or table is base_model.__table__
+
+        original_join_on = join.join_on
+        if original_join_on is None and table is not base_model.__table__:
+            original_join_on = _auto_detect_join_condition(
+                base_model, join.model
+            )
+
+        if requires_alias:
+            if join.join_prefix:
+                alias_name = f"{join.join_prefix.rstrip('_')}_{table.name}"
+            else:
+                alias_name = f"{table.name}_{occurrence}"
+
+            join_model = aliased(join.model, name=alias_name)
+            join_on = original_join_on
+            if join_on is not None:
+                join_on = _rewrite_join_condition(
+                    join_on, join.model, join_model, base_model
+                )
+        else:
+            join_model = join.model
+            join_on = original_join_on
+
+        prepared_joins.append(join._replace(model=join_model, join_on=join_on))
+
+    return prepared_joins
 
 
 def _extract_matching_columns_from_schema(
