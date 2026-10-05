@@ -19,14 +19,14 @@ limitations under the License.
 //
 // The markers take the form:
 //
-//  +kubebuilder:webhook:failurePolicy=<string>,matchPolicy=<string>,groups=<[]string>,resources=<[]string>,verbs=<[]string>,versions=<[]string>,name=<string>,path=<string>,mutating=<bool>,sideEffects=<string>
+//  +kubebuilder:webhook:failurePolicy=<string>,matchPolicy=<string>,groups=<[]string>,resources=<[]string>,verbs=<[]string>,versions=<[]string>,name=<string>,path=<string>,mutating=<bool>,sideEffects=<string>,admissionReviewVersions=<[]string>
 package webhook
 
 import (
 	"fmt"
 	"strings"
 
-	admissionreg "k8s.io/api/admissionregistration/v1beta1"
+	admissionreg "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 	"sigs.k8s.io/controller-tools/pkg/genall"
@@ -68,6 +68,8 @@ type Config struct {
 	// If the value is "NoneOnDryRun", then the webhook is responsible for inspecting the "dryRun" property of the
 	// AdmissionReview sent in the request, and avoiding side effects if that value is "true."
 	SideEffects string `marker:",optional"`
+	// AdmissionReviewVersions specifies the AdmissionReview versions that the webhook understands.
+	AdmissionReviewVersions []string
 
 	// Groups specifies the API groups that this webhook receives requests for.
 	Groups []string
@@ -124,12 +126,13 @@ func (c Config) ToMutatingWebhook() (admissionreg.MutatingWebhook, error) {
 	}
 
 	return admissionreg.MutatingWebhook{
-		Name:          c.Name,
-		Rules:         c.rules(),
-		FailurePolicy: c.failurePolicy(),
-		MatchPolicy:   matchPolicy,
-		ClientConfig:  c.clientConfig(),
-		SideEffects:   c.sideEffects(),
+		Name:                    c.Name,
+		Rules:                   c.rules(),
+		FailurePolicy:           c.failurePolicy(),
+		MatchPolicy:             matchPolicy,
+		ClientConfig:            c.clientConfig(),
+		SideEffects:             c.sideEffects(),
+		AdmissionReviewVersions: c.AdmissionReviewVersions,
 	}, nil
 }
 
@@ -145,12 +148,13 @@ func (c Config) ToValidatingWebhook() (admissionreg.ValidatingWebhook, error) {
 	}
 
 	return admissionreg.ValidatingWebhook{
-		Name:          c.Name,
-		Rules:         c.rules(),
-		FailurePolicy: c.failurePolicy(),
-		MatchPolicy:   matchPolicy,
-		ClientConfig:  c.clientConfig(),
-		SideEffects:   c.sideEffects(),
+		Name:                    c.Name,
+		Rules:                   c.rules(),
+		FailurePolicy:           c.failurePolicy(),
+		MatchPolicy:             matchPolicy,
+		ClientConfig:            c.clientConfig(),
+		SideEffects:             c.sideEffects(),
+		AdmissionReviewVersions: c.AdmissionReviewVersions,
 	}, nil
 }
 

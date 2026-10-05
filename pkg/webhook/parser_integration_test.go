@@ -25,7 +25,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	admissionreg "k8s.io/api/admissionregistration/v1beta1"
+	admissionreg "k8s.io/api/admissionregistration/v1"
 	"sigs.k8s.io/yaml"
 
 	"sigs.k8s.io/controller-tools/pkg/genall"
