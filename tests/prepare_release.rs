@@ -1904,3 +1904,51 @@ fn go_mod_version_determination() {
         );
     }
 }
+
+#[test]
+fn ignores_unreachable_go_module_tags() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let temp_path = temp_dir.path();
+
+    init(temp_path);
+    write(
+        temp_path.join("knope.toml"),
+        r#"
+[package]
+versioned_files = ["Cargo.toml", "go.mod"]
+
+[[workflows]]
+name = "prepare-release"
+
+[[workflows.steps]]
+type = "PrepareRelease"
+"#,
+    )
+    .unwrap();
+    write(
+        temp_path.join("Cargo.toml"),
+        "[package]\nversion = \"1.0.0\"\n",
+    )
+    .unwrap();
+    write(temp_path.join("go.mod"), "module example.com/module").unwrap();
+    add_all(temp_path);
+    commit(temp_path, "Initial commit");
+    tag(temp_path, "v1.0.0");
+
+    create_branch(temp_path, "release-candidate");
+    commit(temp_path, "chore: Prepare release candidate");
+    tag(temp_path, "v1.1.0-rc.1");
+    switch_branch(temp_path, "main");
+    commit(temp_path, "feat: Main branch feature");
+
+    Command::new(cargo_bin!("knope"))
+        .arg("prepare-release")
+        .current_dir(temp_path)
+        .assert()
+        .success();
+
+    assert_eq!(
+        "module example.com/module // v1.1.0",
+        read_to_string(temp_path.join("go.mod")).unwrap()
+    );
+}

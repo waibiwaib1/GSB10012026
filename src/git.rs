@@ -1,4 +1,9 @@
-use std::{collections::VecDeque, env::current_dir, path::PathBuf, str::FromStr};
+use std::{
+    collections::{HashSet, VecDeque},
+    env::current_dir,
+    path::PathBuf,
+    str::FromStr,
+};
 
 use git2::{build::CheckoutBuilder, Branch, BranchType, IndexAddOption, Repository};
 use gix::{object::Kind, refs::transaction::PreviousValue, trace::trace};
@@ -478,21 +483,31 @@ pub(crate) fn get_current_versions_from_tags(
     prefix: Option<&str>,
 ) -> Result<CurrentVersions, Error> {
     let repo = gix::open(current_dir().map_err(ErrorKind::CurrentDirectory)?)?;
+    let head_commit = repo.head_commit()?;
+    let mut reachable_commits = HashSet::new();
+    reachable_commits.insert(head_commit.id);
+    if let Ok(ancestors) = head_commit.ancestors().all() {
+        for ancestor in ancestors.flatten() {
+            reachable_commits.insert(ancestor.id);
+        }
+    }
+
     let references = repo.references()?;
-    let tags = references.tags()?.flat_map(|tag| {
-        tag.map(|reference| {
-            reference
-                .name()
-                .as_bstr()
-                .to_string()
-                .replace("refs/tags/", "")
-        })
-    });
     let mut current_versions = CurrentVersions::default();
     let pattern = prefix
         .as_ref()
         .map_or_else(|| String::from("v"), |prefix| format!("{prefix}/v"));
-    for tag in tags {
+    for reference in references.tags()?.flatten() {
+        let tag_commit = reference.clone().into_fully_peeled_id()?;
+        if !reachable_commits.contains(&tag_commit.detach()) {
+            continue;
+        }
+
+        let tag = reference
+            .name()
+            .as_bstr()
+            .to_string()
+            .replace("refs/tags/", "");
         if !tag.starts_with(&pattern) {
             continue;
         }
