@@ -99,9 +99,18 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 	// Setup subscription in the background. Will keep us from having chicken/egg between server
 	// being ready to respond and us having the info we need for the subscription request
 	go func() {
+		ticker := time.NewTicker(defaultSubscriptionPeriod)
+		defer ticker.Stop()
+
 		for {
-			if err := a.attempSubscription(defaultSubscriptionPeriod); err != nil {
-				a.logger.Error(err)
+			select {
+			case <-stopCh:
+				a.logger.Info("Exiting subscription loop")
+				return
+			case <-ticker.C:
+				if err := a.attempSubscription(); err != nil {
+					a.logger.Error(err)
+				}
 			}
 		}
 	}()
@@ -113,9 +122,7 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 	return http.ListenAndServe(fmt.Sprintf(":%d", port), nil)
 }
 
-func (a *adapter) attempSubscription(period time.Duration) error {
-	time.Sleep(period)
-
+func (a *adapter) attempSubscription() error {
 	topic, err := a.snsClient.CreateTopic(&sns.CreateTopicInput{Name: &a.arn.Resource})
 	if err != nil {
 		return err

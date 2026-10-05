@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -38,6 +39,9 @@ import (
 	"github.com/triggermesh/aws-event-sources/pkg/adapter/common"
 	"github.com/triggermesh/aws-event-sources/pkg/apis/sources/v1alpha1"
 )
+
+// pollInterval defines how often the AWS APIs are polled for new events.
+const pollInterval = 5 * time.Second
 
 // envConfig is a set parameters sourced from the environment for the source's
 // adapter.
@@ -112,7 +116,17 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 
 	a.logger.Debugf("Streams descriptions: %v", streamsDescriptions)
 
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
 	for {
+		select {
+		case <-stopCh:
+			a.logger.Info("Exiting receiver loop")
+			return nil
+		case <-ticker.C:
+		}
+
 		shardIterators, err := a.getShardIterators(streamsDescriptions)
 		if err != nil {
 			a.logger.Errorw("Failed to get shard iterators", zap.Error(err))

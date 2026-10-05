@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -39,7 +40,6 @@ import (
 )
 
 var (
-	//syncTime       = 10
 	lastCommit     string
 	pullRequestIDs []*string //nolint:unused
 )
@@ -47,6 +47,9 @@ var (
 const (
 	pushEventType = "push"
 	prEventType   = "pull_request"
+
+	// pollInterval defines how often the AWS APIs are polled for new events.
+	pollInterval = 5 * time.Second
 )
 
 // envConfig is a set parameters sourced from the environment for the source's
@@ -140,8 +143,17 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 		a.logger.Errorw("Failed to process pull requests", "error", err)
 	}
 
-	//range time.Tick(time.Duration(syncTime) * time.Second)
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
 	for {
+		select {
+		case <-stopCh:
+			a.logger.Info("Exiting receiver loop")
+			return nil
+		case <-ticker.C:
+		}
+
 		if strings.Contains(a.gitEvents, pushEventType) {
 			err := a.processCommits()
 			if err != nil {

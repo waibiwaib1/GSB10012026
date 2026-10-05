@@ -98,7 +98,16 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 
 	// Look for new messages every 5 seconds
 	ticker := time.NewTicker(5 * time.Second)
-	for range ticker.C {
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-stopCh:
+			a.logger.Info("Exiting receiver loop")
+			return nil
+		case <-ticker.C:
+		}
+
 		msgs, err := a.getMessages(queueURL, waitTimeoutSec)
 		if err != nil {
 			a.logger.Errorw("Failed to get messages from SQS queue", "error", err)
@@ -132,8 +141,6 @@ func (a *adapter) Start(stopCh <-chan struct{}) error {
 			continue
 		}
 	}
-
-	return nil
 }
 
 // queueLookup finds the URL for a given queue name in the user's env.

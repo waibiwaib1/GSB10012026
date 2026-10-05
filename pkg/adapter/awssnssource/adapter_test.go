@@ -114,7 +114,7 @@ func TestAttempSubscription(t *testing.T) {
 		createTopicOutputError: errors.New("fake error"),
 	}
 
-	err := a.attempSubscription(0)
+	err := a.attempSubscription()
 	assert.Error(t, err)
 
 	a.snsClient = mockedSNSClient{
@@ -123,7 +123,7 @@ func TestAttempSubscription(t *testing.T) {
 		subscribeOutputError: errors.New("fake error"),
 	}
 
-	err = a.attempSubscription(0)
+	err = a.attempSubscription()
 	assert.Error(t, err)
 
 	a.snsClient = mockedSNSClient{
@@ -132,7 +132,7 @@ func TestAttempSubscription(t *testing.T) {
 		subscribeOutputError: nil,
 	}
 
-	err = a.attempSubscription(0)
+	err = a.attempSubscription()
 	assert.NoError(t, err)
 }
 
