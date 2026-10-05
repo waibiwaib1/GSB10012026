@@ -122,6 +122,27 @@ func (s *testDumpSuite) TestBuildSelectAllQuery(c *C) {
 	}
 }
 
+func (s *testDumpSuite) TestBuildSelectAllQueryWithWhere(c *C) {
+	db, mock, err := sqlmock.New()
+	c.Assert(err, IsNil)
+	defer db.Close()
+
+	mockConf := DefaultConfig()
+	mockConf.SortByPk = false
+	mockConf.Where = "id < 100"
+
+	q, err := buildSelectAllQuery(mockConf, db, "test", "t")
+	c.Assert(err, IsNil)
+	c.Assert(q, Equals, "SELECT * FROM test.t WHERE id < 100")
+	c.Assert(mock.ExpectationsWereMet(), IsNil)
+
+	specCmts := buildTableDataSpecialComments(mockConf)
+	c.Assert(specCmts, DeepEquals, []string{
+		"/*!40101 SET NAMES binary*/;",
+		"/* WHERE (id < 100) */",
+	})
+}
+
 func makeVersion(major, minor, patch int64, preRelease string) *semver.Version {
 	return &semver.Version{
 		Major:      major,

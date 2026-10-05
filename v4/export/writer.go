@@ -58,6 +58,11 @@ func (f *SimpleWriter) WriteTableData(ctx context.Context, ir TableDataIR) error
 		}
 
 		if !intWriter.SomethingIsWritten {
+			if chunkCount == 0 && f.cfg.Where != "" {
+				if err := writeFilteredOutTableData(f.cfg.Where, filePath); err != nil {
+					return err
+				}
+			}
 			break
 		}
 
@@ -70,6 +75,17 @@ func (f *SimpleWriter) WriteTableData(ctx context.Context, ir TableDataIR) error
 	log.Zap().Debug("dumping table successfully",
 		zap.String("table", ir.TableName()))
 	return nil
+}
+
+func writeFilteredOutTableData(where, filePath string) error {
+	fileWriter, tearDown, err := buildFileWriter(filePath)
+	if err != nil {
+		return err
+	}
+	defer tearDown()
+
+	filteredOutComments := fmt.Sprintf("/* All data are filtered out by this condition: */\n/* WHERE (%s) */\n", where)
+	return write(fileWriter, filteredOutComments)
 }
 
 func writeMetaToFile(target, metaSQL, path string) error {

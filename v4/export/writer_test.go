@@ -234,3 +234,31 @@ func (s *testDumpSuite) TestWriteTableDataWithStatementSize(c *C) {
 		c.Assert(string(bytes), Equals, expected)
 	}
 }
+
+func (s *testDumpSuite) TestWriteTableDataWithWhereFilteringAllRows(c *C) {
+	dir, err := ioutil.TempDir("", "dumpling")
+	c.Assert(err, IsNil)
+	defer os.RemoveAll(dir)
+
+	config := DefaultConfig()
+	config.OutputDirPath = dir
+	config.Where = "id > 500"
+	ctx := context.Background()
+
+	writer, err := NewSimpleWriter(config)
+	c.Assert(err, IsNil)
+
+	tableIR := newMockTableIR("test", "t", nil, nil, []string{"INT"})
+	err = writer.WriteTableData(ctx, tableIR)
+	c.Assert(err, IsNil)
+
+	p := path.Join(dir, "test.t.sql")
+	_, err = os.Stat(p)
+	c.Assert(err, IsNil)
+	bytes, err := ioutil.ReadFile(p)
+	c.Assert(err, IsNil)
+
+	expected := "/* All data are filtered out by this condition: */\n" +
+		"/* WHERE (id > 500) */\n"
+	c.Assert(string(bytes), Equals, expected)
+}
