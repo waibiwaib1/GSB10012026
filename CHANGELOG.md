@@ -38,6 +38,10 @@
 
 ### Changed
 
+- Relaxed the default allowlist for raw HTML to cover HTML elements commonly used in Marp slides and web services, such as `<div>`, `<span>`, and the most elements converted by Markdown parsers ([#383](https://github.com/marp-team/marp-core/issues/383))
+  - The new default allowlist is based on [the sanitization filter in html-pipeline](https://github.com/gjtorikian/html-pipeline/blob/v2.14.3/lib/html/pipeline/sanitization_filter.rb), and still does not allow dangerous elements and attributes like `<script>` and event handler attributes.
+  - URLs in `href` and `src` attributes are sanitized to allow only safe schemes (`http:`, `https:`, and `data:` for images).
+  - Set `html: false` constructor option to get back the old behavior to strip the most raw HTML tags.
 - Upgrade Marpit to [v3.1.1](https://github.com/marp-team/marpit/releases/v3.1.1) ([#378](https://github.com/marp-team/marp-core/pull/378))
   - Bump markdown-it to [v14.1.0](https://github.com/markdown-it/markdown-it/blob/master/CHANGELOG.md#1410---2024-03-19), and follow the latest spec of [CommonMark 0.31.2](https://spec.commonmark.org/0.31.2/)
   - Support for CSS nesting (`cssNesting` constructor option)

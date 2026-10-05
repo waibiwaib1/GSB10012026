@@ -265,7 +265,11 @@ By passing `object`, you can set the allowlist to specify allowed tags and attri
 }
 ```
 
-Marp core allows only `<br>` tag by default. That is defined in [a readonly `html` member in `Marp` class](https://github.com/marp-team/marp-core/blob/38fb33680c5837f9c48d8a88ac94b9f0862ab6c7/src/marp.ts#L34).
+Marp core allows a number of HTML tags by default, that are commonly used in the Markdown document and web services. The default allowlist is defined as [a readonly `html` member in `Marp` class](https://github.com/marp-team/marp-core/blob/main/src/marp.ts) and [the definition in `src/html/allowlist.ts`](https://github.com/marp-team/marp-core/blob/main/src/html/allowlist.ts). It is inspired by [the sanitization filter in html-pipeline](https://github.com/gjtorikian/html-pipeline/blob/v2.14.3/lib/html/pipeline/sanitization_filter.rb), that is used for the sanitization in GitHub.com.
+
+The default allowlist includes `<div>`, `<span>`, headings, text decorations, images, links, tables, and so on. `class`, `lang`, `title`, and `dir` attributes are allowed to the most elements. URLs in `href` / `src` attributes are sanitized to allow only `http:`, `https:`, and `data:` for images, to prevent the XSS by the dangerous schema such as `javascript:`.
+
+Elements and attributes that can run the dynamic script, like `<script>`, are not included in the default allowlist. If you require these, opt in with `html: true` option.
 
 > [!NOTE]
 > Whatever any option is selected, `<!-- HTML comment -->` and `<style>` tags are always parsed by Marpit for directives / tweaking style.
