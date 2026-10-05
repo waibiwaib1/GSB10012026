@@ -222,6 +222,41 @@ Our subclass is just a thin wrapper around the
 switches the ``load_in_memory`` argument default to ``True`` (since this dataset
 easily fits in memory). Everything else is handled by the superclass.
 
+External datasets
+-----------------
+
+Dataset code doesn't have to be part of the Fuel distribution for the
+``fuel-download`` and ``fuel-convert`` scripts to pick it up: both scripts
+also accept a dotted module path (e.g. ``my_package.my_module``) or a path
+to a Python file (e.g. ``my_module.py``) instead of a built-in dataset
+name. The module is imported on the fly and is expected to define a
+``fill_subparser`` function following the exact same convention as the
+built-in download and conversion modules.
+
+This makes it possible for anyone to create and distribute Fuel-compatible
+datasets outside of Fuel itself. For instance, if the Iris download and
+conversion code lived in a standalone ``iris_fuel.py`` file, you could
+simply type:
+
+.. code-block:: bash
+
+    fuel-download iris_fuel.py
+    fuel-convert iris_fuel.py
+
+and use the resulting HDF5 file through an
+:class:`~.datasets.hdf5.H5PYDataset` subclass like you would for any
+built-in dataset.
+
+By convention, external dataset modules should:
+
+* define a single ``fill_subparser(subparser)`` function which fills the
+  subparser it is given and sets its ``func`` default to the download or
+  conversion function to be called,
+* accept ``directory`` (and ``clear`` for downloads, ``output_directory``
+  for conversions) as keyword arguments, like the built-in functions do,
+* provide an :class:`~.datasets.hdf5.H5PYDataset` subclass so that the
+  converted dataset is easy to use.
+
 Putting it together
 -------------------
 

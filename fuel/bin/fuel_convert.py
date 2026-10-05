@@ -7,6 +7,7 @@ import sys
 import h5py
 
 from fuel import converters
+from fuel.bin import resolve_dataset_argument
 from fuel.converters.base import MissingInputFiles
 from fuel.datasets import H5PYDataset
 
@@ -33,6 +34,14 @@ def main(args=None):
 
     """
     built_in_datasets = dict(converters.all_converters)
+    if args is None:
+        args = sys.argv[1:]
+    else:
+        args = list(args)
+    try:
+        resolve_dataset_argument(args, built_in_datasets)
+    except (ImportError, AttributeError, IOError):
+        pass
     parser = argparse.ArgumentParser(
         description='Conversion script for built-in datasets.')
     subparsers = parser.add_subparsers()

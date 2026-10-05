@@ -2,8 +2,10 @@
 """Fuel dataset downloading utility."""
 import argparse
 import os
+import sys
 
 from fuel import downloaders
+from fuel.bin import resolve_dataset_argument
 from fuel.downloaders.base import NeedURLPrefix
 
 url_prefix_message = """
@@ -28,6 +30,14 @@ def main(args=None):
 
     """
     built_in_datasets = dict(downloaders.all_downloaders)
+    if args is None:
+        args = sys.argv[1:]
+    else:
+        args = list(args)
+    try:
+        resolve_dataset_argument(args, built_in_datasets)
+    except (ImportError, AttributeError, IOError):
+        pass
     parser = argparse.ArgumentParser(
         description='Download script for built-in datasets.')
     parent_parser = argparse.ArgumentParser(add_help=False)
@@ -41,7 +51,7 @@ def main(args=None):
         subparser_fn(subparsers.add_parser(
             name, parents=[parent_parser],
             help='Download the {} dataset'.format(name)))
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     args_dict = vars(args)
     try:
         func = args_dict.pop('func')
