@@ -12,7 +12,7 @@ const xhtmlOutFilter = new FilterXSS({
     }
     return html
   },
-  whiteList: {},
+  allowList: {},
 })
 
 export function markdown(md): void {
@@ -60,7 +60,7 @@ export function markdown(md): void {
       }
 
       const filter = new FilterXSS({
-        whiteList: allowList,
+        allowList,
         onIgnoreTag: (_, rawHtml) => (html === true ? rawHtml : undefined),
         safeAttrValue: (tag, attr, value) => {
           let ret = friendlyAttrValue(value)
