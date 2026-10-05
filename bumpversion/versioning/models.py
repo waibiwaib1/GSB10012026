@@ -5,11 +5,11 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from typing import Any, Dict, List, Optional, Union
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from bumpversion.exceptions import InvalidVersionPartError
 from bumpversion.utils import key_val_string
-from bumpversion.versioning.functions import NumericFunction, PartFunction, ValuesFunction
+from bumpversion.versioning.functions import CalendarFunction, NumericFunction, PartFunction, ValuesFunction
 
 
 class VersionComponent:
@@ -28,12 +28,16 @@ class VersionComponent:
         independent: bool = False,
         source: Optional[str] = None,
         value: Union[str, int, None] = None,
+        calver_format: Optional[str] = None,
     ):
         self._value = str(value) if value is not None else None
         self.func: Optional[PartFunction] = None
         self.independent = independent
         self.source = source
-        if values:
+        self.calver_format = calver_format
+        if calver_format:
+            self.func = CalendarFunction(calver_format)
+        elif values:
             str_values = [str(v) for v in values]
             str_optional_value = str(optional_value) if optional_value is not None else None
             str_first_value = str(first_value) if first_value is not None else None
@@ -55,6 +59,7 @@ class VersionComponent:
             independent=self.independent,
             source=self.source,
             value=self._value,
+            calver_format=self.calver_format,
         )
 
     def bump(self) -> "VersionComponent":
@@ -66,7 +71,7 @@ class VersionComponent:
     def null(self) -> "VersionComponent":
         """Return a part with first value."""
         new_component = self.copy()
-        new_component._value = self.func.first_value
+        new_component._value = self.func.null()
         return new_component
 
     @property
@@ -108,6 +113,7 @@ class VersionComponentSpec(BaseModel):
     independent: bool = False
     # source: Optional[str] = None  # Name of environment variable or context variable to use as the source for value
     depends_on: Optional[str] = None  # The name of the component this component depends on
+    calver_format: Optional[str] = Field(default=None, exclude=True)  # A strftime format for calendar parts
 
     def create_component(self, value: Union[str, int, None] = None) -> VersionComponent:
         """Generate a version component from the configuration."""
@@ -118,6 +124,7 @@ class VersionComponentSpec(BaseModel):
             independent=self.independent,
             # source=self.source,
             value=value,
+            calver_format=self.calver_format,
         )
 
 

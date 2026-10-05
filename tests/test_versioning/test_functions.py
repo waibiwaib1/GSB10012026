@@ -1,7 +1,7 @@
 import pytest
 from pytest import param
 
-from bumpversion.versioning.functions import NumericFunction, ValuesFunction, IndependentFunction
+from bumpversion.versioning.functions import CalendarFunction, NumericFunction, ValuesFunction, IndependentFunction
 
 
 # NumericFunction
@@ -145,3 +145,37 @@ class TestIndependentFunction:
         def test_bump_with_no_value_returns_initial_value(self):
             func = IndependentFunction("1")
             assert func.bump() == "1"
+
+
+class TestCalendarFunction:
+    """The calendar function generates date- and time-based version parts."""
+
+    def test_first_value_uses_unix_epoch(self):
+        func = CalendarFunction("%Y-%m-%d-%H-%M")
+
+        assert func.first_value == "1970-01-01-00-00"
+        assert func.optional_value == func.first_value
+
+    def test_empty_format_raises_value_error(self):
+        with pytest.raises(ValueError):
+            CalendarFunction("")
+
+    def test_bump_returns_current_utc_time(self, mocker):
+        current_datetime = mocker.Mock()
+        current_datetime.strftime.return_value = "2024-01-02-03-04"
+        datetime_class = mocker.patch("bumpversion.versioning.functions.datetime")
+        datetime_class.now.return_value = current_datetime
+
+        func = CalendarFunction("%Y-%m-%d-%H-%M")
+
+        assert func.bump("2024-01-02-03-03") == "2024-01-02-03-04"
+
+    def test_null_uses_current_utc_time(self, mocker):
+        current_datetime = mocker.Mock()
+        current_datetime.strftime.return_value = "2024-01-02-03-04"
+        datetime_class = mocker.patch("bumpversion.versioning.functions.datetime")
+        datetime_class.now.return_value = current_datetime
+
+        func = CalendarFunction("%Y-%m-%d-%H-%M")
+
+        assert func.null() == "2024-01-02-03-04"

@@ -1,14 +1,28 @@
 """Test the versioning conventions."""
 
 from bumpversion.versioning.conventions import (
+    CALVER_PATTERN,
+    CALVER_SERIALIZE_PATTERNS,
     PEP440_COMPONENT_CONFIGS,
     PEP440_PATTERN,
     PEP440_SERIALIZE_PATTERNS,
+    calver_spec,
 )
 import re
 
 import pytest
 from pytest import param
+
+
+def test_calver_convention_parses_and_serializes():
+    from bumpversion.versioning.serialization import parse_version, serialize
+
+    spec = calver_spec()
+    values = parse_version("2024-01-02-03-04", CALVER_PATTERN)
+    version = spec.create_version(values)
+
+    assert values == {"calver": "2024-01-02-03-04"}
+    assert serialize(version, CALVER_SERIALIZE_PATTERNS, {}) == "2024-01-02-03-04"
 
 
 @pytest.mark.parametrize(

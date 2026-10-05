@@ -108,3 +108,15 @@ SEMVER_COMPONENT_CONFIGS = {
 def semver_spec() -> VersionSpec:
     """Return a VersionSpec for SEMVER."""
     return VersionSpec(components=SEMVER_COMPONENT_CONFIGS)
+
+
+CALVER_PATTERN = r"(?P<calver>\d{4}-\d{2}-\d{2}-\d{2}-\d{2})"
+CALVER_SERIALIZE_PATTERNS = ["{calver}"]
+CALVER_COMPONENT_CONFIGS = {
+    "calver": VersionComponentSpec(calver_format="%Y-%m-%d-%H-%M"),
+}
+
+
+def calver_spec() -> VersionSpec:
+    """Return a VersionSpec for minute-resolution calendar versions."""
+    return VersionSpec(components=CALVER_COMPONENT_CONFIGS)

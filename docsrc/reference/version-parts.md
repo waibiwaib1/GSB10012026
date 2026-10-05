@@ -38,7 +38,7 @@ A version part configuration consists of the following:
 
 ### Incrementing functions
 
-There are two incrementing functions: numeric and value. The numeric function uses integer values and returns the next integer value. The values function uses a sequence of values and returns the next value until finished.
+There are three incrementing functions: numeric, value, and calendar. The numeric function uses integer values and returns the next integer value. The values function uses a sequence of values and returns the next value until finished. The calendar function renders the current date and time with a [`strftime` format](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes).
 
 By default, parts use the numeric function starting at 0.
 
@@ -52,6 +52,20 @@ values = [
     "marvelous-mantis",
 ]
 ```
+
+Calendar parts are useful for [calendar versioning](https://calver.org). For example, this configuration produces versions in `YYYY-MM-DD-HH-MM` format:
+
+```toml
+[tool.bumpversion]
+current_version = "2024-01-02-03-04"
+parse = '(?P<released_at>\d{4}-\d{2}-\d{2}-\d{2}-\d{2})'
+serialize = ["{released_at}"]
+
+[tool.bumpversion.parts.released_at]
+calver_format = "%Y-%m-%d-%H-%M"
+```
+
+Bumping the `released_at` part sets it to the current UTC date and time.
 
 ### Optional values
 

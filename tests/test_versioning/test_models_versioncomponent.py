@@ -1,7 +1,7 @@
 """Tests of the VersionPart model."""
 
 from bumpversion.versioning.models import VersionComponentSpec
-from bumpversion.versioning.functions import ValuesFunction, NumericFunction
+from bumpversion.versioning.functions import CalendarFunction, ValuesFunction, NumericFunction
 import pytest
 
 
@@ -33,6 +33,20 @@ class TestVersionComponent:
         def test_config_without_values_selects_numeric_function(self):
             vp = VersionComponentSpec().create_component()
             assert isinstance(vp.func, NumericFunction)
+
+        def test_config_with_calver_format_selects_calendar_function(self):
+            vp = VersionComponentSpec(calver_format="%Y-%m-%d-%H-%M").create_component()
+            assert isinstance(vp.func, CalendarFunction)
+
+        def test_calendar_part_bumps_and_resets_to_current_time(self, mocker):
+            mocker.patch(
+                "bumpversion.versioning.functions.CalendarFunction.bump",
+                return_value="2024-01-02-03-04",
+            )
+            vp = VersionComponentSpec(calver_format="%Y-%m-%d-%H-%M").create_component("2024-01-02-03-03")
+
+            assert vp.bump().value == "2024-01-02-03-04"
+            assert vp.null().value == "2024-01-02-03-04"
 
     def test_copy_returns_new_version_part(self, version_component_config):
         vp = version_component_config.create_component(version_component_config.first_value)

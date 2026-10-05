@@ -10,6 +10,7 @@ from pytest import param
 from bumpversion.config.utils import get_all_file_configs, get_all_part_configs, resolve_glob_files
 from bumpversion.config.models import FileChange
 from bumpversion.config import DEFAULTS
+from bumpversion.versioning.functions import CalendarFunction
 from tests.conftest import inside_dir
 
 
@@ -113,3 +114,21 @@ class TestResolveGlobFiles:
             assert resolved_file.ignore_missing_version is True
             assert resolved_file.ignore_missing_file is True
             assert resolved_file.regex is True
+
+
+class TestGetAllPartConfigs:
+    def test_calendar_part_format_is_loaded(self):
+        config_dict = {
+            "parse": r"(?P<released_at>\d{4}-\d{2}-\d{2}-\d{2}-\d{2})",
+            "parts": {
+                "released_at": {
+                    "calver_format": "%Y-%m-%d-%H-%M",
+                }
+            },
+        }
+
+        part_configs = get_all_part_configs(config_dict)
+        component = part_configs["released_at"].create_component()
+
+        assert isinstance(component.func, CalendarFunction)
+        assert component.func.calver_format == "%Y-%m-%d-%H-%M"

@@ -1,6 +1,7 @@
 """Generators for version parts."""
 
 import re
+from datetime import datetime, timezone
 from typing import List, Optional, Union
 
 
@@ -14,6 +15,10 @@ class PartFunction:
     def bump(self, value: str) -> str:
         """Increase the value."""
         raise NotImplementedError
+
+    def null(self) -> str:
+        """Return the first value for the part."""
+        return self.first_value
 
 
 class IndependentFunction(PartFunction):
@@ -75,6 +80,28 @@ class NumericFunction(PartFunction):
         bumped_numeric = int(part_numeric) + 1
 
         return "".join([part_prefix, str(bumped_numeric), part_suffix])
+
+
+class CalendarFunction(PartFunction):
+    """Generate a version part from the current date and time."""
+
+    def __init__(self, calver_format: str):
+        if not calver_format:
+            raise ValueError("A calendar version part requires a format.")
+
+        self.calver_format = calver_format
+        self.independent = False
+        epoch = datetime(1970, 1, 1, tzinfo=timezone.utc)
+        self.first_value = epoch.strftime(calver_format)
+        self.optional_value = self.first_value
+
+    def bump(self, value: Optional[Union[str, int]] = None) -> str:
+        """Return the current UTC date and time in the configured format."""
+        return datetime.now(timezone.utc).strftime(self.calver_format)
+
+    def null(self) -> str:
+        """Return the current UTC date and time in the configured format."""
+        return self.bump()
 
 
 class ValuesFunction(PartFunction):

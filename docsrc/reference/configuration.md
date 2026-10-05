@@ -506,6 +506,20 @@ When the part is reset, the value will be set to the value specified here.
 When this value is set to `True`, the part is not reset when other parts are incremented. Its incrementation is
 independent of the other parts. It is useful when you have a build number in your version that is incremented independently of the actual version.
 
+### calver_format
+
+::: field-list
+    required
+    : No
+
+    default
+    : numeric incrementing
+
+    type
+    : string
+
+A [`strftime` format](https://docs.python.org/3/library/datetime.html#strftime-and-strptime-format-codes) used to set the part to the current UTC date or time when the part is bumped. For example, `%Y-%m-%d-%H-%M` produces minute-resolution versions such as `2024-01-02-03-04`.
+
 ### Examples
 
 === "TOML"

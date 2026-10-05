@@ -2,8 +2,23 @@
 
 from bumpversion.versioning.models import VersionComponentSpec
 from bumpversion.versioning.models import VersionSpec
+from bumpversion.versioning.serialization import serialize
 import pytest
 from pytest import param
+
+
+def test_calendar_version_uses_current_utc_timestamp(mocker):
+    """A calendar version can use a complete YYYY-MM-DD-HH-MM timestamp."""
+    mocker.patch(
+        "bumpversion.versioning.functions.CalendarFunction.bump",
+        return_value="2024-01-02-03-04",
+    )
+    spec = VersionSpec({"release": VersionComponentSpec(calver_format="%Y-%m-%d-%H-%M")})
+    version = spec.create_version({"release": "2024-01-02-03-03"})
+
+    bumped = version.bump("release")
+
+    assert serialize(bumped, ["{release}"], {}) == "2024-01-02-03-04"
 
 
 @pytest.fixture
