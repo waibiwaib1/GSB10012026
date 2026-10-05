@@ -25,6 +25,50 @@ except ImportError:
     paramiko = None
 
 
+def zenodo_url_to_api(url):
+    """
+    Utility function to turn a DOI URL into a Zenodo API URL.
+
+    The DOI URL must point to a record hosted on Zenodo. For example:
+
+    .. code:: python
+
+        "doi:10.5281/zenodo.1234567"
+        "doi:https://doi.org/10.5281/zenodo.1234567"
+
+    Both forms are converted into a Zenodo API URL for the record:
+
+    .. code:: python
+
+        "https://zenodo.org/api/records/1234567"
+
+    Parameters
+    ----------
+    url : str
+        A DOI URL pointing to a Zenodo record (see examples above).
+
+    Returns
+    -------
+    api_url : str
+        The URL to the Zenodo API entry for the record.
+
+    """
+    # Strip the "doi:" prefix and any "https://doi.org/" part to get the DOI
+    doi = url
+    if doi.startswith("doi:"):
+        doi = doi[4:]
+    if doi.startswith("https://doi.org/"):
+        doi = doi.replace("https://doi.org/", "")
+    # The DOI for Zenodo records looks like "10.5281/zenodo.1234567"
+    if "/zenodo." not in doi:
+        raise ValueError(
+            f"Invalid DOI '{doi}': DOI must be a Zenodo record "
+            "(like '10.5281/zenodo.1234567')."
+        )
+    record_id = doi.split("/zenodo.")[-1]
+    return f"https://zenodo.org/api/records/{record_id}"
+
+
 def choose_downloader(url):
     """
     Choose the appropriate downloader for the given URL based on the protocol.
@@ -52,6 +96,9 @@ def choose_downloader(url):
     >>> downloader = choose_downloader("ftp://something.com")
     >>> print(downloader.__class__.__name__)
     FTPDownloader
+    >>> downloader = choose_downloader("doi:10.5281/zenodo.1234567")
+    >>> print(downloader.__class__.__name__)
+    DOIDownloader
 
     """
     known_downloaders = {
@@ -59,6 +106,7 @@ def choose_downloader(url):
         "https": HTTPDownloader,
         "http": HTTPDownloader,
         "sftp": SFTPDownloader,
+        "doi": DOIDownloader,
     }
 
     parsed_url = parse_url(url)
@@ -439,3 +487,106 @@ class SFTPDownloader:  # pylint: disable=too-few-public-methods
             connection.close()
             if sftp is not None:
                 sftp.close()
+
+
+class DOIDownloader:
+    """
+    Download manager for fetching files from a DOI (currently only Zenodo).
+
+    Resolves the DOI of a data repository into the download URL of a file
+    hosted in the repository.
+    Currently, only repositories hosted on
+    `Zenodo <https://zenodo.org>`__ are supported.
+
+    The URL passed to the downloader (or registered with Pooch) should have
+    the following format:
+
+    .. code:: python
+
+        "doi:10.5281/zenodo.1234567/my-data-file.csv"
+
+    where ``10.5281/zenodo.1234567`` is the DOI of the Zenodo record and
+    ``my-data-file.csv`` is the name of the file in the record.
+    The file name is used to find the file in the list of files attached to
+    the record.
+
+    The DOI is resolved using the
+    `Zenodo API <https://developers.zenodo.org/#representation>`__.
+    The actual download is performed by an :class:`HTTPDownloader`.
+
+    Parameters
+    ----------
+    progressbar : bool or an arbitrary progress bar object
+        If True, will print a progress bar of the download to standard error
+        (stderr). Requires `tqdm <https://github.com/tqdm/tqdm>`__ to be
+        installed. Alternatively, an arbitrary progress bar object can be
+        passed. See :ref:`custom-progressbar` for details.
+    chunk_size : int
+        Files are streamed *chunk_size* bytes at a time instead of loading
+        everything into memory at one. Usually doesn't need to be changed.
+    **kwargs
+        All keyword arguments given when creating an instance of this class
+        will be passed to :func:`requests.get` when contacting the Zenodo API
+        and downloading the file.
+
+    """
+
+    def __init__(self, progressbar=False, chunk_size=1024, **kwargs):
+        self.kwargs = kwargs
+        self.progressbar = progressbar
+        self.chunk_size = chunk_size
+
+    def __call__(self, url, output_file, pooch):
+        """
+        Resolve the DOI in the given URL and download the file.
+
+        Parameters
+        ----------
+        url : str
+            The DOI of the repository and the name of the file, in the format
+            ``"doi:<doi>/<file_name>"``.
+        output_file : str or file-like object
+            Path (and file name) to which the file will be downloaded.
+        pooch : :class:`~pooch.Pooch`
+            The instance of :class:`~pooch.Pooch` that is calling this method.
+
+        """
+        # The url is parsed into the DOI and the file name.
+        # Strip the "doi:" prefix first, then split on the first "/" that
+        # separates the DOI from the file name.
+        doi, _, file_name = url[4:].rpartition("/")
+        if not file_name:
+            raise ValueError(
+                f"Invalid DOI URL '{url}': must include the name of the file "
+                "in the record (like 'doi:10.5281/zenodo.1234567/file.csv')."
+            )
+
+        # Query the Zenodo API for the list of files in the record
+        response = requests.get(
+            zenodo_url_to_api(f"doi:{doi}"), **self.kwargs
+        )
+        response.raise_for_status()
+        files = response.json()["files"]
+
+        # Find the file in the record that matches the requested file name
+        matches = [f for f in files if f["key"] == file_name]
+        if len(matches) == 0:
+            available = [f["key"] for f in files]
+            raise ValueError(
+                f"File '{file_name}' not found in the Zenodo record for DOI "
+                f"'{doi}'. Available files are: {available}."
+            )
+        if len(matches) > 1:
+            raise ValueError(
+                f"Found {len(matches)} files named '{file_name}' in the "
+                f"Zenodo record for DOI '{doi}'. File names must be unique."
+            )
+        download_url = matches[0]["links"]["self"]
+
+        # Delegate the actual download to the HTTPDownloader
+        downloader = HTTPDownloader(
+            progressbar=self.progressbar,
+            chunk_size=self.chunk_size,
+            **self.kwargs,
+        )
+        downloader(download_url, output_file, pooch)

@@ -40,3 +40,41 @@ following setup:
 
 You can even specify custom functions for the download or login credentials for
 **authentication**. See :ref:`downloaders` for more information.
+
+Downloading from Zenodo using a DOI
+-----------------------------------
+
+Pooch can also download files from data repositories hosted on
+`Zenodo <https://zenodo.org>`__ using their DOI instead of an absolute URL.
+To do so, register the file with a URL in the format
+``"doi:<doi>/<file_name>"`` where ``<doi>`` is the DOI of the Zenodo record
+and ``<file_name>`` is the name of the file attached to the record.
+For example:
+
+.. code:: python
+
+    POOCH = pooch.create(
+        path=pooch.os_cache("plumbus"),
+        base_url="",
+        registry={
+            "c137.csv": "19uheidhlkjdwhoiwuhc0uhcwljchw9ochwochw89dcgw9dcgwc",
+        },
+        urls={
+            "c137.csv": "doi:10.5281/zenodo.3629437/c137.csv",
+        },
+    }
+
+Pooch will query the Zenodo API to find the download link of the file and then
+fetch it over HTTPS.
+The same can be done when using :func:`pooch.retrieve`:
+
+.. code:: python
+
+    pooch.retrieve(
+        url="doi:10.5281/zenodo.3629437/c137.csv",
+        known_hash="19uheidhlkjdwhoiwuhc0uhcwljchw9ochwochw89dcgw9dcgwc",
+    )
+
+To pass extra arguments (like authentication or a progress bar), use
+:class:`pooch.DOIDownloader` explicitly with :meth:`pooch.Pooch.fetch` or
+:func:`pooch.retrieve`.

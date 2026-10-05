@@ -27,7 +27,9 @@ from ..downloaders import (
     HTTPDownloader,
     FTPDownloader,
     SFTPDownloader,
+    DOIDownloader,
     choose_downloader,
+    zenodo_url_to_api,
 )
 from .utils import pooch_test_url, check_large_data, check_tiny_data, data_over_ftp
 
@@ -41,6 +43,117 @@ def test_unsupported_protocol():
     "Should raise ValueError when protocol not in {'https', 'http', 'ftp'}"
     with pytest.raises(ValueError):
         choose_downloader("httpup://some-invalid-url.com")
+
+
+def test_zenodo_url_to_api():
+    "Convert DOI URLs to Zenodo API URLs"
+    assert (
+        zenodo_url_to_api("doi:10.5281/zenodo.1234567")
+        == "https://zenodo.org/api/records/1234567"
+    )
+    assert (
+        zenodo_url_to_api("doi:https://doi.org/10.5281/zenodo.1234567")
+        == "https://zenodo.org/api/records/1234567"
+    )
+
+
+def test_zenodo_url_to_api_invalid_doi():
+    "Should raise if the DOI is not a Zenodo DOI"
+    with pytest.raises(ValueError):
+        zenodo_url_to_api("doi:10.6084/m9.figshare.12345")
+
+
+def test_doi_downloader_choose():
+    "choose_downloader should return a DOIDownloader for doi: URLs"
+    downloader = choose_downloader("doi:10.5281/zenodo.1234567/file.txt")
+    assert isinstance(downloader, DOIDownloader)
+
+
+def test_doi_downloader_missing_file_name():
+    "Should raise if no file name is given after the DOI"
+    downloader = DOIDownloader()
+    with TemporaryDirectory() as local_store:
+        outfile = os.path.join(local_store, "file.txt")
+        with pytest.raises(ValueError):
+            downloader("doi:10.5281/zenodo.1234567", outfile, None)
+
+
+def test_doi_downloader(monkeypatch):
+    "Test the DOI downloader with a mocked Zenodo API"
+
+    class FakeResponse:
+        def __init__(self, json_data=None):
+            self._json_data = json_data
+
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return self._json_data
+
+    def fake_get(url, **kwargs):  # pylint: disable=unused-argument
+        if url == "https://zenodo.org/api/records/1234567":
+            return FakeResponse(
+                {
+                    "files": [
+                        {"key": "other-file.txt", "links": {"self": "other"}},
+                        {
+                            "key": "tiny-data.txt",
+                            "links": {"self": BASEURL + "tiny-data.txt"},
+                        },
+                    ]
+                }
+            )
+        return FakeResponse()
+
+    # Patch only the API request; the file itself is downloaded from the
+    # local test server.
+    import pooch.downloaders as downloaders_module
+
+    original_get = downloaders_module.requests.get
+    call_count = {"n": 0}
+
+    def patched_get(url, **kwargs):
+        if "zenodo.org/api" in url:
+            call_count["n"] += 1
+            return fake_get(url, **kwargs)
+        return original_get(url, **kwargs)
+
+    monkeypatch.setattr(downloaders_module.requests, "get", patched_get)
+
+    with TemporaryDirectory() as local_store:
+        downloader = DOIDownloader()
+        outfile = os.path.join(local_store, "tiny-data.txt")
+        downloader(
+            "doi:10.5281/zenodo.1234567/tiny-data.txt", outfile, None
+        )
+        check_tiny_data(outfile)
+    assert call_count["n"] == 1
+
+
+def test_doi_downloader_file_not_found(monkeypatch):
+    "Should raise if the requested file is not in the Zenodo record"
+
+    class FakeResponse:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {"files": [{"key": "other-file.txt"}]}
+
+    import pooch.downloaders as downloaders_module
+
+    monkeypatch.setattr(
+        downloaders_module.requests,
+        "get",
+        lambda url, **kwargs: FakeResponse(),
+    )
+
+    downloader = DOIDownloader()
+    with TemporaryDirectory() as local_store:
+        outfile = os.path.join(local_store, "missing.txt")
+        with pytest.raises(ValueError):
+            downloader("doi:10.5281/zenodo.1234567/missing.txt", outfile, None)
 
 
 def test_ftp_downloader(ftpserver):

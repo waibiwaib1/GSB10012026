@@ -3,6 +3,14 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+Enhancements:
+
+* Add ``DOIDownloader`` to download files hosted on Zenodo from a DOI instead
+  of an absolute URL (`#241 <https://github.com/fatiando/pooch/issues/241>`__)
+
 Version 1.4.0
 -------------
 
