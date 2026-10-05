@@ -10,7 +10,19 @@
 #  ___________________________________________________________________________
 
 import math
-from pyomo.environ import exp, log, log10, sin, cos, tan, asin, acos, atan, sqrt
+from pyomo.environ import (
+    Expr_if,
+    acos,
+    asin,
+    atan,
+    cos,
+    exp,
+    log,
+    log10,
+    sin,
+    sqrt,
+    tan,
+)
 import pyomo.common.unittest as unittest
 from pyomo.contrib.fbbt.expression_bounds_walker import ExpressionBoundsVisitor
 from pyomo.core import Any, ConcreteModel, Expression, Param, Var
@@ -179,6 +191,41 @@ class TestExpressionBoundsWalker(unittest.TestCase):
         lb, ub = visitor.walk_expression(abs(m.x))
         self.assertEqual(lb, 0)
         self.assertEqual(ub, 4)
+
+    def test_expr_if_uncertain_condition(self):
+        m = self.make_model()
+        visitor = ExpressionBoundsVisitor()
+        expr = Expr_if(IF=m.x <= 1, THEN=m.x, ELSE=m.x + 10)
+        lb, ub = visitor.walk_expression(expr)
+        self.assertEqual(lb, -2)
+        self.assertEqual(ub, 14)
+
+    def test_expr_if_always_true_condition(self):
+        m = self.make_model()
+        m.x.setub(0)
+        visitor = ExpressionBoundsVisitor()
+        expr = Expr_if(IF=m.x <= 1, THEN=m.x, ELSE=m.x + 10)
+        lb, ub = visitor.walk_expression(expr)
+        self.assertEqual(lb, -2)
+        self.assertEqual(ub, 0)
+
+    def test_expr_if_always_false_condition(self):
+        m = self.make_model()
+        m.x.setlb(2)
+        visitor = ExpressionBoundsVisitor()
+        expr = Expr_if(IF=m.x <= 1, THEN=m.x, ELSE=m.x + 10)
+        lb, ub = visitor.walk_expression(expr)
+        self.assertEqual(lb, 12)
+        self.assertEqual(ub, 14)
+
+    def test_expr_if_equality_condition(self):
+        m = self.make_model()
+        m.x.fix(1)
+        visitor = ExpressionBoundsVisitor(use_fixed_var_values_as_bounds=True)
+        expr = Expr_if(IF=m.x == 1, THEN=m.y, ELSE=m.y + 10)
+        lb, ub = visitor.walk_expression(expr)
+        self.assertEqual(lb, 3)
+        self.assertEqual(ub, 5)
 
     def test_leaf_bounds_cached(self):
         m = self.make_model()

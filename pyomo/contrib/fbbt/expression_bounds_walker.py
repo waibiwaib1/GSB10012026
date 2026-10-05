@@ -40,8 +40,15 @@ from pyomo.core.expr.numeric_expr import (
     LinearExpression,
     SumExpression,
     ExternalFunctionExpression,
+    Expr_ifExpression,
 )
 from pyomo.core.expr.numvalue import native_numeric_types, native_types, value
+from pyomo.core.expr.relational_expr import (
+    EqualityExpression,
+    InequalityExpression,
+    NotEqualExpression,
+    RangedExpression,
+)
 from pyomo.core.expr.visitor import StreamBasedExpressionVisitor
 from pyomo.repn.util import BeforeChildDispatcher, ExitNodeDispatcher
 
@@ -53,6 +60,92 @@ class ExpressionBoundsBeforeChildDispatcher(BeforeChildDispatcher):
 
     def __init__(self):
         self[ExternalFunctionExpression] = self._before_external_function
+        self[Expr_ifExpression] = self._before_expr_if
+
+    @staticmethod
+    def _before_expr_if(visitor, child):
+        condition = child.arg(0)
+        then_bounds = visitor.walk_expression(child.arg(1))
+        else_bounds = visitor.walk_expression(child.arg(2))
+
+        possible_true = True
+        possible_false = True
+        tol = visitor.feasibility_tol
+
+        if isinstance(condition, InequalityExpression):
+            lhs_bounds = visitor.walk_expression(condition.arg(0))
+            rhs_bounds = visitor.walk_expression(condition.arg(1))
+            if condition.strict:
+                possible_true = lhs_bounds[0] < rhs_bounds[1] + tol
+                possible_false = lhs_bounds[1] + tol >= rhs_bounds[0]
+            else:
+                possible_true = lhs_bounds[0] <= rhs_bounds[1] + tol
+                possible_false = lhs_bounds[1] + tol > rhs_bounds[0]
+        elif isinstance(condition, EqualityExpression):
+            lhs_bounds = visitor.walk_expression(condition.arg(0))
+            rhs_bounds = visitor.walk_expression(condition.arg(1))
+            possible_true = (
+                lhs_bounds[0] <= rhs_bounds[1] + tol
+                and rhs_bounds[0] <= lhs_bounds[1] + tol
+            )
+            point_intervals = (
+                abs(lhs_bounds[0] - lhs_bounds[1]) <= tol
+                and abs(rhs_bounds[0] - rhs_bounds[1]) <= tol
+                and abs(lhs_bounds[0] - rhs_bounds[0]) <= tol
+            )
+            possible_false = not point_intervals
+        elif isinstance(condition, NotEqualExpression):
+            lhs_bounds = visitor.walk_expression(condition.arg(0))
+            rhs_bounds = visitor.walk_expression(condition.arg(1))
+            possible_false = (
+                lhs_bounds[0] <= rhs_bounds[1] + tol
+                and rhs_bounds[0] <= lhs_bounds[1] + tol
+            )
+            point_intervals = (
+                abs(lhs_bounds[0] - lhs_bounds[1]) <= tol
+                and abs(rhs_bounds[0] - rhs_bounds[1]) <= tol
+                and abs(lhs_bounds[0] - rhs_bounds[0]) <= tol
+            )
+            possible_true = not point_intervals
+        elif isinstance(condition, RangedExpression):
+            lower_bounds = visitor.walk_expression(condition.arg(0))
+            body_bounds = visitor.walk_expression(condition.arg(1))
+            upper_bounds = visitor.walk_expression(condition.arg(2))
+            lower_strict, upper_strict = condition.strict
+            if lower_strict:
+                lower_true = lower_bounds[0] < body_bounds[1] + tol
+                lower_false = lower_bounds[1] + tol >= body_bounds[0]
+            else:
+                lower_true = lower_bounds[0] <= body_bounds[1] + tol
+                lower_false = lower_bounds[1] + tol > body_bounds[0]
+            if upper_strict:
+                upper_true = body_bounds[0] < upper_bounds[1] + tol
+                upper_false = body_bounds[1] + tol >= upper_bounds[0]
+            else:
+                upper_true = body_bounds[0] <= upper_bounds[1] + tol
+                upper_false = body_bounds[1] + tol > upper_bounds[0]
+            possible_true = lower_true and upper_true
+            possible_false = lower_false or upper_false
+        else:
+            condition_bounds = visitor.walk_expression(condition)
+            possible_true = condition_bounds[1] > 0
+            possible_false = condition_bounds[0] <= 0
+
+        if possible_true and possible_false:
+            bounds = (
+                min(then_bounds[0], else_bounds[0]),
+                max(then_bounds[1], else_bounds[1]),
+            )
+        elif possible_true:
+            bounds = then_bounds
+        elif possible_false:
+            bounds = else_bounds
+        else:
+            bounds = (
+                min(then_bounds[0], else_bounds[0]),
+                max(then_bounds[1], else_bounds[1]),
+            )
+        return False, bounds
 
     @staticmethod
     def _before_external_function(visitor, child):
