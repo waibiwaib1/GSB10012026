@@ -60,6 +60,10 @@ pub enum ConversionError {
     RegexOnBool { var_name: String },
     #[error("variable `{var_name}` was missing in config file running on silent mode")]
     MissingPlaceholderVariable { var_name: String },
+    #[error("value `{value}` for placeholder `{var_name}` does not match configured regex")]
+    ProvidedValueDoesntMatchRegex { var_name: String, value: String },
+    #[error("value `{value}` for placeholder `{var_name}` is not one of the allowed choices")]
+    ProvidedValueNotInChoices { var_name: String, value: String },
     #[error("field `{field}` of variable `{var_name}` does not match configured regex")]
     RegexDoesntMatchField { var_name: String, field: String },
     #[error("regex of `{var_name}` is not a valid regex. {error}")]

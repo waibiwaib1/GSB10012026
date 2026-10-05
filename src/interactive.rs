@@ -1,6 +1,6 @@
 use crate::{
     emoji,
-    project_variables::{StringEntry, TemplateSlots, VarInfo},
+    project_variables::{ConversionError, StringEntry, TemplateSlots, VarInfo},
 };
 use anyhow::Result;
 use console::style;
@@ -100,9 +100,39 @@ pub fn prompt_for_variable(variable: &TemplateSlots) -> Result<String> {
 
 pub fn variable(variable: &TemplateSlots, provided_value: Option<&impl ToString>) -> Result<Value> {
     let user_input = provided_value
-        .map(|v| Ok(v.to_string()))
+        .map(|v| {
+            let value = v.to_string();
+            validate_provided_value(variable, &value)?;
+            Ok(value)
+        })
         .unwrap_or_else(|| prompt_for_variable(variable))?;
     into_value(user_input, &variable.var_info)
+}
+
+fn validate_provided_value(variable: &TemplateSlots, value: &str) -> Result<()> {
+    if let VarInfo::String { entry } = &variable.var_info {
+        if let Some(choices) = &entry.choices {
+            if !choices.iter().any(|choice| choice == value) {
+                return Err(ConversionError::ProvidedValueNotInChoices {
+                    var_name: variable.var_name.clone(),
+                    value: value.to_string(),
+                }
+                .into());
+            }
+        }
+
+        if let Some(regex) = &entry.regex {
+            if !regex.is_match(value) {
+                return Err(ConversionError::ProvidedValueDoesntMatchRegex {
+                    var_name: variable.var_name.clone(),
+                    value: value.to_string(),
+                }
+                .into());
+            }
+        }
+    }
+
+    Ok(())
 }
 
 fn into_value(user_entry: String, var_info: &VarInfo) -> Result<Value> {

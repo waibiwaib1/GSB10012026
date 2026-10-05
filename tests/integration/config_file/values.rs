@@ -269,6 +269,48 @@ fn it_accepts_individual_template_values_via_flag() {
 }
 
 #[test]
+fn it_rejects_individual_template_value_that_does_not_match_regex() {
+    let template = tmp_dir()
+        .file(
+            "cargo-generate.toml",
+            r#"
+[placeholders]
+enable = {type = "bool", prompt = "?"}
+
+[conditional.'enable'.placeholders]
+my_value = {type = "string", prompt = "?", regex = "^valid$"}
+"#,
+        )
+        .file(
+            "random.toml",
+            indoc! {r#"
+                value = "{{my_value}}"
+            "#},
+        )
+        .build();
+
+    let dir = tmp_dir().build();
+
+    binary()
+        .arg("generate")
+        .arg("--name")
+        .arg("foobar-project")
+        .arg("--path")
+        .arg(template.path())
+        .arg("--define")
+        .arg("enable=true")
+        .arg("--define")
+        .arg("my_value=invalid")
+        .current_dir(&dir.path())
+        .env("USER", "test-user")
+        .assert()
+        .failure()
+        .stderr(predicates::str::contains(
+            "does not match configured regex",
+        ));
+}
+
+#[test]
 fn it_accepts_values_via_long_option() {
     let template = tmp_dir()
         .file(
