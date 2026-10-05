@@ -1,4 +1,6 @@
 import numbers
+import decimal
+from decimal import Decimal
 
 from . import function_docs
 from .libmp import (MPQ, MPZ, ComplexResult, dps_to_prec, finf, fnan, fninf,
@@ -139,6 +141,33 @@ class _mpf(mpnumeric):
         return "mpf('%s')" % to_str(s._mpf_, s.context._repr_digits)
 
     def __str__(s): return to_str(s._mpf_, s.context._str_digits)
+
+    def __format__(s, format_spec):
+        if not format_spec:
+            return str(s)
+        sign, man, exp, bc = s._mpf_
+        if not man:
+            if s._mpf_ == finf:
+                number = float('inf')
+            elif s._mpf_ == fninf:
+                number = float('-inf')
+            elif s._mpf_ == fnan:
+                number = float('nan')
+            else:
+                number = Decimal('-0') if sign else Decimal(0)
+        elif exp >= 0:
+            number = Decimal((-1)**sign * int(man << exp))
+        else:
+            scale = -exp
+            digits = int(man)
+            if sign:
+                digits = -digits
+            precision = bc + scale * 7 // 10 + 1
+            with decimal.localcontext() as context:
+                context.prec = precision
+                number = Decimal(digits) / Decimal(1 << scale)
+        return format(number, format_spec)
+
     def __hash__(s): return mpf_hash(s._mpf_)
     def __int__(s): return int(to_int(s._mpf_))
     def __float__(s): return to_float(s._mpf_, rnd=s.context._prec_rounding[1])
