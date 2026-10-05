@@ -35,8 +35,18 @@ type shadow struct {
 	thingName string
 	doc       *ThingDocument
 	mu        sync.Mutex
+	chResps   map[string]chan interface{}
+	msgToken  int
 	onDelta   func(delta map[string]interface{})
 	onError   func(err error)
+}
+
+func (s *shadow) token() string {
+	s.mu.Lock()
+	s.msgToken++
+	token := fmt.Sprintf("%x", s.msgToken)
+	s.mu.Unlock()
+	return token
 }
 
 func (s *shadow) topic(operation string) string {
@@ -63,10 +73,14 @@ func (s *shadow) updateAccepted(msg *mqtt.Message) {
 		s.handleError(err)
 		return
 	}
+	if s.doc == nil {
+		s.doc = &ThingDocument{}
+	}
 	if err := s.doc.update(doc); err != nil {
 		s.handleError(err)
 		return
 	}
+	s.handleResponse(doc.ClientToken, doc)
 }
 
 func (s *shadow) updateDelta(msg *mqtt.Message) {
@@ -82,15 +96,39 @@ func (s *shadow) updateDelta(msg *mqtt.Message) {
 }
 
 func (s *shadow) updateRejected(msg *mqtt.Message) {
-	s.handleError(fmt.Errorf("%s: %s", msg.Topic, string(msg.Payload)))
+	err := &ErrorResponse{}
+	if e := json.Unmarshal(msg.Payload, err); e != nil {
+		s.handleError(e)
+		return
+	}
+	if !s.handleResponse(err.ClientToken, err) {
+		s.handleError(fmt.Errorf("%s: %s", msg.Topic, string(msg.Payload)))
+	}
 }
 
 func (s *shadow) deleteAccepted(msg *mqtt.Message) {
+	if len(msg.Payload) == 0 {
+		s.doc = nil
+		return
+	}
+	res := &deleteResponse{}
+	if err := json.Unmarshal(msg.Payload, res); err != nil {
+		s.handleError(err)
+		return
+	}
 	s.doc = nil
+	s.handleResponse(res.ClientToken, res)
 }
 
 func (s *shadow) deleteRejected(msg *mqtt.Message) {
-	s.handleError(fmt.Errorf("%s: %s", msg.Topic, string(msg.Payload)))
+	err := &ErrorResponse{}
+	if e := json.Unmarshal(msg.Payload, err); e != nil {
+		s.handleError(e)
+		return
+	}
+	if !s.handleResponse(err.ClientToken, err) {
+		s.handleError(fmt.Errorf("%s: %s", msg.Topic, string(msg.Payload)))
+	}
 }
 
 // New creates Thing Shadow interface.
@@ -98,6 +136,7 @@ func New(ctx context.Context, cli awsiotdev.Device) (Shadow, error) {
 	s := &shadow{
 		cli:       cli,
 		thingName: cli.ThingName(),
+		chResps:   make(map[string]chan interface{}),
 	}
 	for _, sub := range []struct {
 		topic   string
@@ -137,20 +176,15 @@ func (s *shadow) Report(ctx context.Context, state interface{}) error {
 		return err
 	}
 	rawStateJSON := json.RawMessage(rawState)
-	data, err := json.Marshal(&thingDocumentRaw{
+	req := &thingDocumentRaw{
 		State: thingStateRaw{Reported: rawStateJSON},
-	})
+	}
+	req.ClientToken = s.token()
+	data, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
-	if err := s.cli.Publish(ctx, &mqtt.Message{
-		Topic:   s.topic("update"),
-		QoS:     mqtt.QoS1,
-		Payload: data,
-	}); err != nil {
-		return err
-	}
-	return nil
+	return s.publishAndWait(ctx, s.topic("update"), data, req.ClientToken)
 }
 
 func (s *shadow) Desire(ctx context.Context, state interface{}) error {
@@ -159,20 +193,15 @@ func (s *shadow) Desire(ctx context.Context, state interface{}) error {
 		return err
 	}
 	rawStateJSON := json.RawMessage(rawState)
-	data, err := json.Marshal(&thingDocumentRaw{
+	req := &thingDocumentRaw{
 		State: thingStateRaw{Desired: rawStateJSON},
-	})
+	}
+	req.ClientToken = s.token()
+	data, err := json.Marshal(req)
 	if err != nil {
 		return err
 	}
-	if err := s.cli.Publish(ctx, &mqtt.Message{
-		Topic:   s.topic("update"),
-		QoS:     mqtt.QoS1,
-		Payload: data,
-	}); err != nil {
-		return err
-	}
-	return nil
+	return s.publishAndWait(ctx, s.topic("update"), data, req.ClientToken)
 }
 
 func (s *shadow) Get(ctx context.Context) error {
@@ -187,14 +216,82 @@ func (s *shadow) Get(ctx context.Context) error {
 }
 
 func (s *shadow) Delete(ctx context.Context) error {
+	token := s.token()
+	ch := s.registerResponse(token)
+	defer s.unregisterResponse(token)
+
+	data, err := json.Marshal(&simpleRequest{ClientToken: token})
+	if err != nil {
+		return err
+	}
 	if err := s.cli.Publish(ctx, &mqtt.Message{
 		Topic:   s.topic("delete"),
 		QoS:     mqtt.QoS1,
-		Payload: []byte{},
+		Payload: data,
 	}); err != nil {
 		return err
 	}
-	return nil
+	return s.waitResponse(ctx, ch)
+}
+
+func (s *shadow) publishAndWait(ctx context.Context, topic string, data []byte, token string) error {
+	ch := s.registerResponse(token)
+	defer s.unregisterResponse(token)
+
+	if err := s.cli.Publish(ctx, &mqtt.Message{
+		Topic:   topic,
+		QoS:     mqtt.QoS1,
+		Payload: data,
+	}); err != nil {
+		return err
+	}
+	return s.waitResponse(ctx, ch)
+}
+
+func (s *shadow) registerResponse(token string) chan interface{} {
+	ch := make(chan interface{}, 1)
+	s.mu.Lock()
+	if s.chResps == nil {
+		s.chResps = make(map[string]chan interface{})
+	}
+	s.chResps[token] = ch
+	s.mu.Unlock()
+	return ch
+}
+
+func (s *shadow) unregisterResponse(token string) {
+	s.mu.Lock()
+	delete(s.chResps, token)
+	s.mu.Unlock()
+}
+
+func (s *shadow) waitResponse(ctx context.Context, ch <-chan interface{}) error {
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case res := <-ch:
+		if err, ok := res.(*ErrorResponse); ok {
+			return err
+		}
+		return nil
+	}
+}
+
+func (s *shadow) handleResponse(token string, res interface{}) bool {
+	if token == "" {
+		return false
+	}
+	s.mu.Lock()
+	ch, ok := s.chResps[token]
+	s.mu.Unlock()
+	if !ok {
+		return false
+	}
+	select {
+	case ch <- res:
+	default:
+	}
+	return true
 }
 
 func (s *shadow) Document() *ThingDocument {

@@ -3,6 +3,7 @@ package shadow
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 )
 
 // ErrVersionConflict means thing state update was aborted due to version conflict.
@@ -22,6 +23,19 @@ type ThingDocument struct {
 	Timestamp int        `json:"timestamp,omitempty"`
 }
 
+// ErrorResponse represents error message from AWS IoT.
+type ErrorResponse struct {
+	Code        int    `json:"code"`
+	Message     string `json:"message"`
+	Timestamp   int64  `json:"timestamp,omitempty"`
+	ClientToken string `json:"clientToken,omitempty"`
+}
+
+// Error implements error interface.
+func (e *ErrorResponse) Error() string {
+	return fmt.Sprintf("%d (%s): %s", e.Code, e.ClientToken, e.Message)
+}
+
 type thingStateRaw struct {
 	Desired  json.RawMessage `json:"desired,omitempty"`
 	Reported json.RawMessage `json:"reported,omitempty"`
@@ -29,9 +43,20 @@ type thingStateRaw struct {
 }
 
 type thingDocumentRaw struct {
-	State     thingStateRaw `json:"state"`
-	Version   int           `json:"version,omitempty"`
-	Timestamp int           `json:"timestamp,omitempty"`
+	State       thingStateRaw `json:"state"`
+	Version     int           `json:"version,omitempty"`
+	Timestamp   int           `json:"timestamp,omitempty"`
+	ClientToken string        `json:"clientToken,omitempty"`
+}
+
+type simpleRequest struct {
+	ClientToken string `json:"clientToken"`
+}
+
+type deleteResponse struct {
+	Version     int    `json:"version,omitempty"`
+	Timestamp   int64  `json:"timestamp,omitempty"`
+	ClientToken string `json:"clientToken,omitempty"`
 }
 
 type thingDelta struct {
@@ -47,10 +72,13 @@ func (s *ThingDocument) update(state *thingDocumentRaw) error {
 	}
 	s.Version = state.Version
 	s.Timestamp = state.Timestamp
-	if err := updateStateRaw(s.State.Desired, state.State.Desired); err != nil {
+	var err error
+	s.State.Desired, err = updateStateRaw(s.State.Desired, state.State.Desired)
+	if err != nil {
 		return err
 	}
-	if err := updateStateRaw(s.State.Reported, state.State.Reported); err != nil {
+	s.State.Reported, err = updateStateRaw(s.State.Reported, state.State.Reported)
+	if err != nil {
 		return err
 	}
 	return nil
@@ -67,21 +95,24 @@ func (s *ThingDocument) updateDelta(state *thingDelta) bool {
 	return true
 }
 
-func updateStateRaw(state map[string]interface{}, update json.RawMessage) error {
+func updateStateRaw(state map[string]interface{}, update json.RawMessage) (map[string]interface{}, error) {
 	if !hasUpdate(update) {
-		return nil
+		return state, nil
 	}
 	if update == nil {
 		for k := range state {
 			delete(state, k)
 		}
-		return nil
+		return state, nil
 	}
 	var u map[string]interface{}
 	if err := json.Unmarshal([]byte(update), &u); err != nil {
-		return err
+		return state, err
 	}
-	return updateState(state, u)
+	if state == nil && len(u) > 0 {
+		state = map[string]interface{}{}
+	}
+	return state, updateState(state, u)
 }
 
 func updateState(state map[string]interface{}, update map[string]interface{}) error {
