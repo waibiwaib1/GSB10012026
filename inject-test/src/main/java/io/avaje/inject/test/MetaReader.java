@@ -304,7 +304,7 @@ final class MetaReader {
 
     void setFromScope(BeanScope beanScope, Object testInstance) throws IllegalAccessException {
       if (!valueAlreadyProvided) {
-        set(field, beanScope.get(type(), name), testInstance);
+        set(field, beanScope.get(field.getGenericType(), name), testInstance);
       }
     }
 
