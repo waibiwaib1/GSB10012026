@@ -568,6 +568,16 @@ class Settings(object):
         value = parse_conf_data(value, tomlfy=tomlfy)
         tree[split_keys[-1]] = value
 
+        # When global merge is disabled a dotted set must still override
+        # only the specified key, keeping its existing siblings
+        # e.g: setting `A.B` must not erase an existing `A.C`
+        if not getattr(self, "MERGE_ENABLED_FOR_DYNACONF", False):
+            existing = self.get(split_keys[0], None)
+            if isinstance(existing, dict) and isinstance(
+                data.get(split_keys[0]), dict
+            ):
+                _merge_existing_siblings(existing, data[split_keys[0]])
+
         self.update(data=data, **kwargs)
 
     def set(
@@ -892,3 +902,17 @@ class Settings(object):
             value = self.get(key, empty)
             if value is not empty:
                 setattr(obj, key, value)
+
+
+def _merge_existing_siblings(existing, new):
+    """Copy keys from `existing` dict missing on `new` dict recursively,
+    matching keys case-insensitively, new values take precedence."""
+    for key, value in existing.items():
+        match = next(
+            (new_key for new_key in new if new_key.upper() == key.upper()),
+            None,
+        )
+        if match is None:
+            new[key] = value
+        elif isinstance(value, dict) and isinstance(new[match], dict):
+            _merge_existing_siblings(value, new[match])

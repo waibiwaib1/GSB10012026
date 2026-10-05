@@ -131,3 +131,29 @@ def test_none_as_string_prefix():
         silent=True,
     )
     assert settings.VALUE == "none as prefix"
+
+
+def test_dotted_env_var():
+    """Envvars with `__` should be accessible via dotted lookup"""
+    os.environ["DYNACONF_SERVICE__PORT"] = "@int 8080"
+    os.environ["DYNACONF_SERVICE__HOST"] = "servicehost.com"
+    load(settings)
+    assert settings["SERVICE.PORT"] == 8080
+    assert settings["SERVICE.HOST"] == "servicehost.com"
+    assert settings.SERVICE.PORT == 8080
+    assert settings.SERVICE.HOST == "servicehost.com"
+
+
+def test_dotted_env_var_overrides_only_specified_key():
+    """A dotted envvar must override only its key, keeping siblings"""
+    settings.set("DATABASE", {"host": "localhost", "port": 5432})
+    os.environ["DYNACONF_DATABASE__PORT"] = "@int 9999"
+    load(settings)
+    assert settings["DATABASE.PORT"] == 9999
+    assert settings["DATABASE.HOST"] == "localhost"
+
+
+def test_dotted_env_var_single_key():
+    os.environ["DYNACONF_SINGLE__KEY"] = "dotted single key"
+    load(settings, key="SINGLE.KEY")
+    assert settings["SINGLE.KEY"] == "dotted single key"

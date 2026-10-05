@@ -25,9 +25,13 @@ def load_from_env(identifier, key, env, obj, silent):
     if env is not False:
         env = env.upper()
         env_ = "{0}_".format(env)
+    dot_sep = obj.get("NESTED_SEPARATOR_FOR_DYNACONF") or None
     try:
         if key:
-            value = os.environ.get("{0}{1}".format(env_, key))
+            env_key = key.upper()
+            if dot_sep:
+                env_key = env_key.replace(".", dot_sep)
+            value = os.environ.get("{0}{1}".format(env_, env_key))
             if value:
                 obj.logger.debug(
                     "env_loader: loading by key: %s:%s (%s:%s)",
@@ -40,7 +44,9 @@ def load_from_env(identifier, key, env, obj, silent):
         else:
             trim_len = len(env_)
             data = {
-                key[trim_len:]: parse_conf_data(data, tomlfy=True)
+                _dotted_key(key[trim_len:], dot_sep): parse_conf_data(
+                    data, tomlfy=True
+                )
                 for key, data in os.environ.items()
                 if key.startswith(env_)
             }
@@ -55,6 +61,13 @@ def load_from_env(identifier, key, env, obj, silent):
             obj.logger.error(str(e))
         else:
             raise
+
+
+def _dotted_key(key, dot_sep):
+    """Replace the dot separator sequence by a dot (`.`) on envvar keys"""
+    if dot_sep and dot_sep in key:
+        return key.replace(dot_sep, ".")
+    return key
 
 
 def write(settings_path, settings_data, **kwargs):

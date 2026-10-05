@@ -113,6 +113,12 @@ DEFAULT_ENV_FOR_DYNACONF = get("DEFAULT_ENV_FOR_DYNACONF", "DEFAULT")
 # This namespace is used for files and also envvars
 ENVVAR_PREFIX_FOR_DYNACONF = get("ENVVAR_PREFIX_FOR_DYNACONF", "DYNACONF")
 
+# The sequence of characters used in envvar names to represent a dot (`.`)
+# allowing nested (dotted) keys to be set via environment variables
+# e.g: `DYNACONF_SERVICE__PORT` is accessed as `settings['SERVICE.PORT']`
+# set it to `False` to disable this behavior
+NESTED_SEPARATOR_FOR_DYNACONF = get("NESTED_SEPARATOR_FOR_DYNACONF", "__")
+
 # The default encoding to open settings files
 ENCODING_FOR_DYNACONF = get("ENCODING_FOR_DYNACONF", "utf-8")
 
