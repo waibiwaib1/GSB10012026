@@ -855,11 +855,86 @@ macro_rules! gen_sum_iter {
     };
 }
 
+/// Generates an implementation of PartialOrd for a scalar type
+///
+/// This macro requires the following arguments:
+///
+/// * `$type`      - The Type the Traits are implemented for
+/// * `$type_prim` - The primitive Rust scalar type that corresponds to `$type`
+///
+/// Example Usage:
+///
+/// ```ignore
+/// gen_partial_ord!(Rint, i32);
+/// ```
+///
+/// The 'example usage' implements the following trait definitions:
+///
+/// - `impl PartialOrd<Rint> for Rint`     // Includes doc test
+/// - `impl PartialOrd<i32> for Rint`      // Includes doc test
+/// - `impl PartialOrd<i32> for &Rint`
+///
+/// `NA` is treated like `NaN`: any comparison involving `NA`
+/// returns `None` from `partial_cmp` and thus fails.
+macro_rules! gen_partial_ord {
+    ($type : ident, $type_prim : ty) => {
+        paste::paste! {
+            #[doc = "NA is treated like NaN: comparisons with NA return None."]
+            #[doc = "```"]
+            #[doc = "use extendr_api::prelude::*;"]
+            #[doc = "test! {"]
+            #[doc = "    assert!(<" $type ">::default() <= <" $type ">::default());"]
+            #[doc = "    assert!(!(<" $type ">::na() < <" $type ">::na()));"]
+            #[doc = "    assert!(!(<" $type ">::na() > <" $type ">::default()));"]
+            #[doc = "}"]
+            #[doc = "```"]
+            impl PartialOrd<$type> for $type {
+                fn partial_cmp(&self, other: &$type) -> Option<std::cmp::Ordering> {
+                    if self.is_na() || other.is_na() {
+                        None
+                    } else {
+                        self.inner().partial_cmp(&other.inner())
+                    }
+                }
+            }
+        }
+
+        paste::paste! {
+            #[doc = "NA is treated like NaN: comparisons with NA return None."]
+            #[doc = "```"]
+            #[doc = "use extendr_api::prelude::*;"]
+            #[doc = "test! {"]
+            #[doc = "    assert!(<" $type ">::default() <= <" $type_prim ">::default());"]
+            #[doc = "    assert!(!(<" $type ">::na() < <" $type_prim ">::default()));"]
+            #[doc = "}"]
+            #[doc = "```"]
+            impl PartialOrd<$type_prim> for $type {
+                fn partial_cmp(&self, other: &$type_prim) -> Option<std::cmp::Ordering> {
+                    if self.is_na() {
+                        None
+                    } else {
+                        <Option<$type_prim>>::try_from(self.clone())
+                            .unwrap_or_default()
+                            .partial_cmp(&Some(*other))
+                    }
+                }
+            }
+        }
+
+        impl PartialOrd<$type_prim> for &$type {
+            fn partial_cmp(&self, other: &$type_prim) -> Option<std::cmp::Ordering> {
+                (*self).partial_cmp(other)
+            }
+        }
+    };
+}
+
 pub(in crate::scalar) use gen_binop;
 pub(in crate::scalar) use gen_binopassign;
 pub(in crate::scalar) use gen_from_primitive;
 pub(in crate::scalar) use gen_from_scalar;
 pub(in crate::scalar) use gen_impl;
+pub(in crate::scalar) use gen_partial_ord;
 pub(in crate::scalar) use gen_sum_iter;
 pub(in crate::scalar) use gen_trait_impl;
 pub(in crate::scalar) use gen_unop;

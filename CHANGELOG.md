@@ -4,6 +4,7 @@
 
 ### Added
 
+- `PartialOrd` trait implementation for `Rfloat`, `Rint` and `Rbool`. `NA` is treated like `NaN`, so comparisons involving `NA` return `None` from `partial_cmp` [[#573]](https://github.com/extendr/extendr/issues/573)
 - [**either**] `TryFrom<&Robj> for Either<T, R>` and `From<Either<T, R>> for Robj` if `T` and `R` are themselves implement these traits. This unblocks scenarios like accepting any numeric vector from R via `Either<Integers, Doubles>` without extra memory allocation [[#480]](https://github.com/extendr/extendr/pull/480)
 
 ### Fixed

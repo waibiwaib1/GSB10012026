@@ -51,6 +51,7 @@ impl Rbool {
 }
 
 gen_trait_impl!(Rbool, bool, |x: &Rbool| x.inner() == i32::MIN, i32::MIN);
+gen_partial_ord!(Rbool, bool);
 gen_from_primitive!(Rbool, i32);
 
 impl From<bool> for Rbool {
