@@ -88,6 +88,40 @@ def pooch_test_registry():
     return registry
 
 
+def pooch_test_figshare_url():
+    """
+    Get the base URL for the test data stored in figshare.
+
+    The URL contains the DOI for the figshare dataset using the appropriate
+    format for the :class:`pooch.DOIDownloader` class.
+
+    Returns
+    -------
+    url
+        The URL for pooch's test data on figshare.
+
+    """
+    url = "doi:10.6084/m9.figshare.14763051.v1/"
+    return url
+
+
+def pooch_test_zenodo_url():
+    """
+    Get the base URL for the test data stored in Zenodo.
+
+    The URL contains the DOI for the Zenodo dataset using the appropriate
+    format for the :class:`pooch.DOIDownloader` class.
+
+    Returns
+    -------
+    url
+        The URL for pooch's test data on Zenodo.
+
+    """
+    url = "doi:10.5281/zenodo.4924875/"
+    return url
+
+
 @contextmanager
 def capture_log(level=logging.DEBUG):
     """

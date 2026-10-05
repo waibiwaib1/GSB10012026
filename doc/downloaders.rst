@@ -41,6 +41,33 @@ Common uses of downloaders include:
 
 * Passing :ref:`login credentials <authentication>` to HTTP and FTP servers
 * Printing :ref:`progress bars <progressbars>`
+* Downloading files from :ref:`DOI-based repositories <doi_downloads>`
+
+
+.. _doi_downloads:
+
+Digital Object Identifiers (DOIs)
+---------------------------------
+
+Open-access data repositories often issue Digital Object Identifiers (DOIs)
+for data which provide a stable link and citation point.
+Files hosted in these repositories can be downloaded by Pooch using the
+:class:`pooch.DOIDownloader`, which resolves the DOI to the actual download
+URL through the repository's public API.
+To use it, specify the file in the registry using the format
+``doi:{DOI}/{file name}``:
+
+.. code:: python
+
+    POOCH = pooch.create(
+        path=pooch.os_cache("myproject"),
+        base_url="doi:10.5281/zenodo.4924875/",
+        registry={"tiny-data.txt": "baee0894dba14b12085eacb204284b97e362f4f3e5a5807693cc90ef415c1b2d"},
+    )
+    fname = POOCH.fetch("tiny-data.txt")
+
+Currently supported repositories are `figshare <https://www.figshare.com>`__
+and `Zenodo <https://www.zenodo.org>`__.
 
 
 Creating your own downloaders
