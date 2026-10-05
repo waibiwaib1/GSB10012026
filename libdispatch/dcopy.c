@@ -197,30 +197,14 @@ NC_rec_find_nc_type(int ncid1, nc_type tid1, int ncid2, nc_type* tid2)
       free(ids);
    }
 
-   /* recurse */
-   if ((ret = nc_inq_grps(ncid1, &nids, NULL)))
-      return ret;
-   if (nids)
+   /* recurse upwards through the parents of ncid2 */
    {
-      if (!(ids = (int *)malloc((size_t)nids * sizeof(int))))
-	 return NC_ENOMEM;
-      if ((ret = nc_inq_grps(ncid1, &nids, ids)))
-      {
-	 free(ids);
+      int parent;
+      ret = nc_inq_grp_parent(ncid2, &parent);
+      if (ret == NC_NOERR)
+	 return NC_rec_find_nc_type(ncid1, tid1, parent, tid2);
+      if (ret != NC_ENOGRP)
 	 return ret;
-      }
-      for (i = 0; i < nids; i++)
-      {
-	 ret = NC_rec_find_nc_type(ncid1, tid1, ids[i], tid2);
-	 if (ret && ret != NC_EBADTYPE)
-	    break;
-	 if (tid2 && *tid2 != 0) /* found */
-	 {
-	    free(ids);
-	    return NC_NOERR;
-	 }
-      }
-      free(ids);
    }
    return NC_EBADTYPE; /* not found */
 }
