@@ -251,33 +251,46 @@ React users should consider using render functions (optionally useMemo)
 as a primary mean.
 Computed works well for some edge cases and for vanilla-js users.
 
-##### `addComputed`
+##### `derive`
 
-This is to add new computed to an existing proxy state.
-It can add computed to different proxy state.
+This subscribes to proxies and creates a derived proxy.
+Pass `sync: true` to update the derived proxy synchronously.
 
 ```js
-import { addComputed } from 'valtio/utils'
+import { derive } from 'valtio/utils'
 
 // create a base proxy
 const state = proxy({
   count: 1,
 })
 
-// add computed to state
-addComputed(state, {
-  doubled: snap => snap.count * 2,
+// create a derived proxy
+const derived = derive({
+  doubled: get => get(state).count * 2,
 })
 
-// create another proxy
-const state2 = proxy({
-  text: 'hello',
+// attach a derived property to an existing proxy synchronously
+derive({
+  tripled: get => get(state).count * 3,
+}, {
+  proxy: state,
+  sync: true,
 })
+```
 
-// add computed from state to state2
+##### `addComputed`
+
+This is to add new computed to an existing proxy state.
+It can add computed to different proxy state.
+Pass `true` as the fourth argument to compute synchronously.
+
+```js
+import { addComputed } from 'valtio/utils'
+
+const state = proxy({ count: 1 })
 addComputed(state, {
   doubled: snap => snap.count * 2,
-}, state2)
+}, state, true)
 ```
 
 ##### `proxyWithComputed`

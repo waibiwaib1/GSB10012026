@@ -27,7 +27,8 @@ export const addComputed = <T extends object, U extends object>(
   computedFns: {
     [K in keyof U]: (snap: DeepResolveType<T>) => U[K]
   },
-  targetObject: any = proxyObject
+  targetObject: any = proxyObject,
+  notifyInSync?: boolean
 ) => {
   ;(Object.keys(computedFns) as (keyof U)[]).forEach((key) => {
     if (Object.getOwnPropertyDescriptor(targetObject, key)) {
@@ -71,7 +72,7 @@ export const addComputed = <T extends object, U extends object>(
       }
     }
     // FIXME no way to clean up the subscription
-    subscribe(proxyObject, callback)
+    subscribe(proxyObject, callback, notifyInSync)
     callback()
   })
 }

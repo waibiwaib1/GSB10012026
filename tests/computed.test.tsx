@@ -163,6 +163,24 @@ it('simple addComputed', async () => {
   expect(callback).toBeCalledTimes(2)
 })
 
+it('simple addComputed synchronously', () => {
+  const state = proxy({
+    count: 0,
+  })
+  addComputed(
+    state,
+    {
+      doubled: (snap) => snap.count * 2,
+    },
+    state,
+    true
+  )
+
+  state.count += 1
+
+  expect(snapshot(state)).toMatchObject({ count: 1, doubled: 2 })
+})
+
 it('async addComputed', async () => {
   const state = proxy({ count: 0 })
   addComputed(state, {
