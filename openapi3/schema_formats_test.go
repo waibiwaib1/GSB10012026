@@ -155,3 +155,26 @@ func TestUuidFormat(t *testing.T) {
 		})
 	}
 }
+
+func TestDefineNumberFormat(t *testing.T) {
+	DefineNumberFormat("epsg-code", func(value float64) error {
+		if value < 1024 || value > 32767 {
+			return fmt.Errorf("EPSG code %g out of range", value)
+		}
+		return nil
+	})
+	defer delete(SchemaNumberFormats, "epsg-code")
+
+	schema := NewFloat64Schema().WithFormat("epsg-code")
+
+	err := schema.Validate(context.Background())
+	require.NoError(t, err)
+
+	require.NoError(t, schema.VisitJSON(4326.0))
+
+	err = schema.VisitJSON(1.0)
+	require.Error(t, err)
+	var schemaError = &SchemaError{}
+	require.ErrorAs(t, err, &schemaError)
+	require.Contains(t, schemaError.Reason, `number doesn't match the format "epsg-code"`)
+}

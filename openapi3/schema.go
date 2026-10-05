@@ -988,7 +988,8 @@ func (schema *Schema) validate(ctx context.Context, stack []*Schema) ([]*Schema,
 				switch format {
 				case "float", "double":
 				default:
-					if validationOpts.schemaFormatValidationEnabled {
+					// Try to check for custom defined formats
+					if _, ok := SchemaNumberFormats[format]; !ok && validationOpts.schemaFormatValidationEnabled {
 						return stack, unsupportedFormat(format)
 					}
 				}
@@ -998,7 +999,8 @@ func (schema *Schema) validate(ctx context.Context, stack []*Schema) ([]*Schema,
 				switch format {
 				case "int32", "int64":
 				default:
-					if validationOpts.schemaFormatValidationEnabled {
+					// Try to check for custom defined formats
+					if _, ok := SchemaNumberFormats[format]; !ok && validationOpts.schemaFormatValidationEnabled {
 						return stack, unsupportedFormat(format)
 					}
 				}
@@ -1534,7 +1536,7 @@ func (schema *Schema) visitJSONNumber(settings *schemaValidationSettings, value 
 			formatMin = formatMinInt64
 			formatMax = formatMaxInt64
 		default:
-			if settings.formatValidationEnabled {
+			if _, ok := SchemaNumberFormats[schema.Format]; !ok && settings.formatValidationEnabled {
 				return unsupportedFormat(schema.Format)
 			}
 		}
@@ -1553,6 +1555,36 @@ func (schema *Schema) visitJSONNumber(settings *schemaValidationSettings, value 
 				return err
 			}
 			me = append(me, err)
+		}
+	}
+
+	// "format"
+	if format := schema.Format; format != "" {
+		if callback, ok := SchemaNumberFormats[format]; ok {
+			if err := callback(value); err != nil {
+				if settings.failfast {
+					return errSchema
+				}
+				schemaErr := &SchemaError{}
+				var reason string
+				if errors.As(err, &schemaErr) {
+					reason = fmt.Sprintf("number doesn't match the format %q (%s)", format, schemaErr.Reason)
+				} else {
+					reason = fmt.Sprintf("number doesn't match the format %q (%v)", format, err)
+				}
+				schemaError := &SchemaError{
+					Value:                 value,
+					Schema:                schema,
+					SchemaField:           "format",
+					Reason:                reason,
+					Origin:                err,
+					customizeMessageError: settings.customizeMessageError,
+				}
+				if !settings.multiError {
+					return schemaError
+				}
+				me = append(me, schemaError)
+			}
 		}
 	}
 
