@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"iter"
 	"sort"
 	"sync"
 )
@@ -64,12 +65,29 @@ func (a *Args) CopyTo(dst *Args) {
 	dst.args = copyArgs(dst.args, a.args)
 }
 
+// All returns an iterator over the existing args.
+//
+// Key and value must not be retained after each iteration.
+// Make key and/or value copies if you need storing them.
+func (a *Args) All() iter.Seq2[[]byte, []byte] {
+	return func(yield func(key, value []byte) bool) {
+		for i := range a.args {
+			kv := &a.args[i]
+			if !yield(kv.key, kv.value) {
+				return
+			}
+		}
+	}
+}
+
 // VisitAll calls f for each existing arg.
 //
 // f must not retain references to key and value after returning.
 // Make key and/or value copies if you need storing them after returning.
 func (a *Args) VisitAll(f func(key, value []byte)) {
-	visitArgs(a.args, f)
+	for key, value := range a.All() {
+		f(key, value)
+	}
 }
 
 // Len returns the number of query args.
