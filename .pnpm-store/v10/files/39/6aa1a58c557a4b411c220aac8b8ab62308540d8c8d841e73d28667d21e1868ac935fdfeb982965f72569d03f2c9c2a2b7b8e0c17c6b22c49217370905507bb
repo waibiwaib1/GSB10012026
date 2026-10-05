@@ -1,0 +1,7 @@
+import { TestComplaint } from '../environments/testEnvironmentTypes.js';
+import { SpyCallArgs } from '../spies/spyTypes.js';
+import '../types.js';
+
+declare const createComplaint: (methodsWithCalls: [keyof Console, SpyCallArgs[]][]) => TestComplaint;
+
+export { createComplaint };

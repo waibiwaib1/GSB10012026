@@ -1,0 +1,11 @@
+function isJSONStringLiteral(node) {
+  return node.type === "JSONLiteral" && typeof node.value === "string";
+}
+function isNotNullish(value) {
+  return value !== null && value !== void 0;
+}
+export {
+  isJSONStringLiteral,
+  isNotNullish
+};
+//# sourceMappingURL=predicates.mjs.map

@@ -1,0 +1,12 @@
+const formatComplaintLineArg = (arg) => {
+  try {
+    return JSON.stringify(arg) || JSON.stringify(`${arg}`);
+  } catch {
+    return `A recursive object with keys: ${Object.keys(arg).join(", ")}`;
+  }
+};
+const formatComplaintCall = (call) => call.map(formatComplaintLineArg).join(", ");
+export {
+  formatComplaintCall
+};
+//# sourceMappingURL=formatComplaintCall.js.map

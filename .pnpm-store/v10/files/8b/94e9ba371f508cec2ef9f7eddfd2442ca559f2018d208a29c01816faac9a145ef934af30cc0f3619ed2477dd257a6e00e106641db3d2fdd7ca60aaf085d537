@@ -1,0 +1,167 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var no_redundant_files_exports = {};
+__export(no_redundant_files_exports, {
+  rule: () => rule
+});
+module.exports = __toCommonJS(no_redundant_files_exports);
+var import_eslint_fix_utils = require("eslint-fix-utils");
+var import_createRule = require("../createRule.js");
+var import_predicates = require("../utils/predicates.js");
+const defaultFiles = [
+  /* cspell:disable-next-line */
+  /^(\.\/)?LICEN(C|S)E(\.|$)/i,
+  /^(\.\/)?README(\.|$)/i,
+  /^(\.\/)?package\.json$/i
+];
+const cachedRegex = /* @__PURE__ */ new Map();
+const getCachedLocalFileRegex = (filename) => {
+  const baseFilename = filename.replace("./", "");
+  let regex = cachedRegex.get(baseFilename);
+  if (regex) {
+    return regex;
+  } else {
+    regex = new RegExp(`^(./)?${baseFilename}$`, "i");
+    cachedRegex.set(baseFilename, regex);
+    return regex;
+  }
+};
+const rule = (0, import_createRule.createRule)({
+  create(context) {
+    const entryCache = { bin: [], files: [] };
+    const report = (elements, index, messageId) => {
+      const element = elements[index];
+      if ((0, import_predicates.isNotNullish)(element) && (0, import_predicates.isJSONStringLiteral)(element)) {
+        context.report({
+          data: { file: element.value },
+          messageId,
+          node: element,
+          suggest: [
+            {
+              fix: (0, import_eslint_fix_utils.fixRemoveArrayElement)(
+                context,
+                index,
+                elements
+              ),
+              messageId: "remove"
+            }
+          ]
+        });
+      }
+    };
+    return {
+      "Program > JSONExpressionStatement > JSONObjectExpression > JSONProperty[key.value=bin]"(node) {
+        const binValue = node.value;
+        if ((0, import_predicates.isJSONStringLiteral)(binValue)) {
+          entryCache.bin.push(binValue.value);
+        } else if (binValue.type === "JSONObjectExpression") {
+          for (const prop of binValue.properties) {
+            if ((0, import_predicates.isJSONStringLiteral)(prop.value)) {
+              entryCache.bin.push(prop.value.value);
+            }
+          }
+        }
+      },
+      "Program > JSONExpressionStatement > JSONObjectExpression > JSONProperty[key.value=files]"(node) {
+        if (node.value.type === "JSONArrayExpression") {
+          const seen = /* @__PURE__ */ new Set();
+          const elements = node.value.elements;
+          entryCache.files = elements;
+          for (const [index, element] of elements.entries()) {
+            if ((0, import_predicates.isNotNullish)(element) && (0, import_predicates.isJSONStringLiteral)(element)) {
+              if (seen.has(element.value)) {
+                report(elements, index, "duplicate");
+              } else {
+                seen.add(element.value);
+              }
+              for (const defaultFile of defaultFiles) {
+                if (defaultFile.test(element.value)) {
+                  report(
+                    elements,
+                    index,
+                    "unnecessaryDefault"
+                  );
+                }
+              }
+            }
+          }
+        }
+      },
+      "Program > JSONExpressionStatement > JSONObjectExpression > JSONProperty[key.value=main]"(node) {
+        if ((0, import_predicates.isJSONStringLiteral)(node.value)) {
+          entryCache.main = node.value.value;
+        }
+      },
+      "Program:exit"() {
+        const files = entryCache.files;
+        if (files.length === 0) {
+          return;
+        }
+        const validations = [
+          // First check if the "main" entry is included in "files".
+          {
+            files: entryCache.main ? [entryCache.main] : [],
+            messageId: "unnecessaryMain"
+          },
+          // Next check if any "bin" entries are included in "files".
+          {
+            files: entryCache.bin,
+            messageId: "unnecessaryBin"
+          }
+        ];
+        for (const validation of validations) {
+          for (const fileToCheck of validation.files) {
+            for (const [index, fileEntry] of files.entries()) {
+              if ((0, import_predicates.isNotNullish)(fileEntry) && (0, import_predicates.isJSONStringLiteral)(fileEntry)) {
+                const regex = getCachedLocalFileRegex(
+                  fileEntry.value
+                );
+                if (regex.test(fileToCheck)) {
+                  report(files, index, validation.messageId);
+                }
+              }
+            }
+          }
+        }
+      }
+    };
+  },
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Prevents adding unnecessary / redundant files.",
+      recommended: false
+    },
+    hasSuggestions: true,
+    messages: {
+      duplicate: 'Files has more than one entry for "{{file}}".',
+      remove: "Remove this redundant entry.",
+      unnecessaryBin: `Explicitly declaring "{{file}}" in "files" is unnecessary; it's included in "bin".`,
+      unnecessaryDefault: `Explicitly declaring "{{file}}" in "files" is unnecessary; it's included by default.`,
+      unnecessaryMain: `Explicitly declaring "{{file}}" in "files" is unnecessary; it's the "main" entry.`
+    },
+    schema: [],
+    type: "suggestion"
+  }
+});
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  rule
+});
+//# sourceMappingURL=no-redundant-files.js.map

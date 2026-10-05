@@ -1,0 +1,12 @@
+/**
+ * Find the root path of the repository containing the given directory.
+ *
+ * @returns null if not found or the path of the repository root as a string
+ */
+declare function findRoot(
+/**
+ * The directory path of anything in a version-controlled repository
+ */
+directory: string): Promise<string | null>;
+
+export { findRoot };

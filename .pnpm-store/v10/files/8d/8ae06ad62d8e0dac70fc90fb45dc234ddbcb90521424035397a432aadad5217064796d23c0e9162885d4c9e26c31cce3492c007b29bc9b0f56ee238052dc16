@@ -1,0 +1,26 @@
+const isJest = () => typeof afterEach !== "undefined" && typeof beforeEach !== "undefined" && typeof jest !== "undefined";
+const selectJestEnvironment = () => {
+  if (!isJest()) {
+    return void 0;
+  }
+  let afterEachCallback;
+  let beforeEachCallback;
+  afterEach(() => {
+    afterEachCallback?.();
+  });
+  beforeEach(() => {
+    beforeEachCallback?.();
+  });
+  return {
+    afterEach: (callback) => {
+      afterEachCallback = callback;
+    },
+    beforeEach: (callback) => {
+      beforeEachCallback = callback;
+    }
+  };
+};
+export {
+  selectJestEnvironment
+};
+//# sourceMappingURL=jest.js.map

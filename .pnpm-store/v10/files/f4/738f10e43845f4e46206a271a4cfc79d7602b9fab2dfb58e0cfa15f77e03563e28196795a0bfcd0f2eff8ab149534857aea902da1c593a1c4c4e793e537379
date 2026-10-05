@@ -1,0 +1,51 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var jasmine_exports = {};
+__export(jasmine_exports, {
+  selectJasmineEnvironment: () => selectJasmineEnvironment
+});
+module.exports = __toCommonJS(jasmine_exports);
+const isJasmine = () => {
+  return typeof afterEach !== "undefined" && typeof beforeEach !== "undefined" && typeof jasmine !== "undefined" && typeof jasmine.Spec !== "undefined";
+};
+const selectJasmineEnvironment = () => {
+  if (!isJasmine()) {
+    return void 0;
+  }
+  return {
+    afterEach: (callback) => {
+      afterEach(() => {
+        callback({
+          reportComplaint({ error }) {
+            error.stack = error.stack.substring(error.message.length);
+            throw error;
+          }
+        });
+      });
+    },
+    beforeEach: (callback) => {
+      beforeEach(callback);
+    }
+  };
+};
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  selectJasmineEnvironment
+});
+//# sourceMappingURL=jasmine.cjs.map

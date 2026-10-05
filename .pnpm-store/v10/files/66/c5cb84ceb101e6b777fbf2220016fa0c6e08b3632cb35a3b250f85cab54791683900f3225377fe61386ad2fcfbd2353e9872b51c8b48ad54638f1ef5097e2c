@@ -1,0 +1,4 @@
+declare const repositoryTypes: readonly ["git", "mercurial", "sapling", "subversion"];
+type RepositoryType = (typeof repositoryTypes)[number];
+
+export { type RepositoryType, repositoryTypes };

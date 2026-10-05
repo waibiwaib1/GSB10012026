@@ -1,0 +1,89 @@
+import {
+  fixRemoveArrayElement,
+  fixRemoveObjectProperty
+} from "eslint-fix-utils";
+import { createRule } from "../createRule";
+const getDataAndMessageId = (node) => {
+  switch (node.type) {
+    case "JSONArrayExpression":
+      return {
+        data: {
+          expressionType: "array"
+        },
+        messageId: "emptyExpression"
+      };
+    case "JSONObjectExpression":
+      return {
+        data: {
+          expressionType: "object"
+        },
+        messageId: "emptyExpression"
+      };
+    case "JSONProperty":
+      return {
+        data: {
+          field: node.key.value
+        },
+        messageId: "emptyFields"
+      };
+  }
+};
+const report = (context, node) => {
+  const { data, messageId } = getDataAndMessageId(node);
+  context.report({
+    data,
+    messageId,
+    node,
+    suggest: [
+      {
+        fix: node.type === "JSONProperty" ? fixRemoveObjectProperty(
+          context,
+          node
+        ) : fixRemoveArrayElement(
+          context,
+          node,
+          node.parent
+        ),
+        messageId: "remove"
+      }
+    ]
+  });
+};
+const getNode = (node) => {
+  return node.parent.type === "JSONProperty" ? node.parent : node;
+};
+const rule = createRule({
+  create(context) {
+    return {
+      JSONArrayExpression(node) {
+        if (!node.elements.length) {
+          report(context, getNode(node));
+        }
+      },
+      JSONObjectExpression(node) {
+        if (!node.properties.length) {
+          report(context, getNode(node));
+        }
+      }
+    };
+  },
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Reports on unnecessary empty arrays and objects.",
+      recommended: true
+    },
+    hasSuggestions: true,
+    messages: {
+      emptyExpression: "This {{expressionType}} does nothing and can be removed.",
+      emptyFields: "The field '{{field}}' does nothing and can be removed.",
+      remove: "Remove this empty field."
+    },
+    schema: [],
+    type: "suggestion"
+  }
+});
+export {
+  rule
+};
+//# sourceMappingURL=no-empty-fields.mjs.map

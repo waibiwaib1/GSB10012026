@@ -1,0 +1,15 @@
+import { plugin, recommendedRuleSettings } from "./plugin.js";
+const rules = plugin.rules;
+const configs = {
+  recommended: {
+    plugins: ["package-json"],
+    rules: recommendedRuleSettings
+  }
+};
+var index_default = plugin;
+export {
+  configs,
+  index_default as default,
+  rules
+};
+//# sourceMappingURL=index.mjs.map

@@ -1,0 +1,7 @@
+import { TestFrameworkSelector } from './testEnvironmentTypes.js';
+import '../spies/spyTypes.js';
+import '../types.js';
+
+declare const selectVitestEnvironment: TestFrameworkSelector;
+
+export { selectVitestEnvironment };

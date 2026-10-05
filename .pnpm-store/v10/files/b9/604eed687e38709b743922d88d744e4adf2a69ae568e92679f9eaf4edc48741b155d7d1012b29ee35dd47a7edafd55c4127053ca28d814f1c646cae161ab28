@@ -1,0 +1,6 @@
+import { SpyFactory } from './spyTypes.cjs';
+import '../types.cjs';
+
+declare const selectFallbackSpyFactory: () => SpyFactory;
+
+export { selectFallbackSpyFactory };

@@ -1,0 +1,96 @@
+"use strict";
+var __create = Object.create;
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __getProtoOf = Object.getPrototypeOf;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
+  // If the importer is in node compatibility mode or this is not an ESM
+  // file that has been converted to a CommonJS file using a Babel-
+  // compatible transform (i.e. "__esModule" has not been set), then set
+  // "default" to the CommonJS "module.exports" for node compatibility.
+  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
+  mod
+));
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var valid_local_dependency_exports = {};
+__export(valid_local_dependency_exports, {
+  rule: () => rule
+});
+module.exports = __toCommonJS(valid_local_dependency_exports);
+var import_path = __toESM(require("path"));
+var import_createRule = require("../createRule.js");
+const rule = (0, import_createRule.createRule)({
+  create(context) {
+    return {
+      "Program:exit"() {
+        const original = JSON.parse(context.sourceCode.text);
+        const { dependencies, devDependencies, peerDependencies } = original;
+        const depObjs = [
+          Object.entries(dependencies ?? {}),
+          Object.entries(peerDependencies ?? {}),
+          Object.entries(devDependencies ?? {})
+        ];
+        for (const obj of depObjs) {
+          for (const [key, value] of obj) {
+            const response = (localPath) => {
+              const filePath = import_path.default.join(
+                context.filename.replace(/package\.json/g, "/"),
+                value.replace(new RegExp(localPath, "g"), ""),
+                "/package.json"
+              );
+              try {
+                require.resolve(filePath);
+              } catch {
+                context.report({
+                  data: {
+                    package: key,
+                    path: value
+                  },
+                  messageId: "invalidPath",
+                  node: context.sourceCode.ast
+                });
+              }
+            };
+            if (value.startsWith("link:")) {
+              response("link:");
+            }
+            if (value.startsWith("file:")) {
+              response("file:");
+            }
+          }
+        }
+      }
+    };
+  },
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Checks existence of local dependencies in the package.json",
+      recommended: true
+    },
+    messages: {
+      invalidPath: "The package {{package}} does not exist given the specified path: {{path}}."
+    },
+    schema: [],
+    type: "problem"
+  }
+});
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  rule
+});
+//# sourceMappingURL=valid-local-dependency.js.map

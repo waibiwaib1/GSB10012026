@@ -1,0 +1,17 @@
+import { PackageJsonRuleModule } from './createRule.js';
+import { plugin } from './plugin.js';
+import 'estree';
+import 'eslint';
+import 'jsonc-eslint-parser';
+
+declare const rules: Record<string, PackageJsonRuleModule<unknown[]>>;
+declare const configs: {
+    recommended: {
+        plugins: string[];
+        rules: {
+            [k: string]: "error";
+        };
+    };
+};
+
+export { configs, plugin as default, rules };

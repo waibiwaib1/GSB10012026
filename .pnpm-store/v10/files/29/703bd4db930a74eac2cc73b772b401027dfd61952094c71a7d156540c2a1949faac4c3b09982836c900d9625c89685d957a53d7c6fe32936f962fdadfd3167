@@ -1,0 +1,5 @@
+import { ConsoleSettings } from './types.js';
+
+declare const consoleMethodNames: (keyof ConsoleSettings)[];
+
+export { consoleMethodNames };

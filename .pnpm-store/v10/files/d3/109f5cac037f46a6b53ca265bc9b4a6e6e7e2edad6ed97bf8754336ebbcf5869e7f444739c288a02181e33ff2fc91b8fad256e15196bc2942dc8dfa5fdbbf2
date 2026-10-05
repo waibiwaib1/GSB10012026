@@ -1,0 +1,6 @@
+import { CollectibleNode } from './types.js';
+import '@babel/types';
+
+declare function modifyNodeIfMissingBrackets(node: CollectibleNode): boolean | undefined;
+
+export { modifyNodeIfMissingBrackets };

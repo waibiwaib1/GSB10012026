@@ -1,0 +1,26 @@
+const selectVitestEnvironment = () => {
+  if (typeof __vitest_index__ === "undefined") {
+    return void 0;
+  }
+  const vitest = __vitest_index__;
+  let afterEachCallback;
+  let beforeEachCallback;
+  vitest.afterEach(() => {
+    afterEachCallback?.();
+  });
+  vitest.beforeEach(() => {
+    beforeEachCallback?.();
+  });
+  return {
+    afterEach: (callback) => {
+      afterEachCallback = callback;
+    },
+    beforeEach: (callback) => {
+      beforeEachCallback = callback;
+    }
+  };
+};
+export {
+  selectVitestEnvironment
+};
+//# sourceMappingURL=vitest.js.map

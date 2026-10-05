@@ -1,0 +1,83 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name2 in all)
+    __defProp(target, name2, { get: all[name2], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var plugin_exports = {};
+__export(plugin_exports, {
+  plugin: () => plugin,
+  recommendedRuleSettings: () => recommendedRuleSettings
+});
+module.exports = __toCommonJS(plugin_exports);
+var import_node_module = require("node:module");
+var import_no_empty_fields = require("./rules/no-empty-fields.js");
+var import_no_redundant_files = require("./rules/no-redundant-files.js");
+var import_order_properties = require("./rules/order-properties.js");
+var import_repository_shorthand = require("./rules/repository-shorthand.js");
+var import_require_properties = require("./rules/require-properties.js");
+var import_sort_collections = require("./rules/sort-collections.js");
+var import_unique_dependencies = require("./rules/unique-dependencies.js");
+var import_valid_local_dependency = require("./rules/valid-local-dependency.js");
+var import_valid_name = require("./rules/valid-name.js");
+var import_valid_package_definition = require("./rules/valid-package-definition.js");
+var import_valid_repository_directory = require("./rules/valid-repository-directory.js");
+var import_valid_version = require("./rules/valid-version.js");
+const import_meta = {};
+const require2 = (0, import_node_module.createRequire)(import_meta.url || __filename);
+const { name, version } = require2("../package.json");
+const rules = {
+  "no-empty-fields": import_no_empty_fields.rule,
+  "no-redundant-files": import_no_redundant_files.rule,
+  "order-properties": import_order_properties.rule,
+  ...import_require_properties.rules,
+  "repository-shorthand": import_repository_shorthand.rule,
+  "sort-collections": import_sort_collections.rule,
+  "unique-dependencies": import_unique_dependencies.rule,
+  "valid-local-dependency": import_valid_local_dependency.rule,
+  "valid-name": import_valid_name.rule,
+  "valid-package-definition": import_valid_package_definition.rule,
+  "valid-repository-directory": import_valid_repository_directory.rule,
+  "valid-version": import_valid_version.rule,
+  /** @deprecated use 'valid-package-definition' instead */
+  "valid-package-def": {
+    ...import_valid_package_definition.rule,
+    meta: {
+      ...import_valid_package_definition.rule.meta,
+      deprecated: true,
+      docs: {
+        ...import_valid_package_definition.rule.meta.docs,
+        recommended: false
+      },
+      replacedBy: ["valid-package-definition"]
+    }
+  }
+};
+const plugin = {
+  meta: {
+    name,
+    version
+  },
+  rules
+};
+const recommendedRuleSettings = Object.fromEntries(
+  Object.entries(rules).filter(([, rule]) => rule.meta.docs?.recommended).map(([name2]) => ["package-json/" + name2, "error"])
+);
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  plugin,
+  recommendedRuleSettings
+});
+//# sourceMappingURL=plugin.js.map

@@ -1,0 +1,6 @@
+type RepositoryCommand = "git" | "hg" | "sl" | "svn" | "svnadmin" | "svnrdump";
+declare function repositoryExec(cwd: string, command: RepositoryCommand, args: readonly string[]): Promise<string>;
+declare function repositoryExecSync(cwd: string, command: RepositoryCommand, args: readonly string[]): string;
+declare const createExecForDirectory: (cwd: string) => (command: RepositoryCommand, args: readonly string[]) => Promise<string>;
+
+export { createExecForDirectory, repositoryExec, repositoryExecSync };

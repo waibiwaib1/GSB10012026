@@ -1,0 +1,36 @@
+import { createRule } from "../createRule.js";
+import { isJSONStringLiteral } from "./predicates.js";
+const createRequirePropertyRule = (propertyName, isRecommended = false) => {
+  return createRule({
+    create(context) {
+      return {
+        "Program > JSONExpressionStatement > JSONObjectExpression"(node) {
+          if (!node.properties.some(
+            (property) => isJSONStringLiteral(property.key) && property.key.value === propertyName
+          )) {
+            context.report({
+              data: { property: propertyName },
+              messageId: "missing",
+              node: context.sourceCode.ast
+            });
+          }
+        }
+      };
+    },
+    meta: {
+      docs: {
+        description: `Requires the \`${propertyName}\` property to be present.`,
+        recommended: isRecommended
+      },
+      messages: {
+        missing: "Property '{{property}}' is required."
+      },
+      schema: [],
+      type: "suggestion"
+    }
+  });
+};
+export {
+  createRequirePropertyRule
+};
+//# sourceMappingURL=createRequirePropertyRule.mjs.map

@@ -1,0 +1,5 @@
+import { CftRequest } from './types.js';
+
+declare const cft: (rawRequest?: Partial<CftRequest>) => void;
+
+export { cft };

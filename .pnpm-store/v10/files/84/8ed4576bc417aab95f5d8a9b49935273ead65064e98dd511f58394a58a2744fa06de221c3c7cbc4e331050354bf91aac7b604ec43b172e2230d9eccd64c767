@@ -1,0 +1,7 @@
+import { TestFramework } from './testEnvironmentTypes.js';
+import { CftRequest } from '../types.js';
+import '../spies/spyTypes.js';
+
+declare const selectTestFramework: (request: CftRequest) => TestFramework;
+
+export { selectTestFramework };

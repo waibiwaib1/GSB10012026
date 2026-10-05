@@ -1,0 +1,17 @@
+import { PackageJsonRuleModule } from './createRule.mjs';
+import 'estree';
+import 'eslint';
+import 'jsonc-eslint-parser';
+
+declare const plugin: {
+    meta: {
+        name: string;
+        version: string;
+    };
+    rules: Record<string, PackageJsonRuleModule<unknown[]>>;
+};
+declare const recommendedRuleSettings: {
+    [k: string]: "error";
+};
+
+export { plugin, recommendedRuleSettings };

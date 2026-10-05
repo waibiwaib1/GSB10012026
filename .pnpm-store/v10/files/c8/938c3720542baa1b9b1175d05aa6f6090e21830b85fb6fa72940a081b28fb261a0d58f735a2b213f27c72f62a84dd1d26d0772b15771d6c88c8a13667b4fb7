@@ -1,0 +1,27 @@
+const isJasmine = () => {
+  return typeof afterEach !== "undefined" && typeof beforeEach !== "undefined" && typeof jasmine !== "undefined" && typeof jasmine.Spec !== "undefined";
+};
+const selectJasmineEnvironment = () => {
+  if (!isJasmine()) {
+    return void 0;
+  }
+  return {
+    afterEach: (callback) => {
+      afterEach(() => {
+        callback({
+          reportComplaint({ error }) {
+            error.stack = error.stack.substring(error.message.length);
+            throw error;
+          }
+        });
+      });
+    },
+    beforeEach: (callback) => {
+      beforeEach(callback);
+    }
+  };
+};
+export {
+  selectJasmineEnvironment
+};
+//# sourceMappingURL=jasmine.js.map

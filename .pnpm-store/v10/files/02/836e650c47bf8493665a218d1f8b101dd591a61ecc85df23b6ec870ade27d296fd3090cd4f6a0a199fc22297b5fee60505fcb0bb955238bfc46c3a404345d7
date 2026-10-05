@@ -1,0 +1,60 @@
+import { Rule } from 'eslint';
+import * as ESTree from 'estree';
+
+type ArrayElement = ESTree.Expression | ESTree.SpreadElement;
+type ArrayElementsOrParent = ESTree.ArrayExpression | ESTree.ArrayExpression["elements"];
+/**
+ * Given an ArrayExpression or the list of elements an ArrayExpression has,
+ * the index or node within that array that you want to remove, and a rule fixer,
+ * this function yields removals for the node itself, as well as any trailing
+ * commas that are no longer necessary.
+ * @param context ESLint Rule Context
+ * @param fixer Rule fixer
+ * @param elementOrIndex The child expression, spread element, or a numeric
+ * index of the child
+ * @param parentOrElements The array expression node, or its `.elements` array
+ * @yields fixer removals for the node itself, as well as any trailing commas
+ * that are no longer necessary.
+ */
+declare function removeArrayElement(context: Rule.RuleContext, fixer: Rule.RuleFixer, elementOrIndex: ArrayElement | number, parentOrElements: ArrayElementsOrParent): Generator<Rule.Fix, void, unknown>;
+
+/**
+ * Given an ArrayExpression or the list of elements an ArrayExpression has, and
+ * the index or node within that array that you want to remove, this function
+ * returns a fixer function that you can provide to a report descriptor that
+ * will remove that node along with any trailing comma.
+ * @param context ESLint Rule Context
+ * @param elementOrIndex The child expression, spread element, or a numeric
+ * index of the child
+ * @param parentOrElements The array expression node, or its `.elements` array
+ * @returns a fixer function that you can provide to a report descriptor, that
+ * removes an element from an array expression, along with any commas that are
+ * no longer necessary.
+ */
+declare function fixRemoveArrayElement(context: Rule.RuleContext, elementOrIndex: ArrayElement | number, parentOrElements: ArrayElementsOrParent): (fixer: Rule.RuleFixer) => Generator<Rule.Fix, void, unknown>;
+
+type ObjectProperty = ESTree.Property | ESTree.SpreadElement;
+/**
+ * Given an ObjectProperty, and a rule fixer, this function yields removals for
+ * the node itself, as well as any trailing commas that are no longer necessary.
+ * @param context ESLint Rule Context
+ * @param fixer Rule fixer
+ * @param property The property node
+ * @yields fixer removals for the node itself, as well as any trailing commas
+ * that are no longer necessary.
+ */
+declare function removeObjectProperty(context: Rule.RuleContext, fixer: Rule.RuleFixer, property: ObjectProperty): Generator<Rule.Fix, void, unknown>;
+
+/**
+ * Given an ObjectProperty, this function returns a fixer function that you can
+ * provide to a report descriptor that will remove that node along with any
+ * trailing comma.
+ * @param context ESLint Rule Context
+ * @param property The property node
+ * @returns a fixer function that you can provide to a report descriptor, that
+ * removes a property from an object expression, along with any commas that
+ * are no longer necessary.
+ */
+declare function fixRemoveObjectProperty(context: Rule.RuleContext, property: ObjectProperty): (fixer: Rule.RuleFixer) => Generator<Rule.Fix, void, unknown>;
+
+export { type ArrayElement, type ArrayElementsOrParent, type ObjectProperty, fixRemoveArrayElement, fixRemoveObjectProperty, removeArrayElement, removeObjectProperty };

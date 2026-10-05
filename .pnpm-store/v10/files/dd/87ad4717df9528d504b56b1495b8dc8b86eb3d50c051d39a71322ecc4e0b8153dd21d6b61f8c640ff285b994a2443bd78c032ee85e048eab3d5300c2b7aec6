@@ -1,0 +1,2 @@
+export { findRoot } from './findRoot.cjs';
+export { findRootSync } from './findRootSync.cjs';

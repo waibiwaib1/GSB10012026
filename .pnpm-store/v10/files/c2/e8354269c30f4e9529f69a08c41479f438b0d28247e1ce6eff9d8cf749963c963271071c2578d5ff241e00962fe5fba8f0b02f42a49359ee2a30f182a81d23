@@ -1,0 +1,6 @@
+import { SpyFactory } from './spyTypes.js';
+import { CftRequest } from '../types.js';
+
+declare const selectSpyFactory: (request: CftRequest) => SpyFactory;
+
+export { selectSpyFactory };

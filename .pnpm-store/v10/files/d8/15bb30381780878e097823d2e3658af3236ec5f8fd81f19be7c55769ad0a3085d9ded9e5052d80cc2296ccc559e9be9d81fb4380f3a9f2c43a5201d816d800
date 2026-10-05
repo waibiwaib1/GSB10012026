@@ -1,0 +1,8 @@
+const isValidMemberName = (methodName) => !methodName.startsWith("_") && methodName[0].toLowerCase() === methodName[0];
+const consoleMethodNames = Object.keys(console).filter(
+  (methodName) => isValidMemberName(methodName) && typeof console[methodName] === "function"
+).sort();
+export {
+  consoleMethodNames
+};
+//# sourceMappingURL=console.js.map

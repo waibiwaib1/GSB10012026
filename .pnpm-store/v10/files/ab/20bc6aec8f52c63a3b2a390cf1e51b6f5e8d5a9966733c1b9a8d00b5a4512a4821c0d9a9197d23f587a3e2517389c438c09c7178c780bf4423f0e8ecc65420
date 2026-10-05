@@ -1,0 +1,69 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var findRootSync_exports = {};
+__export(findRootSync_exports, {
+  findRootSync: () => findRootSync
+});
+module.exports = __toCommonJS(findRootSync_exports);
+var import_repositoryCommand = require("./repositoryCommand.cjs");
+function findGitRoot(cwd) {
+  return (0, import_repositoryCommand.repositoryExecSync)(cwd, "git", [
+    "rev-parse",
+    "--quiet",
+    "--show-toplevel"
+  ]);
+}
+function findSaplingRoot(cwd) {
+  return (0, import_repositoryCommand.repositoryExecSync)(cwd, "sl", ["--quiet", "root"]);
+}
+function findMercurialRoot(cwd) {
+  return (0, import_repositoryCommand.repositoryExecSync)(cwd, "hg", ["--quiet", "root"]);
+}
+function findSubversionRoot(cwd) {
+  return (0, import_repositoryCommand.repositoryExecSync)(cwd, "svn", ["info", "--show-item", "wc-root"]);
+}
+const findMethods = [
+  findGitRoot,
+  // most used and fastest check
+  findSubversionRoot,
+  // next highest market share
+  findSaplingRoot,
+  // much smaller market share, but much faster
+  findMercurialRoot
+  // slow af
+];
+function findRootSync(directory) {
+  for (const method of findMethods) {
+    try {
+      const result = method(directory);
+      if (result != null && result !== "") {
+        return result;
+      }
+    } catch (e) {
+      if (e instanceof Error && "code" in e && e.code === "ENOTDIR") {
+        throw new Error(`Given path isn't a directory: ${directory}`);
+      }
+    }
+  }
+  return null;
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  findRootSync
+});

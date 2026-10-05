@@ -1,0 +1,8 @@
+import { ParseAstOptions } from './parseAst.js';
+import '@babel/parser';
+import '@babel/types';
+import 'prettier';
+
+declare function preprocess(code: string, options: ParseAstOptions): string;
+
+export { preprocess };

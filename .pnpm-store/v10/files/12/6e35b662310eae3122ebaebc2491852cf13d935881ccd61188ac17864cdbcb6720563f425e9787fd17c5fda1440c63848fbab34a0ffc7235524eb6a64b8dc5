@@ -1,0 +1,23 @@
+import { createRequirePropertyRule } from "../utils/createRequirePropertyRule.js";
+const properties = [
+  ["author", false],
+  ["files", false],
+  ["keywords", false],
+  ["name", true],
+  ["version", true]
+  // TODO: More to come!
+];
+const rules = properties.reduce(
+  (acc, [propertyName, isRecommended]) => {
+    acc[`require-${propertyName}`] = createRequirePropertyRule(
+      propertyName,
+      isRecommended
+    );
+    return acc;
+  },
+  {}
+);
+export {
+  rules
+};
+//# sourceMappingURL=require-properties.mjs.map

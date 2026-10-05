@@ -1,0 +1,7 @@
+import { TestFrameworkSelector } from './testEnvironmentTypes.cjs';
+import '../spies/spyTypes.cjs';
+import '../types.cjs';
+
+declare const selectJestEnvironment: TestFrameworkSelector;
+
+export { selectJestEnvironment };

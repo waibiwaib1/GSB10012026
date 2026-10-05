@@ -1,0 +1,65 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var parseAst_exports = {};
+__export(parseAst_exports, {
+  parseAst: () => parseAst
+});
+module.exports = __toCommonJS(parseAst_exports);
+var import_parser = require("@babel/parser");
+function parseAst(code, options) {
+  return (0, import_parser.parse)(code, getParseOptions(/(?:js|x)$/.test(options.filepath)));
+}
+function getParseOptions(isJsx) {
+  return {
+    allowImportExportEverywhere: true,
+    allowNewTargetOutsideFunction: true,
+    allowReturnOutsideFunction: true,
+    allowSuperOutsideMethod: true,
+    allowUndeclaredExports: true,
+    errorRecovery: true,
+    plugins: [
+      "doExpressions",
+      "exportDefaultFrom",
+      "functionBind",
+      "functionSent",
+      "throwExpressions",
+      "partialApplication",
+      "decorators",
+      "decimal",
+      "moduleBlocks",
+      "asyncDoExpressions",
+      "regexpUnicodeSets",
+      "destructuringPrivate",
+      "decoratorAutoAccessors",
+      "importReflection",
+      "explicitResourceManagement",
+      "decoratorAutoAccessors",
+      "typescript",
+      ...isJsx ? ["jsx"] : [],
+      ["importAttributes", { deprecatedAssertSyntax: true }]
+    ],
+    ranges: true,
+    sourceType: "module"
+  };
+}
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  parseAst
+});
+//# sourceMappingURL=parseAst.js.map

@@ -1,0 +1,68 @@
+"use strict";
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var cft_exports = {};
+__export(cft_exports, {
+  cft: () => cft
+});
+module.exports = __toCommonJS(cft_exports);
+var import_complaining = require("./complaining/index.cjs");
+var import_console = require("./console.cjs");
+var import_defaults = require("./defaults.cjs");
+var import_selectTestFramework = require("./environments/selectTestFramework.cjs");
+var import_selectSpyFactory = require("./spies/selectSpyFactory.cjs");
+const defaultReportComplaint = ({ error }) => {
+  throw error;
+};
+const cft = (rawRequest) => {
+  const request = (0, import_defaults.setDefaults)(rawRequest);
+  const spyFactory = (0, import_selectSpyFactory.selectSpyFactory)(request);
+  const testFramework = (0, import_selectTestFramework.selectTestFramework)(request);
+  const methodSpies = {};
+  const relevantMethodNames = import_console.consoleMethodNames.filter(
+    (name) => !request.console[name]
+  );
+  testFramework.beforeEach(() => {
+    for (const methodName of relevantMethodNames) {
+      methodSpies[methodName] = spyFactory(console, methodName);
+    }
+  });
+  testFramework.afterEach(
+    ({ reportComplaint = defaultReportComplaint } = {}) => {
+      const methodsWithCalls = [];
+      for (const methodName of relevantMethodNames) {
+        const spy = methodSpies[methodName];
+        const methodCalls = spy.getCalls();
+        const filteredCalls = testFramework.mapSpyCalls?.({ methodCalls, methodName }) ?? methodCalls;
+        spy.restore();
+        if (filteredCalls.length !== 0) {
+          methodsWithCalls.push([methodName, filteredCalls]);
+        }
+      }
+      if (methodsWithCalls.length === 0) {
+        return;
+      }
+      reportComplaint((0, import_complaining.createComplaint)(methodsWithCalls));
+    }
+  );
+};
+// Annotate the CommonJS export names for ESM import in node:
+0 && (module.exports = {
+  cft
+});
+//# sourceMappingURL=cft.cjs.map

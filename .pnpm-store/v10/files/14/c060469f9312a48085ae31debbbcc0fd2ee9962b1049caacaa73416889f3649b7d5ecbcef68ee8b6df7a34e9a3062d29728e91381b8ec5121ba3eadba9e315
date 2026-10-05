@@ -1,0 +1,117 @@
+var __defProp = Object.defineProperty;
+var __markAsModule = (target) => __defProp(target, "__esModule", {value: true});
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, {get: all[name], enumerable: true});
+};
+
+// dist/esm/index.js
+__markAsModule(exports);
+__export(exports, {
+  getCallId: () => getCallId
+});
+
+// dist/esm/stack-trace.js
+function getCallIdStackTrace(distance = 0) {
+  var _a;
+  const stacks = (_a = new Error().stack) === null || _a === void 0 ? void 0 : _a.split("\n").map((stackLine) => stackLine.trim());
+  if (stacks) {
+    const stackLine = stacks[distance + 1];
+    if (stackLine) {
+      return tryParseEval(stackLine) || tryParseNormal(stackLine);
+    }
+  }
+  return null;
+}
+var evalStackLineRegex = /(?:[^@]*)@(.*) line (\d+) > (?:eval|Function):(\d+):(\d+)/;
+function tryParseEval(line) {
+  const maybeMatch = evalStackLineRegex.exec(line);
+  return maybeMatch && {
+    column: 0,
+    file: maybeMatch[1],
+    line: parseInt(maybeMatch[2], 10)
+  };
+}
+var stackLineRegex = /(?:[^@]*)@(.*):(\d+):(\d+)/;
+function tryParseNormal(line) {
+  const maybeMatch = stackLineRegex.exec(line);
+  return maybeMatch && {
+    file: maybeMatch[1],
+    line: parseInt(maybeMatch[2], 10),
+    column: parseInt(maybeMatch[3], 10)
+  };
+}
+
+// dist/esm/util.js
+function toFileName(input) {
+  if (input.startsWith("file:")) {
+    const url = new URL(input);
+    if (url.protocol === "file:") {
+      return url.pathname;
+    }
+  }
+  return input;
+}
+
+// dist/esm/v8.js
+var ErrorWithCallSite = class extends Error {
+  constructor(from) {
+    super();
+    Error.captureStackTrace(this, from);
+  }
+  static prepareStackTrace(err, stack) {
+    return stack;
+  }
+};
+function getCallSite(from, distance) {
+  var _a;
+  const originalPrepare = Error.prepareStackTrace;
+  try {
+    Error.prepareStackTrace = ErrorWithCallSite.prepareStackTrace;
+    const stack = new ErrorWithCallSite(from).stack;
+    return (_a = stack[distance]) !== null && _a !== void 0 ? _a : null;
+  } finally {
+    Error.prepareStackTrace = originalPrepare;
+  }
+}
+function getCallIdV8(distance = 0) {
+  const callSite = getCallSite(getCallIdV8, distance);
+  return callSite && (tryParseEvalOrigin(callSite) || parseCallSite(callSite));
+}
+function tryParseEvalOrigin(callSite) {
+  var _a;
+  const origin = /.*\(([^)]+):(\d+):(\d+)\)/.exec((_a = callSite.getEvalOrigin()) !== null && _a !== void 0 ? _a : "");
+  if (origin) {
+    return {
+      file: toFileName(origin[1]),
+      line: parseInt(origin[2], 10),
+      column: parseInt(origin[3], 10)
+    };
+  }
+  return null;
+}
+function parseCallSite(callSite) {
+  var _a;
+  const fileUrl = callSite.getFileName();
+  const line = callSite.getLineNumber();
+  if (fileUrl !== null && line !== null) {
+    return {
+      column: (_a = callSite.getColumnNumber()) !== null && _a !== void 0 ? _a : 0,
+      line,
+      file: toFileName(fileUrl)
+    };
+  }
+  return null;
+}
+
+// dist/esm/get-call-id.js
+function getCallId(distance = 1) {
+  if (isV8()) {
+    return getCallIdV8(distance + 1);
+  } else {
+    return getCallIdStackTrace(distance + 1);
+  }
+}
+function isV8() {
+  return typeof Error.captureStackTrace === "function";
+}

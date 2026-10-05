@@ -1,0 +1,7 @@
+import { exec, execFile } from 'child_process';
+export { execFileSync, execSync } from 'child_process';
+
+declare const execAsync: typeof exec.__promisify__;
+declare const execFileAsync: typeof execFile.__promisify__;
+
+export { execAsync, execFileAsync };

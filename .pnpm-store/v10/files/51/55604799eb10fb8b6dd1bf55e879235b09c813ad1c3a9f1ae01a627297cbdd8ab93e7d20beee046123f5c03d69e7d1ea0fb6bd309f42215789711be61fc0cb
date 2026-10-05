@@ -1,0 +1,104 @@
+{
+	"name": "package-json-validator",
+	"version": "0.10.0",
+	"description": "Tools to validate package.json files.",
+	"keywords": [
+		"package.json",
+		"validator",
+		"package.json validator",
+		"lint",
+		"package.json linter"
+	],
+	"homepage": "https://github.com/JoshuaKGoldberg/package-json-validator#readme",
+	"bugs": {
+		"url": "https://github.com/JoshuaKGoldberg/package-json-validator/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/JoshuaKGoldberg/package-json-validator"
+	},
+	"license": "MIT",
+	"author": {
+		"name": "Nick Sullivan",
+		"email": "nick@sullivanflock.com"
+	},
+	"contributors": [
+		{
+			"name": "Nick Sullivan",
+			"email": "nick@sullivanflock.com"
+		},
+		{
+			"name": "JoshuaKGoldberg",
+			"email": "npm@joshuakgoldberg.com",
+			"url": "https://joshuakgoldberg.com"
+		}
+	],
+	"type": "commonjs",
+	"exports": {
+		".": {
+			"import": {
+				"type": "./lib/index.d.mts",
+				"default": "./lib/index.mjs"
+			},
+			"require": {
+				"type": "./lib/index.d.ts",
+				"default": "./lib/index.js"
+			}
+		},
+		"./package.json": "./package.json"
+	},
+	"main": "lib/index.js",
+	"module": "lib/index.mjs",
+	"types": "lib/index.d.ts",
+	"bin": {
+		"pjv": "./lib/bin/pjv.mjs"
+	},
+	"files": [
+		"lib/"
+	],
+	"scripts": {
+		"build": "tsup",
+		"format": "prettier .",
+		"lint": "eslint . --max-warnings 0",
+		"prepare": "husky",
+		"test": "vitest",
+		"type-check": "tsc"
+	},
+	"lint-staged": {
+		"*": "prettier --ignore-unknown --write"
+	},
+	"dependencies": {
+		"yargs": "~17.7.2"
+	},
+	"devDependencies": {
+		"@eslint-community/eslint-plugin-eslint-comments": "4.4.0",
+		"@eslint/js": "9.18.0",
+		"@release-it/conventional-changelog": "10.0.0",
+		"@types/node": "22.10.6",
+		"@types/yargs": "17.0.33",
+		"all-contributors-for-repository": "0.4.0",
+		"eslint": "9.18.0",
+		"eslint-plugin-jsdoc": "50.6.1",
+		"eslint-plugin-n": "17.15.1",
+		"eslint-plugin-regexp": "2.7.0",
+		"globals": "15.14.0",
+		"husky": "9.1.6",
+		"lint-staged": "15.4.0",
+		"prettier": "3.4.2",
+		"prettier-plugin-curly": "0.3.1",
+		"prettier-plugin-packagejson": "2.5.3",
+		"prettier-plugin-sh": "0.14.0",
+		"release-it": "18.1.1",
+		"tsup": "8.3.5",
+		"typescript": "5.7.3",
+		"typescript-eslint": "8.21.0",
+		"vitest": "3.0.1"
+	},
+	"packageManager": "pnpm@9.15.1",
+	"engines": {
+		"node": ">=18"
+	},
+	"publishConfig": {
+		"provenance": true
+	}
+}

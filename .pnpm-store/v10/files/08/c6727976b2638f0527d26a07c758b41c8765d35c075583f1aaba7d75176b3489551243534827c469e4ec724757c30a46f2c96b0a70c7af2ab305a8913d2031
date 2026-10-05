@@ -1,0 +1,89 @@
+import { findRootSync } from "@altano/repository-tools/findRootSync.cjs";
+import * as path from "node:path";
+import { createRule } from "../createRule.js";
+import { findPropertyWithKeyValue } from "../utils/findPropertyWithKeyValue.js";
+function pathEndsWith(parent, child) {
+  const segments = parent.split(path.sep);
+  if (parent === child) {
+    return true;
+  }
+  let pathToCheck = "";
+  return segments.reverse().some((segment) => {
+    pathToCheck = path.join(segment, pathToCheck);
+    if (pathToCheck === child) {
+      return true;
+    }
+  });
+}
+const rule = createRule({
+  create(context) {
+    return {
+      "Program > JSONExpressionStatement > JSONObjectExpression > JSONProperty[key.value=repository][value.type=JSONObjectExpression]"(node) {
+        const directoryProperty = findPropertyWithKeyValue(
+          node.value.properties,
+          "directory"
+        );
+        if (directoryProperty?.value.type !== "JSONLiteral" || typeof directoryProperty.value.value !== "string") {
+          return;
+        }
+        const directoryValue = directoryProperty.value.value;
+        const fileDirectory = path.normalize(
+          path.dirname(context.filename)
+        );
+        const repositoryRoot = findRootSync(fileDirectory);
+        if (repositoryRoot == null) {
+          if (!pathEndsWith(
+            fileDirectory,
+            path.normalize(directoryValue)
+          )) {
+            context.report({
+              messageId: "mismatched",
+              node: directoryProperty.value
+            });
+          }
+        } else {
+          const expected = path.relative(
+            repositoryRoot,
+            fileDirectory
+          );
+          if (expected !== directoryValue) {
+            context.report({
+              messageId: "mismatched",
+              node: directoryProperty.value,
+              suggest: [
+                {
+                  data: { expected },
+                  fix(fixer) {
+                    return fixer.replaceText(
+                      directoryProperty.value,
+                      `"${expected}"`
+                    );
+                  },
+                  messageId: "replace"
+                }
+              ]
+            });
+          }
+        }
+      }
+    };
+  },
+  meta: {
+    docs: {
+      category: "Best Practices",
+      description: "Enforce that if repository directory is specified, it matches the path to the package.json file",
+      recommended: true
+    },
+    hasSuggestions: true,
+    messages: {
+      mismatched: "Directory does not match package.json directory.",
+      replace: "Replace with '{{ expected }}'."
+    },
+    schema: [],
+    type: "suggestion"
+  }
+});
+export {
+  rule
+};
+//# sourceMappingURL=valid-repository-directory.mjs.map
