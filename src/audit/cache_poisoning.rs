@@ -19,104 +19,90 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
         // https://github.com/actions/cache/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("actions/cache").unwrap(),
-            control: Control::new(Toggle::OptOut, "lookup-only", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptOut, "lookup-only", ControlFieldType::Boolean, true)],
         },
         // https://github.com/actions/setup-java/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("actions/setup-java").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache", ControlFieldType::String),
-            enabled_by_default: false,
+            control: vec![Control::new(Toggle::OptIn, "cache", ControlFieldType::String, false)],
         },
         // https://github.com/actions/setup-go/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("actions/setup-go").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptIn, "cache", ControlFieldType::Boolean, true)],
         },
         // https://github.com/actions/setup-node/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("actions/setup-node").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache", ControlFieldType::String),
-            enabled_by_default: false,
+            control: vec![Control::new(Toggle::OptIn, "cache", ControlFieldType::String, false)],
         },
         // https://github.com/actions/setup-python/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("actions/setup-python").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache", ControlFieldType::String),
-            enabled_by_default: false,
+            control: vec![Control::new(Toggle::OptIn, "cache", ControlFieldType::String, false)],
         },
         // https://github.com/actions/setup-dotnet/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("actions/setup-dotnet").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache", ControlFieldType::Boolean),
-            enabled_by_default: false,
+            control: vec![Control::new(Toggle::OptIn, "cache", ControlFieldType::Boolean, false)],
         },
         // https://github.com/astral-sh/setup-uv/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("astral-sh/setup-uv").unwrap(),
-            control: Control::new(Toggle::OptOut, "enable-cache", ControlFieldType::String),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptOut, "enable-cache", ControlFieldType::String, true)],
         },
         // https://github.com/Swatinem/rust-cache/blob/master/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("Swatinem/rust-cache").unwrap(),
-            control: Control::new(Toggle::OptOut, "lookup-only", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptOut, "lookup-only", ControlFieldType::Boolean, true)],
         },
         // https://github.com/ruby/setup-ruby/blob/master/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("ruby/setup-ruby").unwrap(),
-            control: Control::new(Toggle::OptIn, "bundler-cache", ControlFieldType::Boolean),
-            enabled_by_default: false,
+            control: vec![Control::new(Toggle::OptIn, "bundler-cache", ControlFieldType::Boolean, false)],
         },
         // https://github.com/PyO3/maturin-action/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("PyO3/maturin-action").unwrap(),
-            control: Control::new(Toggle::OptIn, "sccache", ControlFieldType::Boolean),
-            enabled_by_default: false,
+            control: vec![Control::new(Toggle::OptIn, "sccache", ControlFieldType::Boolean, false)],
         },
         // https://github.com/mlugg/setup-zig/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("mlugg/setup-zig").unwrap(),
-            control: Control::new(Toggle::OptIn, "use-cache", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptIn, "use-cache", ControlFieldType::Boolean, true)],
         },
         // https://github.com/oven-sh/setup-bun/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("oven-sh/setup-bun").unwrap(),
-            control: Control::new(Toggle::OptOut, "no-cache", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptOut, "no-cache", ControlFieldType::Boolean, true)],
         },
         // https://github.com/DeterminateSystems/magic-nix-cache-action/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("DeterminateSystems/magic-nix-cache-action").unwrap(),
-            control: Control::new(Toggle::OptIn, "use-gha-cache", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptIn, "use-gha-cache", ControlFieldType::Boolean, true)],
         },
         // https://github.com/graalvm/setup-graalvm/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("graalvm/setup-graalvm").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache", ControlFieldType::String),
-            enabled_by_default: false,
+            control: vec![Control::new(Toggle::OptIn, "cache", ControlFieldType::String, false)],
         },
         // https://github.com/gradle/actions/blob/main/setup-gradle/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("gradle/actions/setup-gradle").unwrap(),
-            control: Control::new(Toggle::OptOut, "cache-disabled", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptOut, "cache-disabled", ControlFieldType::Boolean, true)],
         },
         // https://github.com/docker/setup-buildx-action/blob/master/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("docker/setup-buildx-action").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache-binary", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![
+                Control::new(Toggle::OptIn, "cache-binary", ControlFieldType::Boolean, true),
+                Control::new(Toggle::OptIn, "version", ControlFieldType::String, false),
+            ],
         },
         // https://github.com/actions-rust-lang/setup-rust-toolchain/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("actions-rust-lang/setup-rust-toolchain").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptIn, "cache", ControlFieldType::Boolean, true)],
         },
         // https://github.com/Mozilla-Actions/sccache-action/blob/main/action.yml
         ActionCoordinate::NotConfigurable(
@@ -129,8 +115,7 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
         // https://github.com/jdx/mise-action/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("jdx/mise-action").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptIn, "cache", ControlFieldType::Boolean, true)],
         },
     ]
 });
@@ -155,8 +140,7 @@ static KNOWN_PUBLISHER_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::new(
         // Container registries
         ActionCoordinate::Configurable {
             uses: Uses::from_str("docker/build-push-action").unwrap(),
-            control: Control::new(Toggle::OptIn, "push", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(Toggle::OptIn, "push", ControlFieldType::Boolean, true)],
         },
         ActionCoordinate::NotConfigurable(
             Uses::from_str("redhat-actions/push-to-registry").unwrap(),

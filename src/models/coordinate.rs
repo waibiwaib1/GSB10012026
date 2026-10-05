@@ -22,10 +22,11 @@ pub(crate) enum ActionCoordinate {
     Configurable {
         /// The `uses:` clause of the coordinate
         uses: Uses,
-        /// The input that controls the coordinate
-        control: Control,
-        /// Whether or not the behavior is the default
-        enabled_by_default: bool,
+        /// The inputs that control the coordinate.
+        ///
+        /// All controls must be satisfied for the coordinate
+        /// to be considered in use.
+        control: Vec<Control>,
     },
     NotConfigurable(Uses),
 }
@@ -91,26 +92,41 @@ impl ActionCoordinate {
         }
 
         match self {
-            ActionCoordinate::Configurable {
-                uses: _,
-                control,
-                enabled_by_default,
-            } => {
+            ActionCoordinate::Configurable { control, .. } => {
                 // We need to inspect this `uses:`'s configuration to determine its semantics.
-                match with.get(control.field_name) {
-                    Some(field_value) => {
-                        // The declared usage is whatever the user explicitly configured,
-                        // which might be inverted if the toggle semantics are opt-out instead.
-                        self.declared_usage(field_value, &control.toggle, &control.field_type)
-                    }
-                    None => {
-                        // If the controlling field is not present, the default dictates the semantics.
-                        if *enabled_by_default {
-                            Some(Usage::DefaultActionBehaviour)
-                        } else {
-                            None
+                // Every control must be satisfied for the coordinate to be
+                // considered in use.
+                let mut usages = vec![];
+                for control in control {
+                    let usage = match with.get(control.field_name) {
+                        Some(field_value) => {
+                            // The declared usage is whatever the user explicitly configured,
+                            // which might be inverted if the toggle semantics are opt-out instead.
+                            self.declared_usage(field_value, &control.toggle, &control.field_type)
                         }
-                    }
+                        None => {
+                            // If the controlling field is not present, the default dictates the semantics.
+                            if control.enabled_by_default {
+                                Some(Usage::DefaultActionBehaviour)
+                            } else {
+                                None
+                            }
+                        }
+                    }?;
+
+                    usages.push(usage);
+                }
+
+                // Combine each control's usage into a single usage for the
+                // coordinate: a conditional opt-in dominates, followed by a
+                // direct opt-in, since these are more specific than the
+                // action's default behavior.
+                if usages.contains(&Usage::ConditionalOptIn) {
+                    Some(Usage::ConditionalOptIn)
+                } else if usages.contains(&Usage::DirectOptIn) {
+                    Some(Usage::DirectOptIn)
+                } else {
+                    Some(Usage::DefaultActionBehaviour)
                 }
             }
             // The mere presence of this `uses:` implies the expected usage semantics.
@@ -143,6 +159,8 @@ pub(crate) struct Control {
     pub(crate) field_name: &'static str,
     /// The type of the field that controls the action's behavior.
     pub(crate) field_type: ControlFieldType,
+    /// Whether or not the behavior is the default when the field is absent.
+    pub(crate) enabled_by_default: bool,
 }
 
 impl Control {
@@ -150,11 +168,13 @@ impl Control {
         toggle: Toggle,
         field_name: &'static str,
         field_type: ControlFieldType,
+        enabled_by_default: bool,
     ) -> Self {
         Self {
             toggle,
             field_name,
             field_type,
+            enabled_by_default,
         }
     }
 }
@@ -228,8 +248,12 @@ mod tests {
         // missing the needed control.
         let coord = ActionCoordinate::Configurable {
             uses: Uses::from_str("foo/bar").unwrap(),
-            control: Control::new(Toggle::OptIn, "set-me", ControlFieldType::Boolean),
-            enabled_by_default: false,
+            control: vec![Control::new(
+                Toggle::OptIn,
+                "set-me",
+                ControlFieldType::Boolean,
+                false,
+            )],
         };
         let step: Step = serde_yaml::from_str("uses: foo/bar").unwrap();
         assert_eq!(coord.usage(&step), None);
@@ -245,8 +269,12 @@ mod tests {
         // Coordinate `uses:` matches and is enabled by default.
         let coord = ActionCoordinate::Configurable {
             uses: Uses::from_str("foo/bar").unwrap(),
-            control: Control::new(Toggle::OptIn, "set-me", ControlFieldType::Boolean),
-            enabled_by_default: true,
+            control: vec![Control::new(
+                Toggle::OptIn,
+                "set-me",
+                ControlFieldType::Boolean,
+                true,
+            )],
         };
         let step: Step = serde_yaml::from_str("uses: foo/bar").unwrap();
         assert_eq!(coord.usage(&step), Some(Usage::DefaultActionBehaviour));
@@ -263,8 +291,12 @@ mod tests {
         // the default.
         let coord = ActionCoordinate::Configurable {
             uses: Uses::from_str("foo/bar").unwrap(),
-            control: Control::new(Toggle::OptOut, "disable-cache", ControlFieldType::Boolean),
-            enabled_by_default: false,
+            control: vec![Control::new(
+                Toggle::OptOut,
+                "disable-cache",
+                ControlFieldType::Boolean,
+                false,
+            )],
         };
         let step: Step = serde_yaml::from_str("uses: foo/bar").unwrap();
         assert_eq!(coord.usage(&step), None);
@@ -278,5 +310,34 @@ mod tests {
         let step: Step =
             serde_yaml::from_str("uses: foo/bar\nwith:\n  disable-cache: false").unwrap();
         assert_eq!(coord.usage(&step), Some(Usage::DirectOptIn));
+
+        // Coordinate with multiple controls: all must be satisfied.
+        let coord = ActionCoordinate::Configurable {
+            uses: Uses::from_str("foo/bar").unwrap(),
+            control: vec![
+                Control::new(Toggle::OptIn, "set-me", ControlFieldType::Boolean, true),
+                Control::new(Toggle::OptIn, "also-me", ControlFieldType::String, false),
+            ],
+        };
+
+        // Only the default-enabled control is satisfied; the other is missing.
+        let step: Step = serde_yaml::from_str("uses: foo/bar").unwrap();
+        assert_eq!(coord.usage(&step), None);
+
+        // The default-enabled control is explicitly disabled, so the
+        // coordinate is not in use even though the other control is satisfied.
+        let step: Step =
+            serde_yaml::from_str("uses: foo/bar\nwith:\n  set-me: false\n  also-me: value")
+                .unwrap();
+        assert_eq!(coord.usage(&step), None);
+
+        // Both controls are satisfied.
+        let step: Step = serde_yaml::from_str("uses: foo/bar\nwith:\n  also-me: value").unwrap();
+        assert_eq!(coord.usage(&step), Some(Usage::DirectOptIn));
+
+        // Both controls are satisfied, but one conditionally.
+        let step: Step =
+            serde_yaml::from_str("uses: foo/bar\nwith:\n  also-me: ${{ matrix.value }}").unwrap();
+        assert_eq!(coord.usage(&step), Some(Usage::ConditionalOptIn));
     }
 }

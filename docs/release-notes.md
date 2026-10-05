@@ -22,6 +22,10 @@ of `zizmor`.
 
 * The [template-injection] audit no longer considers
   `github.event.pull_request.head.sha` dangerous (#636)
+* Fixed a false positive in the [cache-poisoning] audit where
+  `docker/setup-buildx-action` was treated as cache-aware whenever
+  `cache-binary` was enabled; the action only caches the buildx binary
+  when `version` is also set (#644)
 
 ## v1.5.2
 
