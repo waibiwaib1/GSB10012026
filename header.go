@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -1148,32 +1149,48 @@ func (h *RequestHeader) CopyTo(dst *RequestHeader) {
 // f must not retain references to key and/or value after returning.
 // Copy key and/or value contents before returning if you need retaining them.
 func (h *ResponseHeader) VisitAll(f func(key, value []byte)) {
-	if len(h.contentLengthBytes) > 0 {
-		f(strContentLength, h.contentLengthBytes)
+	for key, value := range h.All() {
+		f(key, value)
 	}
-	contentType := h.ContentType()
-	if len(contentType) > 0 {
-		f(strContentType, contentType)
-	}
-	contentEncoding := h.ContentEncoding()
-	if len(contentEncoding) > 0 {
-		f(strContentEncoding, contentEncoding)
-	}
-	server := h.Server()
-	if len(server) > 0 {
-		f(strServer, server)
-	}
-	if len(h.cookies) > 0 {
-		visitArgs(h.cookies, func(_, v []byte) {
-			f(strSetCookie, v)
-		})
-	}
-	if len(h.trailer) > 0 {
-		f(strTrailer, appendTrailerBytes(nil, h.trailer, strCommaSpace))
-	}
-	visitArgs(h.h, f)
-	if h.ConnectionClose() {
-		f(strConnection, strClose)
+}
+
+// All returns an iterator over all response headers.
+//
+// key and value must not be retained after the current iteration.
+// Copy key and/or value contents if you need retaining them.
+func (h *ResponseHeader) All() iter.Seq2[[]byte, []byte] {
+	return func(yield func(key, value []byte) bool) {
+		if len(h.contentLengthBytes) > 0 && !yield(strContentLength, h.contentLengthBytes) {
+			return
+		}
+		contentType := h.ContentType()
+		if len(contentType) > 0 && !yield(strContentType, contentType) {
+			return
+		}
+		contentEncoding := h.ContentEncoding()
+		if len(contentEncoding) > 0 && !yield(strContentEncoding, contentEncoding) {
+			return
+		}
+		server := h.Server()
+		if len(server) > 0 && !yield(strServer, server) {
+			return
+		}
+		for _, value := range visitArgsSeq(h.cookies) {
+			if !yield(strSetCookie, value) {
+				return
+			}
+		}
+		if len(h.trailer) > 0 && !yield(strTrailer, appendTrailerBytes(nil, h.trailer, strCommaSpace)) {
+			return
+		}
+		for key, value := range visitArgsSeq(h.h) {
+			if !yield(key, value) {
+				return
+			}
+		}
+		if h.ConnectionClose() {
+			yield(strConnection, strClose)
+		}
 	}
 }
 
@@ -1181,8 +1198,21 @@ func (h *ResponseHeader) VisitAll(f func(key, value []byte)) {
 //
 // f must not retain references to value after returning.
 func (h *ResponseHeader) VisitAllTrailer(f func(value []byte)) {
-	for i := range h.trailer {
-		f(h.trailer[i])
+	for value := range h.AllTrailer() {
+		f(value)
+	}
+}
+
+// AllTrailer returns an iterator over all response trailers.
+//
+// value must not be retained after the current iteration.
+func (h *ResponseHeader) AllTrailer() iter.Seq[[]byte] {
+	return func(yield func(value []byte) bool) {
+		for i := range h.trailer {
+			if !yield(h.trailer[i]) {
+				return
+			}
+		}
 	}
 }
 
@@ -1190,8 +1220,21 @@ func (h *ResponseHeader) VisitAllTrailer(f func(value []byte)) {
 //
 // f must not retain references to value after returning.
 func (h *RequestHeader) VisitAllTrailer(f func(value []byte)) {
-	for i := range h.trailer {
-		f(h.trailer[i])
+	for value := range h.AllTrailer() {
+		f(value)
+	}
+}
+
+// AllTrailer returns an iterator over all request trailers.
+//
+// value must not be retained after the current iteration.
+func (h *RequestHeader) AllTrailer() iter.Seq[[]byte] {
+	return func(yield func(value []byte) bool) {
+		for i := range h.trailer {
+			if !yield(h.trailer[i]) {
+				return
+			}
+		}
 	}
 }
 
@@ -1203,15 +1246,43 @@ func (h *RequestHeader) VisitAllTrailer(f func(value []byte)) {
 //
 // f must not retain references to key and/or value after returning.
 func (h *ResponseHeader) VisitAllCookie(f func(key, value []byte)) {
-	visitArgs(h.cookies, f)
+	for key, value := range h.AllCookie() {
+		f(key, value)
+	}
+}
+
+// AllCookie returns an iterator over all response cookies.
+//
+// Cookie name is yielded as key and the whole Set-Cookie header value
+// is yielded as value on each iteration. Value may be parsed
+// with Cookie.ParseBytes().
+//
+// key and value must not be retained after the current iteration.
+func (h *ResponseHeader) AllCookie() iter.Seq2[[]byte, []byte] {
+	return visitArgsSeq(h.cookies)
 }
 
 // VisitAllCookie calls f for each request cookie.
 //
 // f must not retain references to key and/or value after returning.
 func (h *RequestHeader) VisitAllCookie(f func(key, value []byte)) {
-	h.collectCookies()
-	visitArgs(h.cookies, f)
+	for key, value := range h.AllCookie() {
+		f(key, value)
+	}
+}
+
+// AllCookie returns an iterator over all request cookies.
+//
+// key and value must not be retained after the current iteration.
+func (h *RequestHeader) AllCookie() iter.Seq2[[]byte, []byte] {
+	return func(yield func(key, value []byte) bool) {
+		h.collectCookies()
+		for key, value := range visitArgsSeq(h.cookies) {
+			if !yield(key, value) {
+				return
+			}
+		}
+	}
 }
 
 // VisitAll calls f for each header.
@@ -1221,33 +1292,53 @@ func (h *RequestHeader) VisitAllCookie(f func(key, value []byte)) {
 //
 // To get the headers in order they were received use VisitAllInOrder.
 func (h *RequestHeader) VisitAll(f func(key, value []byte)) {
-	host := h.Host()
-	if len(host) > 0 {
-		f(strHost, host)
+	for key, value := range h.All() {
+		f(key, value)
 	}
-	if len(h.contentLengthBytes) > 0 {
-		f(strContentLength, h.contentLengthBytes)
-	}
-	contentType := h.ContentType()
-	if len(contentType) > 0 {
-		f(strContentType, contentType)
-	}
-	userAgent := h.UserAgent()
-	if len(userAgent) > 0 {
-		f(strUserAgent, userAgent)
-	}
-	if len(h.trailer) > 0 {
-		f(strTrailer, appendTrailerBytes(nil, h.trailer, strCommaSpace))
-	}
+}
 
-	h.collectCookies()
-	if len(h.cookies) > 0 {
-		h.bufV = appendRequestCookieBytes(h.bufV[:0], h.cookies)
-		f(strCookie, h.bufV)
-	}
-	visitArgs(h.h, f)
-	if h.ConnectionClose() {
-		f(strConnection, strClose)
+// All returns an iterator over all request headers.
+//
+// key and value must not be retained after the current iteration.
+// Copy key and/or value contents if you need retaining them.
+//
+// To get the headers in order they were received use VisitAllInOrder.
+func (h *RequestHeader) All() iter.Seq2[[]byte, []byte] {
+	return func(yield func(key, value []byte) bool) {
+		host := h.Host()
+		if len(host) > 0 && !yield(strHost, host) {
+			return
+		}
+		if len(h.contentLengthBytes) > 0 && !yield(strContentLength, h.contentLengthBytes) {
+			return
+		}
+		contentType := h.ContentType()
+		if len(contentType) > 0 && !yield(strContentType, contentType) {
+			return
+		}
+		userAgent := h.UserAgent()
+		if len(userAgent) > 0 && !yield(strUserAgent, userAgent) {
+			return
+		}
+		if len(h.trailer) > 0 && !yield(strTrailer, appendTrailerBytes(nil, h.trailer, strCommaSpace)) {
+			return
+		}
+
+		h.collectCookies()
+		if len(h.cookies) > 0 {
+			h.bufV = appendRequestCookieBytes(h.bufV[:0], h.cookies)
+			if !yield(strCookie, h.bufV) {
+				return
+			}
+		}
+		for key, value := range visitArgsSeq(h.h) {
+			if !yield(key, value) {
+				return
+			}
+		}
+		if h.ConnectionClose() {
+			yield(strConnection, strClose)
+		}
 	}
 }
 
