@@ -18,6 +18,9 @@ const (
 // FormatCallback performs custom checks on exotic formats
 type FormatCallback func(value string) error
 
+// NumberFormatCallback performs custom checks on exotic number formats
+type NumberFormatCallback func(value float64) bool
+
 // Format represents a format validator registered by either DefineStringFormat or DefineStringFormatCallback
 type Format struct {
 	regexp   *regexp.Regexp
@@ -26,6 +29,9 @@ type Format struct {
 
 // SchemaStringFormats allows for validating string formats
 var SchemaStringFormats = make(map[string]Format, 4)
+
+// SchemaNumberFormats allows for validating number (and integer) formats
+var SchemaNumberFormats = make(map[string]NumberFormatCallback, 4)
 
 // DefineStringFormat defines a new regexp pattern for a given format
 func DefineStringFormat(name string, pattern string) {
@@ -40,6 +46,11 @@ func DefineStringFormat(name string, pattern string) {
 // DefineStringFormatCallback adds a validation function for a specific schema format entry
 func DefineStringFormatCallback(name string, callback FormatCallback) {
 	SchemaStringFormats[name] = Format{callback: callback}
+}
+
+// DefineNumberFormatCallback adds a validation function for a specific number (or integer) schema format entry
+func DefineNumberFormatCallback(name string, callback NumberFormatCallback) {
+	SchemaNumberFormats[name] = callback
 }
 
 func validateIPv4(ip string) error {

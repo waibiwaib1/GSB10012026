@@ -988,7 +988,7 @@ func (schema *Schema) validate(ctx context.Context, stack []*Schema) ([]*Schema,
 				switch format {
 				case "float", "double":
 				default:
-					if validationOpts.schemaFormatValidationEnabled {
+					if _, ok := SchemaNumberFormats[format]; !ok && validationOpts.schemaFormatValidationEnabled {
 						return stack, unsupportedFormat(format)
 					}
 				}
@@ -998,7 +998,7 @@ func (schema *Schema) validate(ctx context.Context, stack []*Schema) ([]*Schema,
 				switch format {
 				case "int32", "int64":
 				default:
-					if validationOpts.schemaFormatValidationEnabled {
+					if _, ok := SchemaNumberFormats[format]; !ok && validationOpts.schemaFormatValidationEnabled {
 						return stack, unsupportedFormat(format)
 					}
 				}
@@ -1534,7 +1534,7 @@ func (schema *Schema) visitJSONNumber(settings *schemaValidationSettings, value 
 			formatMin = formatMinInt64
 			formatMax = formatMaxInt64
 		default:
-			if settings.formatValidationEnabled {
+			if _, ok := SchemaNumberFormats[schema.Format]; !ok && settings.formatValidationEnabled {
 				return unsupportedFormat(schema.Format)
 			}
 		}
@@ -1553,6 +1553,28 @@ func (schema *Schema) visitJSONNumber(settings *schemaValidationSettings, value 
 				return err
 			}
 			me = append(me, err)
+		}
+	}
+
+	// custom "format"
+	if format := schema.Format; format != "" {
+		if check, ok := SchemaNumberFormats[format]; ok {
+			if !check(value) {
+				if settings.failfast {
+					return errSchema
+				}
+				err := &SchemaError{
+					Value:                 value,
+					Schema:                schema,
+					SchemaField:           "format",
+					Reason:                fmt.Sprintf("number is not %q", format),
+					customizeMessageError: settings.customizeMessageError,
+				}
+				if !settings.multiError {
+					return err
+				}
+				me = append(me, err)
+			}
 		}
 	}
 
