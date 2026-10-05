@@ -206,10 +206,31 @@ func (p *Parser) parseUnaryExpr() (expr.Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		if tok, pos, lit := p.ScanIgnoreWhitespace(); tok != scanner.RPAREN {
-			return nil, newParseError(scanner.Tokstr(tok, lit), []string{")"}, pos)
+
+		tok, pos, lit := p.ScanIgnoreWhitespace()
+		if tok == scanner.RPAREN {
+			return expr.Parentheses{E: e}, nil
 		}
-		return expr.Parentheses{E: e}, nil
+		if tok != scanner.COMMA {
+			return nil, newParseError(scanner.Tokstr(tok, lit), []string{",", ")"}, pos)
+		}
+
+		eList := expr.LiteralExprList{e}
+		for {
+			e, _, err := p.ParseExpr()
+			if err != nil {
+				return nil, err
+			}
+			eList = append(eList, e)
+
+			tok, pos, lit := p.ScanIgnoreWhitespace()
+			if tok == scanner.RPAREN {
+				return eList, nil
+			}
+			if tok != scanner.COMMA {
+				return nil, newParseError(scanner.Tokstr(tok, lit), []string{",", ")"}, pos)
+			}
+		}
 	default:
 		return nil, newParseError(scanner.Tokstr(tok, lit), []string{"identifier", "string", "number", "bool"}, pos)
 	}

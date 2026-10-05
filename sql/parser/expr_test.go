@@ -102,6 +102,20 @@ func TestParserExpr(t *testing.T) {
 					),
 				),
 			}, false},
+		{"list with parentheses: values", `(1, true, {a: 1}, a.b.c, (-1), [-1])`,
+			expr.LiteralExprList{
+				expr.IntegerValue(1),
+				expr.BoolValue(true),
+				expr.KVPairs{expr.KVPair{K: "a", V: expr.IntegerValue(1)}},
+				expr.FieldSelector(parsePath(t, "a.b.c")),
+				expr.Parentheses{E: expr.IntegerValue(-1)},
+				expr.LiteralExprList{expr.IntegerValue(-1)},
+			}, false},
+		{"list with parentheses: expressions", `(1 + 1, 3 > 5)`,
+			expr.LiteralExprList{
+				expr.Add(expr.IntegerValue(1), expr.IntegerValue(1)),
+				expr.Gt(expr.IntegerValue(3), expr.IntegerValue(5)),
+			}, false},
 		{"list with brackets: empty", "[]", expr.LiteralExprList(nil), false},
 		{"list with brackets: values", `[1, true, {a: 1}, a.b.c, (-1), [-1]]`,
 			expr.LiteralExprList{
@@ -128,6 +142,10 @@ func TestParserExpr(t *testing.T) {
 		{"%", "age % 10", expr.Mod(expr.FieldSelector(parsePath(t, "age")), expr.IntegerValue(10)), false},
 		{"&", "age & 10", expr.BitwiseAnd(expr.FieldSelector(parsePath(t, "age")), expr.IntegerValue(10)), false},
 		{"IN", "age IN ages", expr.In(expr.FieldSelector(parsePath(t, "age")), expr.FieldSelector(parsePath(t, "ages"))), false},
+		{"IN with parentheses", "age IN (1, 2, 3)", expr.In(
+			expr.FieldSelector(parsePath(t, "age")),
+			expr.LiteralExprList{expr.IntegerValue(1), expr.IntegerValue(2), expr.IntegerValue(3)},
+		), false},
 		{"IS", "age IS NULL", expr.Is(expr.FieldSelector(parsePath(t, "age")), expr.NullValue()), false},
 		{"IS NOT", "age IS NOT NULL", expr.IsNot(expr.FieldSelector(parsePath(t, "age")), expr.NullValue()), false},
 		{"precedence", "4 > 1 + 2", expr.Gt(
