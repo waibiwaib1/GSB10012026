@@ -16,6 +16,8 @@
 
 package crawlercommons.sitemaps.extension;
 
+import java.util.Map;
+
 import crawlercommons.sitemaps.SiteMapURL;
 
 /**
@@ -23,6 +25,8 @@ import crawlercommons.sitemaps.SiteMapURL;
  * extension.
  */
 public abstract class ExtensionMetadata {
+
+    public abstract Map<String, String[]> asMap();
 
     public abstract boolean equals(Object other);
 

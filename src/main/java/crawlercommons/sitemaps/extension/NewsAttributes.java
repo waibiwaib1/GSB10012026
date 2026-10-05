@@ -16,7 +16,11 @@
 package crawlercommons.sitemaps.extension;
 
 import java.time.ZonedDateTime;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -28,6 +32,14 @@ public class NewsAttributes extends ExtensionMetadata {
     public static enum NewsGenre {
         Blog, OpEd, Opinion, PressRelease, Satire, UserGenerated
     }
+
+    public static final String NAME = "name";
+    public static final String LANGUAGE = "language";
+    public static final String GENRES = "genres";
+    public static final String PUBLICATION_DATE = "publication_date";
+    public static final String TITLE = "title";
+    public static final String KEYWORDS = "keywords";
+    public static final String STOCK_TICKERS = "stock_tickers";
 
     /**
      * News publication name found under news/publication/name (required)
@@ -138,6 +150,41 @@ public class NewsAttributes extends ExtensionMetadata {
 
     public void setStockTickers(String[] stockTickers) {
         this.stockTickers = stockTickers;
+    }
+
+    @Override
+    public Map<String, String[]> asMap() {
+        Map<String, String[]> map = new HashMap<>();
+
+        if (name != null) {
+            map.put(NAME, new String[] { name });
+        }
+
+        if (language != null) {
+            map.put(LANGUAGE, new String[] { language });
+        }
+
+        if (genres != null) {
+            map.put(GENRES, Arrays.stream(genres).map(Enum::name).toArray(String[]::new));
+        }
+
+        if (publicationDate != null) {
+            map.put(PUBLICATION_DATE, new String[] { publicationDate.toString() });
+        }
+
+        if (title != null) {
+            map.put(TITLE, new String[] { title });
+        }
+
+        if (keywords != null) {
+            map.put(KEYWORDS, keywords);
+        }
+
+        if (stockTickers != null) {
+            map.put(STOCK_TICKERS, stockTickers);
+        }
+
+        return Collections.unmodifiableMap(map);
     }
 
     @Override
