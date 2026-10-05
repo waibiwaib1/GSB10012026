@@ -1109,6 +1109,59 @@ fn mismatch_type() {
     assert!(matches!(errors[0], AnalyzerError::MismatchType { .. }));
 
     let code = r#"
+    interface InterfaceA {
+        var a: logic;
+        modport mp {
+            a: output,
+        }
+    }
+
+    interface InterfaceB {
+        var a: logic;
+        modport mp {
+            a: output,
+        }
+    }
+
+    module ModuleA (
+        a: modport InterfaceA::mp,
+    ) {}
+
+    module ModuleB {
+        inst if_b: InterfaceB;
+        inst u: ModuleA (
+            a: if_b,
+        );
+    }
+    "#;
+
+    let errors = analyze(code);
+    assert!(matches!(errors[0], AnalyzerError::MismatchType { .. }));
+
+    let code = r#"
+    interface InterfaceA {
+        var a: logic;
+        modport mp {
+            a: output,
+        }
+    }
+
+    module ModuleA (
+        a: modport InterfaceA::mp,
+    ) {}
+
+    module ModuleB {
+        inst if_a: InterfaceA;
+        inst u: ModuleA (
+            a: if_a,
+        );
+    }
+    "#;
+
+    let errors = analyze(code);
+    assert!(errors.is_empty());
+
+    let code = r#"
     module ModuleA {
         function FuncA::<T: type> -> T {
             var a: T;

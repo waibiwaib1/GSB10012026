@@ -3,7 +3,9 @@ use crate::analyzer_error::AnalyzerError;
 use crate::definition_table::{self, Definition};
 use crate::evaluator::{Evaluated, EvaluatedError, EvaluatedType, Evaluator};
 use crate::instance_history::{self, InstanceHistoryError, InstanceSignature};
-use crate::symbol::{Direction, GenericBoundKind, ModuleProperty, Symbol, SymbolId, SymbolKind};
+use crate::symbol::{
+    Direction, GenericBoundKind, ModuleProperty, Symbol, SymbolId, SymbolKind, Type, TypeKind,
+};
 use crate::symbol_table;
 use std::collections::{HashMap, HashSet};
 use veryl_parser::resource_table::StrId;
@@ -127,9 +129,177 @@ impl CheckExpression {
         ret
     }
 
-    fn check_port_connection(&mut self, _arg: &InstDeclaration, _module: &ModuleProperty) {
-        // TODO check port connection
-        //
+    fn check_port_connection(&mut self, arg: &InstDeclaration, module: &ModuleProperty) {
+        let mut ports = HashMap::new();
+        for port in &module.ports {
+            ports.insert(port.name(), port.property());
+        }
+
+        let items: Vec<InstPortItem> = if let Some(x) = &arg.inst_declaration_opt1 {
+            if let Some(x) = &x.inst_declaration_opt2 {
+                x.inst_port_list.as_ref().into()
+            } else {
+                Vec::new()
+            }
+        } else {
+            Vec::new()
+        };
+
+        for item in items {
+            let Some(connection) = &item.inst_port_item_opt else {
+                continue;
+            };
+            let Some(port) = ports.get(&item.identifier.identifier_token.token.text) else {
+                continue;
+            };
+
+            let Some(expected) = connected_interface(&port.r#type, &port.direction) else {
+                continue;
+            };
+            let Some(identifier) = get_expression_identifier(&connection.expression) else {
+                continue;
+            };
+            let Ok(symbol) = symbol_table::resolve(identifier) else {
+                continue;
+            };
+
+            let actual = match &symbol.found.kind {
+                SymbolKind::Instance(x) => {
+                    let path = x.type_name.mangled_path();
+                    if let Ok(x) = symbol_table::resolve((&path, &symbol.found.namespace)) {
+                        interface_symbol(&x.found)
+                    } else {
+                        None
+                    }
+                }
+                SymbolKind::Port(x) => connected_interface(&x.r#type, &x.direction),
+                _ => None,
+            };
+
+            if let Some(actual) = actual {
+                if expected != actual {
+                    let expected = symbol_table::get(expected).unwrap();
+                    let actual = symbol_table::get(actual).unwrap();
+                    self.errors.push(AnalyzerError::mismatch_type(
+                        &item.identifier.identifier_token.to_string(),
+                        &expected.token.to_string(),
+                        &actual.token.to_string(),
+                        &connection.expression.as_ref().into(),
+                    ));
+                }
+            }
+        }
+    }
+}
+
+fn connected_interface(r#type: &Type, direction: &Direction) -> Option<SymbolId> {
+    if !matches!(direction, Direction::Modport) {
+        return None;
+    }
+
+    if let TypeKind::UserDefined(x) = &r#type.kind {
+        if let Some(symbol) = x.symbol {
+            let symbol = symbol_table::get(symbol).unwrap();
+            if matches!(symbol.kind, SymbolKind::Modport(_)) {
+                if let Some(parent) = symbol.get_parent() {
+                    return Some(parent.id);
+                }
+            }
+        }
+    }
+
+    None
+}
+
+fn interface_symbol(symbol: &Symbol) -> Option<SymbolId> {
+    match &symbol.kind {
+        SymbolKind::Interface(_) => Some(symbol.id),
+        SymbolKind::GenericInstance(x) => {
+            let base = symbol_table::get(x.base).unwrap();
+            if matches!(base.kind, SymbolKind::Interface(_)) {
+                Some(base.id)
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+fn get_expression_identifier(arg: &Expression) -> Option<&ExpressionIdentifier> {
+    if !arg.expression_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*arg.expression01;
+    if !exp.expression01_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression02;
+    if !exp.expression02_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression03;
+    if !exp.expression03_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression04;
+    if !exp.expression04_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression05;
+    if !exp.expression05_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression06;
+    if !exp.expression06_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression07;
+    if !exp.expression07_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression08;
+    if !exp.expression08_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression09;
+    if !exp.expression09_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression10;
+    if !exp.expression10_list.is_empty() {
+        return None;
+    }
+
+    let exp = &*exp.expression11;
+    if exp.expression11_opt.is_some() {
+        return None;
+    }
+
+    let exp = &*exp.expression12;
+    if !exp.expression12_list.is_empty() {
+        return None;
+    }
+
+    match &*exp.factor {
+        Factor::IdentifierFactor(x) => {
+            let factor = &x.identifier_factor;
+            if factor.identifier_factor_opt.is_some() {
+                return None;
+            }
+            Some(&factor.expression_identifier)
+        }
+        _ => None,
     }
 }
 
