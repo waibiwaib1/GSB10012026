@@ -27,6 +27,7 @@ type Config struct {
 	Snapshot      string
 	Consistency   string
 	NoViews       bool
+	Where         string
 
 	BlackWhiteList BWListConf
 }
@@ -48,6 +49,7 @@ func DefaultConfig() *Config {
 		Snapshot:      "",
 		Consistency:   "auto",
 		NoViews:       true,
+		Where:         "",
 	}
 }
 

@@ -120,6 +120,19 @@ func (s *testDumpSuite) TestBuildSelectAllQuery(c *C) {
 		c.Assert(q, Equals, "SELECT * FROM test.t", cmt)
 		c.Assert(mock.ExpectationsWereMet(), IsNil, cmt)
 	}
+
+	// Test when config.Where is set.
+	mockConf.Where = "id > 500"
+	for tp := ServerTypeUnknown; tp < ServerTypeAll; tp += 1 {
+		mockConf.ServerInfo.ServerType = ServerType(tp)
+		cmt := Commentf("current server type: ", tp)
+
+		q, err := buildSelectAllQuery(mockConf, db, "test", "t")
+		c.Assert(err, IsNil, cmt)
+		c.Assert(q, Equals, "SELECT * FROM test.t WHERE id > 500", cmt)
+		c.Assert(mock.ExpectationsWereMet(), IsNil, cmt)
+	}
+	mockConf.Where = ""
 }
 
 func makeVersion(major, minor, patch int64, preRelease string) *semver.Version {

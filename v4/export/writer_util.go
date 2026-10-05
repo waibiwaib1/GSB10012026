@@ -93,6 +93,13 @@ func write(writer io.StringWriter, str string) error {
 	return err
 }
 
+func writeFilteredOutComments(w io.StringWriter, where string) error {
+	if err := write(w, "/* All data are filtered out by this condition: */\n"); err != nil {
+		return err
+	}
+	return write(w, fmt.Sprintf("/* WHERE (%s) */\n", where))
+}
+
 func buildFileWriter(path string) (io.StringWriter, func(), error) {
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0755)
 	if err != nil {

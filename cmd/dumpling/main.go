@@ -40,6 +40,7 @@ var (
 	consistency   string
 	snapshot      string
 	noViews       bool
+	where         string
 
 	rootCmd = &cobra.Command{
 		Use:   "dumpling",
@@ -71,6 +72,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&consistency, "consistency", "auto", "Consistency level during dumping: {auto|none|flush|lock|snapshot}")
 	rootCmd.PersistentFlags().StringVar(&snapshot, "snapshot", "", "Snapshot position. Valid only when consistency=snapshot")
 	rootCmd.PersistentFlags().BoolVarP(&noViews, "no-views", "W", true, "Do not dump views")
+	rootCmd.PersistentFlags().StringVar(&where, "where", "", "Dump only selected records, the condition is applied on all tables")
 }
 
 func run() {
@@ -94,6 +96,7 @@ func run() {
 	conf.OutputDirPath = outputDir
 	conf.Consistency = consistency
 	conf.NoViews = noViews
+	conf.Where = where
 
 	err = export.Dump(conf)
 	if err != nil {

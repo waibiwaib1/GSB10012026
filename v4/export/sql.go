@@ -114,10 +114,18 @@ func SelectAllFromTable(conf *Config, db *sql.DB, database, table string) (Table
 		table:    table,
 		rows:     rows,
 		colTypes: colTypes,
-		specCmts: []string{
-			"/*!40101 SET NAMES binary*/;",
-		},
+		specCmts: buildSpecialComments(conf),
 	}, nil
+}
+
+func buildSpecialComments(conf *Config) []string {
+	specCmts := []string{
+		"/*!40101 SET NAMES binary*/;",
+	}
+	if conf.Where != "" {
+		specCmts = append(specCmts, fmt.Sprintf("/* WHERE (%s) */", conf.Where))
+	}
+	return specCmts
 }
 
 func buildSelectAllQuery(conf *Config, db *sql.DB, database, table string) (string, error) {
@@ -126,6 +134,10 @@ func buildSelectAllQuery(conf *Config, db *sql.DB, database, table string) (stri
 	query.WriteString(database)
 	query.WriteString(".")
 	query.WriteString(table)
+	if conf.Where != "" {
+		query.WriteString(" WHERE ")
+		query.WriteString(conf.Where)
+	}
 	if conf.SortByPk {
 		orderByClause, err := buildOrderByClause(conf, db, database, table)
 		if err != nil {

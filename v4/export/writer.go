@@ -52,6 +52,9 @@ func (f *SimpleWriter) WriteTableData(ctx context.Context, ir TableDataIR) error
 		fileWriter, tearDown := buildLazyFileWriter(filePath)
 		intWriter := &InterceptStringWriter{StringWriter: fileWriter}
 		err := WriteInsert(chunks, intWriter)
+		if err == nil && !intWriter.SomethingIsWritten && f.cfg.Where != "" {
+			err = writeFilteredOutComments(intWriter, f.cfg.Where)
+		}
 		tearDown()
 		if err != nil {
 			return err
