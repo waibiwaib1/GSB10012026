@@ -724,7 +724,13 @@ export function Flow({
 
   function EndTurnEvent(state: State, _playerID: PlayerID, arg: any): State {
     return Process(state, [
-      { fn: EndTurn, turn: state.ctx.turn, phase: state.ctx.phase, arg },
+      {
+        fn: EndTurn,
+        turn: state.ctx.turn,
+        phase: state.ctx.phase,
+        force: arg && arg.force,
+        arg,
+      },
     ]);
   }
 
