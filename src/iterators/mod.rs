@@ -9,6 +9,7 @@
 #[macro_use]
 mod macros;
 mod chunks;
+mod into_iter;
 pub mod iter;
 mod lanes;
 mod windows;
@@ -24,6 +25,7 @@ use super::{ArrayBase, ArrayView, ArrayViewMut, Axis, Data, NdProducer, RemoveAx
 use super::{Dimension, Ix, Ixs};
 
 pub use self::chunks::{ExactChunks, ExactChunksIter, ExactChunksIterMut, ExactChunksMut};
+pub use self::into_iter::IntoIter;
 pub use self::lanes::{Lanes, LanesMut};
 pub use self::windows::Windows;
 
@@ -1465,6 +1467,7 @@ unsafe impl TrustedIterator for ::std::ops::Range<usize> {}
 // FIXME: These indices iter are dubious -- size needs to be checked up front.
 unsafe impl<D> TrustedIterator for IndicesIter<D> where D: Dimension {}
 unsafe impl<D> TrustedIterator for IndicesIterF<D> where D: Dimension {}
+unsafe impl<A, D> TrustedIterator for IntoIter<A, D> where D: Dimension {}
 
 /// Like Iterator::collect, but only for trusted length iterators
 pub fn to_vec<I>(iter: I) -> Vec<I::Item>

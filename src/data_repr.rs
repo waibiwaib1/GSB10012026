@@ -88,6 +88,14 @@ impl<A> OwnedRepr<A> {
         self.len = new_len;
     }
 
+    /// Set the valid length of the data to zero and return the old length;
+    /// this releases ownership of all the elements.
+    pub(crate) fn release_all_elements(&mut self) -> usize {
+        let ret = self.len;
+        self.len = 0;
+        ret
+    }
+
     /// Cast self into equivalent repr of other element type
     ///
     /// ## Safety
