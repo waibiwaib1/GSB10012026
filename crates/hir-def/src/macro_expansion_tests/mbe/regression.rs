@@ -909,3 +909,30 @@ macro_rules! with_std {
 "##]],
     )
 }
+
+#[test]
+fn test_path_like_guard_macro() {
+    // Regression test for https://github.com/rust-lang/rust-analyzer/issues/11497
+    // A literal `:` in a pattern must not match the first half of `::` in the
+    // input; consecutive puncts are glued greedily like in rustc.
+    check(
+        r#"
+macro_rules! inner {
+    ($id:ident: $($tail:tt)*) => { member };
+    ($path:ident :: $end:ident $($tail:tt)*) => { path };
+}
+fn demo() {
+    let _ = inner!(Option::Some(_));
+}
+"#,
+        expect![[r#"
+macro_rules! inner {
+    ($id:ident: $($tail:tt)*) => { member };
+    ($path:ident :: $end:ident $($tail:tt)*) => { path };
+}
+fn demo() {
+    let _ = path;
+}
+"#]],
+    );
+}
