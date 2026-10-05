@@ -74,6 +74,14 @@ class TestReadPdfTable(unittest.TestCase):
         self.assertTrue(tabula.read_pdf(
             pdf_path, pages=1, area=[[0, 0, 451, 212], [0, 212, 451, 425]]).equals(expected_df))
 
+    def test_read_pdf_with_template(self):
+        pdf_path = 'tests/resources/data.pdf'
+        expected_csv1 = 'tests/resources/data_1.csv'
+        template_path = 'tests/resources/tabula_template.json'
+        dfs = tabula.read_pdf_with_template(pdf_path, template_path)
+        self.assertEqual(len(dfs), 1)
+        self.assertTrue(dfs[0].equals(pd.read_csv(expected_csv1)))
+
     def test_read_pdf_with_java_option(self):
         pdf_path = 'tests/resources/data.pdf'
         expected_csv1 = 'tests/resources/data_1.csv'

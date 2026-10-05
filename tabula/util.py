@@ -1,3 +1,4 @@
+import json
 import warnings
 import platform
 
@@ -64,3 +65,42 @@ mac_ver: {}
         distro.linux_distribution(),
         platform.mac_ver(),
     ))
+
+
+def load_template(path_or_buffer):
+    '''Build tabula-py option from template file
+
+    Args:
+        path_or_buffer:
+            File-like object of tabula app template or its path
+
+    Returns:
+        `obj`:list: tabula-py options
+    '''
+
+    from .wrapper import _is_file_like, _stringify_path
+
+    path_or_buffer = _stringify_path(path_or_buffer)
+
+    if _is_file_like(path_or_buffer):
+        templates = json.load(path_or_buffer)
+
+    else:
+        with open(path_or_buffer, 'r') as f:
+            templates = json.load(f)
+
+    options = []
+
+    for template in templates:
+        if template.get('extraction_method') == 'stream':
+            template['stream'] = True
+
+        elif template.get('extraction_method') == 'lattice':
+            template['lattice'] = True
+
+        template['pages'] = template.pop('page')
+        template['area'] = [template['y1'], template['x1'],
+                            template['y2'], template['x2']]
+        options.append(template)
+
+    return options

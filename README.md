@@ -55,6 +55,9 @@ tabula.convert_into("test.pdf", "output.csv", output_format="csv")
 
 # convert all PDFs in a directory
 tabula.convert_into_by_batch("input_directory", output_format='csv')
+
+# Read tables in PDF with a Tabula app template
+dfs = tabula.read_pdf_with_template("test.pdf", "template.tabula-template.json")
 ```
 
 See [example notebook](./examples/tabula_example.ipynb)

@@ -21,7 +21,7 @@ import shutil
 import sys
 import errno
 
-from .util import deprecated_option
+from .util import deprecated_option, load_template
 
 PY2 = sys.version_info[0] == 2
 PY3 = sys.version_info[0] >= 3
@@ -161,6 +161,41 @@ def read_pdf(input_path,
             sys.stderr.write("Error: Failed to create DataFrame with different column tables.\n")
             sys.stderr.write("Error: Try to set `multiple_tables=True`.\n")
             raise
+
+
+def read_pdf_with_template(input_path, template_path, pandas_options=None,
+                           encoding='utf-8', java_options=None, **kwargs):
+    '''Read tables in PDF with a Tabula app template.
+
+    Args:
+        input_path (str):
+            File path of tareget PDF file.
+        template_path (str):
+            File path of Tabula app template file.
+        pandas_options (dict, optional):
+            Set pandas options like {'header': None}.
+        encoding (str, optional):
+            Encoding type for pandas. Default is 'utf-8'
+        java_options (list, optional):
+            Set java options like `-Xmx256m`.
+        kwargs (dict):
+            Dictionary of option for tabula-java. Details are shown in `build_options()`
+
+    Returns:
+        Extracted pandas DataFrame or list.
+    '''
+
+    options = load_template(template_path)
+
+    dataframes = []
+
+    for option in options:
+        _df = read_pdf(input_path, pandas_options=pandas_options,
+                       encoding=encoding, java_options=java_options,
+                       **dict(kwargs, **option))
+        dataframes.append(_df)
+
+    return dataframes
 
 
 def convert_into(input_path, output_path, output_format='csv', java_options=None, **kwargs):
