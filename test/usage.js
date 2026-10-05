@@ -314,6 +314,194 @@ describe('usage tests', function () {
         r.errors.length.should.equal(0)
       })
     })
+
+    describe('using .demandOption()', function () {
+      it('should show an error along with the missing arguments on demand fail', function () {
+        var r = checkUsage(function () {
+          return yargs('-x 10 -z 20')
+            .usage('Usage: $0 -x NUM -y NUM')
+            .demandOption(['x', 'y'])
+            .wrap(null)
+            .argv
+        })
+        r.should.have.property('result')
+        r.should.have.property('logs').with.length(0)
+        r.should.have.property('exit').and.be.ok
+        r.result.should.have.property('x', 10)
+        r.result.should.have.property('z', 20)
+        r.result.should.have.property('_').with.length(0)
+        r.errors.join('\n').split(/\n+/).should.deep.equal([
+          'Usage: ./usage -x NUM -y NUM',
+          'Options:',
+          '  -x  [required]',
+          '  -y  [required]',
+          'Missing required argument: y'
+        ])
+      })
+
+      it('should show an error along with a custom message on demand fail', function () {
+        var r = checkUsage(function () {
+          return yargs('-x 10 -z 20')
+            .usage('Usage: $0 -x NUM -y NUM')
+            .demandOption(['x', 'y'], 'x and y are both required')
+            .wrap(null)
+            .argv
+        })
+        r.should.have.property('result')
+        r.should.have.property('logs').with.length(0)
+        r.should.have.property('exit').and.be.ok
+        r.result.should.have.property('x', 10)
+        r.result.should.have.property('z', 20)
+        r.result.should.have.property('_').with.length(0)
+        r.errors.join('\n').split(/\n+/).should.deep.equal([
+          'Usage: ./usage -x NUM -y NUM',
+          'Options:',
+          '  -x  [required]',
+          '  -y  [required]',
+          'Missing required argument: y',
+          'x and y are both required'
+        ])
+      })
+
+      it('should return valid values when demand passes', function () {
+        var r = checkUsage(function () {
+          return yargs('-x 10 -y 20')
+            .usage('Usage: $0 -x NUM -y NUM')
+            .demandOption(['x', 'y'])
+            .wrap(null)
+            .argv
+        })
+        r.should.have.property('result')
+        r.should.have.property('errors').with.length(0)
+        r.should.have.property('logs').with.length(0)
+        r.should.have.property('exit', false)
+        r.result.should.have.property('x', 10)
+        r.result.should.have.property('y', 20)
+      })
+    })
+
+    describe('using .demandCommand()', function () {
+      it('should return a failure message when not enough non-hyphenated arguments are found', function () {
+        var r = checkUsage(function () {
+          return yargs('1 2 --moo')
+            .usage('Usage: $0 [x] [y] [z] {OPTIONS}')
+            .demandCommand(3)
+            .wrap(null)
+            .argv
+        })
+        r.should.have.property('result')
+        r.should.have.property('logs').with.length(0)
+        r.should.have.property('exit').and.be.ok
+        r.result.should.have.property('_').and.deep.equal([1, 2])
+        r.result.should.have.property('moo', true)
+        r.should.have.property('errors')
+        r.errors.join('\n').split(/\n+/).should.deep.equal([
+          'Usage: ./usage [x] [y] [z] {OPTIONS}',
+          'Not enough non-option arguments: got 2, need at least 3'
+        ])
+      })
+
+      it('should return a custom failure message when not enough non-hyphenated arguments are found', function () {
+        var r = checkUsage(function () {
+          return yargs('src --moo')
+            .usage('Usage: $0 [x] [y] [z] {OPTIONS} <src> <dest> [extra_files...]')
+            .demandCommand(2, 'src and dest files are both required')
+            .wrap(null)
+            .argv
+        })
+        r.should.have.property('result')
+        r.should.have.property('logs').with.length(0)
+        r.should.have.property('exit').and.be.ok
+        r.result.should.have.property('_').and.deep.equal(['src'])
+        r.result.should.have.property('moo', true)
+        r.should.have.property('errors')
+        r.errors.join('\n').split(/\n+/).should.deep.equal([
+          'Usage: ./usage [x] [y] [z] {OPTIONS} <src> <dest> [extra_files...]',
+          'src and dest files are both required'
+        ])
+      })
+
+      it('should return valid values when demand passes', function () {
+        var r = checkUsage(function () {
+          return yargs('1 2 3 --moo')
+            .usage('Usage: $0 [x] [y] [z] {OPTIONS}')
+            .demandCommand(3)
+            .argv
+        })
+        r.should.have.property('result')
+        r.should.have.property('errors').with.length(0)
+        r.should.have.property('logs').with.length(0)
+        r.should.have.property('exit', false)
+        r.result.should.have.property('_').and.deep.equal([1, 2, 3])
+        r.result.should.have.property('moo', true)
+      })
+
+      it('should return a failure message when too many non-hyphenated arguments are found', function () {
+        var r = checkUsage(function () {
+          return yargs('1 2 3 4 --m to get to the other side')
+            .usage('Usage: $0 [x] [y] [z] {OPTIONS}')
+            .demandCommand(1, 2)
+            .wrap(null)
+            .argv
+        })
+        r.should.have.property('result')
+        r.should.have.property('logs').with.length(0)
+        r.should.have.property('exit').and.be.ok
+        r.result.should.have.property('_').with.length(9)
+        r.should.have.property('errors')
+        r.errors.join('\n').split(/\n+/).should.deep.equal([
+          'Usage: ./usage [x] [y] [z] {OPTIONS}',
+          'Too many non-option arguments: got 9, maximum of 2'
+        ])
+      })
+
+      it('should return a custom failure message when too many non-hyphenated arguments are found', function () {
+        var r = checkUsage(function () {
+          return yargs('1 2 3 4 --m to get to the other side')
+            .usage('Usage: $0 [x] [y] [z] {OPTIONS}')
+            .demandCommand(1, 2, 'too many')
+            .wrap(null)
+            .argv
+        })
+        r.should.have.property('result')
+        r.should.have.property('logs').with.length(0)
+        r.should.have.property('exit').and.be.ok
+        r.result.should.have.property('_').with.length(9)
+        r.should.have.property('errors')
+        r.errors.join('\n').split(/\n+/).should.deep.equal([
+          'Usage: ./usage [x] [y] [z] {OPTIONS}',
+          'too many'
+        ])
+      })
+
+      it('should return a custom failure message for min and max respectively', function () {
+        var r = checkUsage(function () {
+          return yargs('')
+            .usage('Usage: $0 [x] [y] [z] {OPTIONS}')
+            .demandCommand(1, 2, 'too few', 'too many')
+            .wrap(null)
+            .argv
+        })
+        r.should.have.property('errors')
+        r.errors.join('\n').split(/\n+/).should.deep.equal([
+          'Usage: ./usage [x] [y] [z] {OPTIONS}',
+          'too few'
+        ])
+
+        r = checkUsage(function () {
+          return yargs('1 2 3')
+            .usage('Usage: $0 [x] [y] [z] {OPTIONS}')
+            .demandCommand(1, 2, 'too few', 'too many')
+            .wrap(null)
+            .argv
+        })
+        r.should.have.property('errors')
+        r.errors.join('\n').split(/\n+/).should.deep.equal([
+          'Usage: ./usage [x] [y] [z] {OPTIONS}',
+          'too many'
+        ])
+      })
+    })
   })
 
   it('should return valid values when check passes', function () {

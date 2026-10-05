@@ -1025,6 +1025,12 @@ displaying the value in the usage instructions:
 .demand(count, [max], [msg])
 ------------------------------
 
+***Note:*** `.demand()` has been deprecated in favor of
+[`.demandOption()`](#demandOption) and [`.demandCommand()`](#demandCommand),
+which make it explicit whether an option or a command (non-option argument)
+is being demanded. `.demand()`, `.require()`, and `.required()` are
+kept as aliases for backwards compatibility.
+
 If `key` is a string, show the usage information and exit if `key` wasn't
 specified in `process.argv`.
 
@@ -1057,6 +1063,47 @@ var argv = require('yargs')
   .command('install', 'tis a mighty fine package to install')
   .demand(1, ['w', 'm'])
   .strict()
+  .argv
+```
+
+<a name="demandCommand"></a>.demandCommand([min=1], [max], [minMsg], [maxMsg])
+------------------------------
+
+Demand at least `min` non-option arguments (commands), which show up in
+`argv._`. A second number `max` can optionally be provided to indicate
+the maximum number of non-option arguments allowed.
+
+If a `minMsg` string is given, it will be printed when too few non-option
+arguments are provided, instead of the standard error message. Likewise,
+`maxMsg` can be provided to customize the error shown when too many
+non-option arguments are provided.
+
+If `max` is omitted, any number of non-option arguments beyond `min`
+is allowed.
+
+```js
+var argv = require('yargs')
+  .demandCommand(2, 3, 'need at least 2 arguments', 'no more than 3 arguments, please')
+  .argv
+```
+
+<a name="demandOption"></a>.demandOption(key, [msg | boolean])
+------------------------------
+
+If `key` is a string, show the usage information and exit if `key` wasn't
+specified in `process.argv`.
+
+If `key` is an array, demand each element.
+
+If a `msg` string is given, it will be printed when the argument is missing,
+instead of the standard error message.
+
+If a `boolean` value is given, it controls whether the option is demanded;
+this is useful when using `.options()` to specify command line parameters.
+
+```js
+var argv = require('yargs')
+  .demandOption(['run', 'path'], 'Please provide both run and path arguments to work with this tool')
   .argv
 ```
 
