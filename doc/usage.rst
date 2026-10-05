@@ -154,6 +154,14 @@ Note: You need to pass the config to the ``fix`` command, in order to make it wo
 * `-n` defines how many files a single subprocess process
 * `-P` defines how many subprocesses the shell is allowed to spawn for parallel processing (usually similar to the number of CPUs your system has)
 
+The ``list-sets`` command
+-------------------------
+
+The ``list-sets`` command will list all available rulesets.
+
+.. code-block:: console
+
+    $ php php-cs-fixer.phar list-sets
 
 Rule descriptions
 -----------------
