@@ -1040,6 +1040,9 @@ instead of the standard error message. This is especially helpful for the non-op
 If a `boolean` value is given, it controls whether the option is demanded;
 this is useful when using `.options()` to specify command line parameters.
 
+`demand` has been deprecated, please instead use `demandCommand` and
+`demandOption` as described below.
+
 A combination of `.demand(1)` and `.strict()` will allow you to require a user to pass at least one command:
 
 ```js
@@ -1059,6 +1062,32 @@ var argv = require('yargs')
   .strict()
   .argv
 ```
+
+.demandCommand([min=1], [max], [minMsg], [maxMsg])
+------------------------------
+
+Demand at least `min` non-option arguments, and at most `max` non-option
+arguments, which show up in `argv._`. If `max` is not provided, no maximum
+is enforced.
+
+If a `minMsg` string is given, it will be printed when too few non-option
+arguments have been provided, instead of the standard error message. If a
+`maxMsg` string is given, it will be printed when too many non-option
+arguments have been provided.
+
+.demandOption(key, [msg | boolean])
+------------------------------
+
+If `key` is a string, show the usage information and exit if `key` wasn't
+specified in `process.argv`.
+
+If `key` is an array, demand each element.
+
+If a `msg` string is given, it will be printed when the argument is missing,
+instead of the standard error message.
+
+If a `boolean` value is given, it controls whether the option is demanded;
+this is useful when using `.options()` to specify command line parameters.
 
 <a name="describe"></a>.describe(key, desc)
 --------------------

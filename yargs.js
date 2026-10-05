@@ -305,10 +305,9 @@ function Yargs (processArgs, cwd, parentRequire) {
     // you can optionally provide a 'max' key,
     // which will raise an exception if too many '_'
     // options are provided.
-
     if (Array.isArray(max)) {
       max.forEach(function (key) {
-        self.demand(key, msg)
+        self.demandOption(key, msg)
       })
       max = Infinity
     } else if (typeof max !== 'number') {
@@ -317,12 +316,26 @@ function Yargs (processArgs, cwd, parentRequire) {
     }
 
     if (typeof keys === 'number') {
-      if (!options.demanded._) options.demanded._ = { count: 0, msg: null, max: max }
-      options.demanded._.count = keys
-      options.demanded._.msg = msg
+      self.demandCommand(keys, max, msg, msg)
     } else if (Array.isArray(keys)) {
       keys.forEach(function (key) {
-        self.demand(key, msg)
+        self.demandOption(key, msg)
+      })
+    } else {
+      if (typeof msg === 'string') {
+        self.demandOption(keys, msg)
+      } else if (msg === true || typeof msg === 'undefined') {
+        self.demandOption(keys)
+      }
+    }
+
+    return self
+  }
+
+  self.demandOption = function (keys, msg) {
+    if (Array.isArray(keys)) {
+      keys.forEach(function (key) {
+        self.demandOption(key, msg)
       })
     } else {
       if (typeof msg === 'string') {
@@ -331,6 +344,23 @@ function Yargs (processArgs, cwd, parentRequire) {
         options.demanded[keys] = { msg: undefined }
       }
     }
+
+    return self
+  }
+
+  self.demandCommand = function (min, max, minMsg, maxMsg) {
+    if (typeof min === 'undefined') min = 1
+
+    if (typeof max !== 'number') {
+      minMsg = max
+      max = Infinity
+    }
+
+    if (!options.demanded._) options.demanded._ = { count: 0, max: 0, msg: null, maxMsg: null }
+    options.demanded._.count = min
+    options.demanded._.max = max
+    options.demanded._.msg = minMsg
+    options.demanded._.maxMsg = maxMsg
 
     return self
   }
@@ -483,7 +513,7 @@ function Yargs (processArgs, cwd, parentRequire) {
       var demand = opt.demand || opt.required || opt.require
 
       if (demand) {
-        self.demand(key, demand)
+        self.demandOption(key, demand)
       }
 
       if ('config' in opt) {
