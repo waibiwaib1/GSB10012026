@@ -15,14 +15,14 @@ try:
 except ImportError:
     from robot.parsing.model.statements import Variable
 
-from packaging import version
 from robot.version import VERSION as RF_VERSION
 
 from robocop.exceptions import InvalidExternalCheckerError
+from robocop.utils.version import parse_version
 from robocop.version import __version__
 
-ROBOT_VERSION = version.parse(RF_VERSION)
-ROBOT_WITH_LANG = version.parse("6.0")
+ROBOT_VERSION = parse_version(RF_VERSION)
+ROBOT_WITH_LANG = parse_version("6.0")
 
 
 def rf_supports_lang():
