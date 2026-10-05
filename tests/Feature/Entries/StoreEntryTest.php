@@ -222,6 +222,45 @@ class StoreEntryTest extends TestCase
             ->assertStatus(422);
     }
 
+    /** @test */
+    public function it_can_create_an_entry_when_its_route_uses_id_at_the_root()
+    {
+        $pages = tap(Collection::make('pages')->routes('{slug}'))->save();
+        tap(Entry::make()->collection($pages)->id('home')->slug(null)->published(true))->save();
+
+        [$user, $collection] = $this->seedUserAndCollection();
+        $collection->routes('/{id}')->save();
+
+        $this
+            ->actingAs($user)
+            ->submit($collection, ['title' => 'My Entry', 'slug' => ''])
+            ->assertOk();
+
+        $entry = Entry::query()->where('collection', 'test')->first();
+
+        $this->assertEquals('/'.$entry->id(), $entry->uri());
+    }
+
+    /** @test */
+    public function it_can_create_an_entry_beneath_an_existing_uri_when_its_route_uses_id()
+    {
+        $pages = tap(Collection::make('pages')->routes('{slug}'))->save();
+        tap(Entry::make()->collection($pages)->id('testing-page')->slug('testing')->published(true))->save();
+
+        [$user] = $this->seedUserAndCollection();
+        $collection = Collection::findByHandle('test')->routes('/testing/{id}');
+        $collection->save();
+
+        $this
+            ->actingAs($user)
+            ->submit($collection, ['title' => 'My Entry', 'slug' => ''])
+            ->assertOk();
+
+        $entry = Entry::query()->where('collection', 'test')->first();
+
+        $this->assertEquals('/testing/'.$entry->id(), $entry->uri());
+    }
+
     private function seedUserAndCollection()
     {
         $this->setTestRoles(['test' => ['access cp', 'create test entries']]);
