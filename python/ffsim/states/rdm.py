@@ -13,7 +13,6 @@
 from __future__ import annotations
 
 import numpy as np
-import scipy.linalg
 from pyscf.fci.direct_spin1 import (
     make_rdm1,
     make_rdm1s,
@@ -36,7 +35,12 @@ def rdm(
     spin_summed: bool = True,
     reordered: bool = True,
     return_lower_ranks: bool = True,
-) -> np.ndarray | tuple[np.ndarray, ...]:
+) -> (
+    np.ndarray
+    | tuple[np.ndarray, np.ndarray]
+    | tuple[np.ndarray, np.ndarray, np.ndarray]
+    | tuple
+):
     """Return the reduced density matrix (RDM) or matrices of a state vector.
 
     The rank 1 RDM is defined as follows:
@@ -68,6 +72,13 @@ def rdm(
         rdm3[p, q, r, s, t, u] = ⟨p+ q r+ s t+ u⟩
         rdm4[p, q, r, s, t, u, v, w] = ⟨p+ q r+ s t+ u v+ w⟩
 
+    If ``spin_summed`` is set to False, then the RDMs are not summed over spin
+    indices. Instead, the spin-sector RDMs are returned separately, in the same
+    convention as the ``make_rdm1s`` and ``make_rdm12s`` functions from PySCF.
+    The rank 1 RDM is returned as a pair ``(rdm_a, rdm_b)`` of alpha-alpha and
+    beta-beta RDMs, each with shape ``(norb, norb)``. The rank 2 RDM is returned
+    as the triple ``(rdm_aa, rdm_ab, rdm_bb)``.
+
     Note:
         Currently, only ranks 1 and 2 are supported.
 
@@ -85,9 +96,11 @@ def rdm(
 
     Returns:
         The reduced density matrix or matrices. If `return_lower_ranks` is False,
-        then a single matrix is returned. If `return_lower_ranks` is True, then
-        a `rank`-length tuple of matrices is returned, containing the RDMs up to
-        the specified rank in increasing order of rank.
+        then a single RDM is returned. If `return_lower_ranks` is True, then
+        a `rank`-length tuple is returned, containing the RDMs up to the
+        specified rank in increasing order of rank. When `spin_summed` is False,
+        each rank 1 RDM is a pair ``(rdm_a, rdm_b)`` and each rank 2 RDM is a
+        triple ``(rdm_aa, rdm_ab, rdm_bb)``.
     """
     n_alpha, n_beta = nelec
     link_index_a = gen_linkstr_index(range(norb), n_alpha)
@@ -134,7 +147,7 @@ def _rdm1(
     norb: int,
     nelec: tuple[int, int],
     link_index: tuple[np.ndarray, np.ndarray] | None,
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray]:
     rdms1_real = make_rdm1s(vec.real, norb, nelec, link_index=link_index)
     rdms1_imag = make_rdm1s(vec.imag, norb, nelec, link_index=link_index)
     trans_rdms1_real_imag = trans_rdm1s(
@@ -186,7 +199,12 @@ def _rdm2(
     reordered: bool,
     link_index: tuple[np.ndarray, np.ndarray] | None,
     return_lower_ranks: bool,
-) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
+) -> (
+    tuple[np.ndarray, np.ndarray, np.ndarray]
+    | tuple[
+        tuple[np.ndarray, np.ndarray], tuple[np.ndarray, np.ndarray, np.ndarray]
+    ]
+):
     rdms1_real, rdms2_real = make_rdm12s(
         vec.real, norb, nelec, reorder=reordered, link_index=link_index
     )
@@ -225,14 +243,14 @@ def _assemble_rdm1(
     rdms1_imag: tuple[np.ndarray, np.ndarray],
     trans_rdms1_real_imag: tuple[np.ndarray, np.ndarray],
     trans_rdms1_imag_real: tuple[np.ndarray, np.ndarray],
-) -> np.ndarray:
+) -> tuple[np.ndarray, np.ndarray]:
     rdms1 = np.stack(rdms1_real).astype(complex)
     rdms1 += np.stack(rdms1_imag)
     # use minus sign for real-imag and plus sign for imag-real because
     # the rdm1 convention in pyscf is transposed
     rdms1 -= 1j * np.stack(trans_rdms1_real_imag)
     rdms1 += 1j * np.stack(trans_rdms1_imag_real)
-    return scipy.linalg.block_diag(*rdms1)
+    return tuple(rdms1)
 
 
 def _assemble_rdm2_spin_summed(
@@ -247,9 +265,9 @@ def _assemble_rdm2_spin_summed(
 def _assemble_rdm2(
     rdms2_real: tuple[np.ndarray, np.ndarray, np.ndarray],
     rdms2_imag: tuple[np.ndarray, np.ndarray, np.ndarray],
-    trans_rdms2_real_imag: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
-    trans_rdms2_imag_real: tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray],
-) -> np.ndarray:
+    trans_rdms2_real_imag: tuple[np.ndarray, np.ndarray, np.ndarray],
+    trans_rdms2_imag_real: tuple[np.ndarray, np.ndarray, np.ndarray],
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     rdms2 = np.stack(rdms2_real).astype(complex)
     rdms2 += np.stack(rdms2_imag)
     # rdms2 is currently [rdm_aa, rdm_ab, rdm_bb]
@@ -257,12 +275,5 @@ def _assemble_rdm2(
     rdms2 = np.insert(rdms2, 2, rdms2[1].transpose(2, 3, 0, 1), axis=0)
     rdms2 += 1j * np.stack(trans_rdms2_real_imag)
     rdms2 -= 1j * np.stack(trans_rdms2_imag_real)
-
-    norb, _, _, _ = rdms2_real[0].shape
-    rdm2 = np.zeros((2 * norb, 2 * norb, 2 * norb, 2 * norb), dtype=complex)
-    rdm_aa, rdm_ab, rdm_ba, rdm_bb = rdms2
-    rdm2[:norb, :norb, :norb, :norb] = rdm_aa
-    rdm2[:norb, :norb, norb:, norb:] = rdm_ab
-    rdm2[norb:, norb:, :norb, :norb] = rdm_ba
-    rdm2[norb:, norb:, norb:, norb:] = rdm_bb
-    return rdm2
+    rdm_aa, rdm_ab, _, rdm_bb = rdms2
+    return rdm_aa, rdm_ab, rdm_bb

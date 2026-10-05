@@ -17,7 +17,6 @@ from dataclasses import dataclass
 from typing import Sequence, Tuple, cast, overload
 
 import numpy as np
-import scipy.linalg
 from pyscf.fci import cistring
 from pyscf.fci.spin_op import contract_ss
 from typing_extensions import deprecated
@@ -205,7 +204,7 @@ def slater_determinant_rdm(
     | None = None,
     rank: int = 1,
     spin_summed: bool = True,
-) -> np.ndarray:
+) -> np.ndarray | tuple[np.ndarray, np.ndarray]:
     """Return the reduced density matrix of a `Slater determinant`_.
 
     Note:
@@ -226,10 +225,14 @@ def slater_determinant_rdm(
             spin sector.
         rank: The rank of the reduced density matrix. I.e., rank 1 corresponds to the
             one-particle RDM, rank 2 corresponds to the 2-particle RDM, etc.
-        spin_summed: Whether to sum over the spin index.
+        spin_summed: Whether to sum over the spin index. If False, then a pair
+            of spin alpha and spin beta RDMs is returned, as in PySCF's
+            ``make_rdm1s`` function.
 
     Returns:
-        The reduced density matrix of the Slater determinant.
+        The reduced density matrix of the Slater determinant. If ``spin_summed``
+        is True, then the spin-summed RDM is returned. Otherwise, a pair of the
+        spin alpha and spin beta RDMs is returned.
 
     .. _Slater determinant: ffsim.html#ffsim.slater_determinant
     """
@@ -254,7 +257,7 @@ def slater_determinant_rdm(
                 rdm_b = orbital_rotation_b.conj() @ rdm_b @ orbital_rotation_b.T
         if spin_summed:
             return rdm_a + rdm_b
-        return scipy.linalg.block_diag(rdm_a, rdm_b)
+        return rdm_a, rdm_b
     raise NotImplementedError(
         f"Returning the rank {rank} reduced density matrix is currently not supported."
     )

@@ -146,9 +146,12 @@ def _rdm1_spin_summed(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.
     return rdm
 
 
-def _rdm1(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.ndarray:
-    """Compute 1-RDM directly from its definition."""
-    rdm = np.zeros((2 * norb, 2 * norb), dtype=complex)
+def _rdm1(
+    vec: np.ndarray, norb: int, nelec: tuple[int, int]
+) -> tuple[np.ndarray, np.ndarray]:
+    """Compute spin-sector 1-RDMs directly from their definitions."""
+    rdm_a = np.zeros((norb, norb), dtype=complex)
+    rdm_b = np.zeros((norb, norb), dtype=complex)
     for i, j in itertools.combinations_with_replacement(range(norb), 2):
         op = ffsim.FermionOperator(
             {
@@ -157,8 +160,8 @@ def _rdm1(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.ndarray:
         )
         linop = ffsim.linear_operator(op, norb, nelec)
         val = np.vdot(vec, linop @ vec)
-        rdm[i, j] = val
-        rdm[j, i] = val.conjugate()
+        rdm_a[i, j] = val
+        rdm_a[j, i] = val.conjugate()
         op = ffsim.FermionOperator(
             {
                 (ffsim.cre_b(i), ffsim.des_b(j)): 1,
@@ -166,9 +169,9 @@ def _rdm1(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.ndarray:
         )
         linop = ffsim.linear_operator(op, norb, nelec)
         val = np.vdot(vec, linop @ vec)
-        rdm[norb + i, norb + j] = val
-        rdm[norb + j, norb + i] = val.conjugate()
-    return rdm
+        rdm_b[i, j] = val
+        rdm_b[j, i] = val.conjugate()
+    return rdm_a, rdm_b
 
 
 def _rdm2_spin_summed_reordered(
@@ -209,9 +212,13 @@ def _rdm2_spin_summed(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.
     return rdm
 
 
-def _rdm2_reordered(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.ndarray:
-    """Compute reordered 2-RDM directly from its definition."""
-    rdm = np.zeros((2 * norb, 2 * norb, 2 * norb, 2 * norb), dtype=complex)
+def _rdm2_reordered(
+    vec: np.ndarray, norb: int, nelec: tuple[int, int]
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute spin-sector reordered 2-RDMs directly from their definitions."""
+    rdm_aa = np.zeros((norb, norb, norb, norb), dtype=complex)
+    rdm_ab = np.zeros((norb, norb, norb, norb), dtype=complex)
+    rdm_bb = np.zeros((norb, norb, norb, norb), dtype=complex)
     for p, q, r, s in itertools.product(range(norb), repeat=4):
         op = ffsim.FermionOperator(
             {
@@ -220,7 +227,7 @@ def _rdm2_reordered(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.nd
         )
         linop = ffsim.linear_operator(op, norb, nelec)
         val = np.vdot(vec, linop @ vec)
-        rdm[p, q, r, s] = val
+        rdm_aa[p, q, r, s] = val
 
         op = ffsim.FermionOperator(
             {
@@ -229,16 +236,7 @@ def _rdm2_reordered(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.nd
         )
         linop = ffsim.linear_operator(op, norb, nelec)
         val = np.vdot(vec, linop @ vec)
-        rdm[p, q, norb + r, norb + s] = val
-
-        op = ffsim.FermionOperator(
-            {
-                (ffsim.cre_b(p), ffsim.cre_a(r), ffsim.des_a(s), ffsim.des_b(q)): 1,
-            }
-        )
-        linop = ffsim.linear_operator(op, norb, nelec)
-        val = np.vdot(vec, linop @ vec)
-        rdm[norb + p, norb + q, r, s] = val
+        rdm_ab[p, q, r, s] = val
 
         op = ffsim.FermionOperator(
             {
@@ -247,13 +245,17 @@ def _rdm2_reordered(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.nd
         )
         linop = ffsim.linear_operator(op, norb, nelec)
         val = np.vdot(vec, linop @ vec)
-        rdm[norb + p, norb + q, norb + r, norb + s] = val
-    return rdm
+        rdm_bb[p, q, r, s] = val
+    return rdm_aa, rdm_ab, rdm_bb
 
 
-def _rdm2(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.ndarray:
-    """Compute 2-RDM directly from its definition."""
-    rdm = np.zeros((2 * norb, 2 * norb, 2 * norb, 2 * norb), dtype=complex)
+def _rdm2(
+    vec: np.ndarray, norb: int, nelec: tuple[int, int]
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Compute spin-sector 2-RDMs directly from their definitions."""
+    rdm_aa = np.zeros((norb, norb, norb, norb), dtype=complex)
+    rdm_ab = np.zeros((norb, norb, norb, norb), dtype=complex)
+    rdm_bb = np.zeros((norb, norb, norb, norb), dtype=complex)
     for p, q, r, s in itertools.product(range(norb), repeat=4):
         op = ffsim.FermionOperator(
             {
@@ -262,7 +264,7 @@ def _rdm2(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.ndarray:
         )
         linop = ffsim.linear_operator(op, norb, nelec)
         val = np.vdot(vec, linop @ vec)
-        rdm[p, q, r, s] = val
+        rdm_aa[p, q, r, s] = val
 
         op = ffsim.FermionOperator(
             {
@@ -271,16 +273,7 @@ def _rdm2(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.ndarray:
         )
         linop = ffsim.linear_operator(op, norb, nelec)
         val = np.vdot(vec, linop @ vec)
-        rdm[p, q, norb + r, norb + s] = val
-
-        op = ffsim.FermionOperator(
-            {
-                (ffsim.cre_b(p), ffsim.des_b(q), ffsim.cre_a(r), ffsim.des_a(s)): 1,
-            }
-        )
-        linop = ffsim.linear_operator(op, norb, nelec)
-        val = np.vdot(vec, linop @ vec)
-        rdm[norb + p, norb + q, r, s] = val
+        rdm_ab[p, q, r, s] = val
 
         op = ffsim.FermionOperator(
             {
@@ -289,5 +282,5 @@ def _rdm2(vec: np.ndarray, norb: int, nelec: tuple[int, int]) -> np.ndarray:
         )
         linop = ffsim.linear_operator(op, norb, nelec)
         val = np.vdot(vec, linop @ vec)
-        rdm[norb + p, norb + q, norb + r, norb + s] = val
-    return rdm
+        rdm_bb[p, q, r, s] = val
+    return rdm_aa, rdm_ab, rdm_bb

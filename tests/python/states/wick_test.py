@@ -58,6 +58,7 @@ def test_expectation_product(norb: int, occupied_orbitals: tuple[list[int], list
         orbital_rotation=orbital_rotation,
         spin_summed=False,
     )
+    rdm = scipy.linalg.block_diag(*rdm)
 
     # get the full statevector
     vec = ffsim.slater_determinant(
@@ -99,6 +100,7 @@ def test_expectation_power():
         orbital_rotation=orbital_rotation,
         spin_summed=False,
     )
+    rdm = scipy.linalg.block_diag(*rdm)
 
     # get the full statevector
     vec = ffsim.slater_determinant(
