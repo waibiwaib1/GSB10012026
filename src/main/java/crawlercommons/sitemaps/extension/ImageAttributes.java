@@ -17,6 +17,8 @@
 package crawlercommons.sitemaps.extension;
 
 import java.net.URL;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -126,6 +128,27 @@ public class ImageAttributes extends ExtensionMetadata {
                         && Objects.equals(geoLocation, that.geoLocation) //
                         && Objects.equals(title, that.title) //
                         && Objects.equals(license, that.license);
+    }
+
+    @Override
+    public Map<String, String[]> asMap() {
+        Map<String, String[]> map = new LinkedHashMap<>();
+        if (loc != null) {
+            map.put("loc", new String[] { loc.toString() });
+        }
+        if (caption != null) {
+            map.put("caption", new String[] { caption });
+        }
+        if (geoLocation != null) {
+            map.put("geo_location", new String[] { geoLocation });
+        }
+        if (title != null) {
+            map.put("title", new String[] { title });
+        }
+        if (license != null) {
+            map.put("license", new String[] { license.toString() });
+        }
+        return map;
     }
 
 }

@@ -264,4 +264,89 @@ public class SiteMapParserExtensionTest {
         SiteMap sm = (SiteMap) asm;
         assertEquals(74, sm.getSiteMapUrls().size());
     }
+
+    @Test
+    public void testImageAttributesAsMap() throws MalformedURLException {
+        ImageAttributes attr = new ImageAttributes(new URL("http://example.com/image.jpg"));
+        attr.setCaption("caption");
+        attr.setGeoLocation("Limerick, Ireland");
+        attr.setTitle("title");
+        attr.setLicense(new URL("https://example.com/license"));
+
+        java.util.Map<String, String[]> map = attr.asMap();
+        assertArrayEquals(new String[] { "http://example.com/image.jpg" }, map.get("loc"));
+        assertArrayEquals(new String[] { "caption" }, map.get("caption"));
+        assertArrayEquals(new String[] { "Limerick, Ireland" }, map.get("geo_location"));
+        assertArrayEquals(new String[] { "title" }, map.get("title"));
+        assertArrayEquals(new String[] { "https://example.com/license" }, map.get("license"));
+        assertEquals(5, map.size());
+
+        // null attributes are not included
+        ImageAttributes sparse = new ImageAttributes(new URL("http://example.com/image.jpg"));
+        assertEquals(1, sparse.asMap().size());
+    }
+
+    @Test
+    public void testLinkAttributesAsMap() throws MalformedURLException {
+        LinkAttributes attr = new LinkAttributes(new URL("http://example.com/page"));
+        java.util.Map<String, String> params = new HashMap<>();
+        params.put("rel", "alternate");
+        params.put("hreflang", "en");
+        attr.setParams(params);
+
+        java.util.Map<String, String[]> map = attr.asMap();
+        assertArrayEquals(new String[] { "http://example.com/page" }, map.get("href"));
+        assertArrayEquals(new String[] { "alternate" }, map.get("rel"));
+        assertArrayEquals(new String[] { "en" }, map.get("hreflang"));
+        assertEquals(3, map.size());
+    }
+
+    @Test
+    public void testMobileAttributesAsMap() {
+        assertTrue(new MobileAttributes().asMap().isEmpty());
+    }
+
+    @Test
+    public void testNewsAttributesAsMap() {
+        NewsAttributes attr = new NewsAttributes("Example Times", "en", ZonedDateTime.parse("2017-01-02T03:04:05Z"), "Title");
+        attr.setGenres(new NewsAttributes.NewsGenre[] { NewsAttributes.NewsGenre.Blog, NewsAttributes.NewsGenre.OpEd });
+        attr.setKeywords(new String[] { "keyword1", "keyword2" });
+        attr.setStockTickers(new String[] { "GOOG" });
+
+        java.util.Map<String, String[]> map = attr.asMap();
+        assertArrayEquals(new String[] { "Example Times" }, map.get("publication/name"));
+        assertArrayEquals(new String[] { "en" }, map.get("publication/language"));
+        assertArrayEquals(new String[] { "Blog", "OpEd" }, map.get("genres"));
+        assertArrayEquals(new String[] { "2017-01-02T03:04:05Z" }, map.get("publication_date"));
+        assertArrayEquals(new String[] { "Title" }, map.get("title"));
+        assertArrayEquals(new String[] { "keyword1", "keyword2" }, map.get("keywords"));
+        assertArrayEquals(new String[] { "GOOG" }, map.get("stock_tickers"));
+        assertEquals(7, map.size());
+    }
+
+    @Test
+    public void testVideoAttributesAsMap() throws MalformedURLException {
+        VideoAttributes attr = new VideoAttributes(new URL("http://example.com/thumb.jpg"), "Title", "Description", new URL("http://example.com/video.flv"),
+                        new URL("http://example.com/player.swf"));
+        attr.setDuration(600);
+        attr.setRating(4.2f);
+        attr.setFamilyFriendly(true);
+        attr.setTags(new String[] { "tag1", "tag2" });
+        attr.setAllowedCountries(new String[] { "IE", "US" });
+        attr.setLive(false);
+
+        java.util.Map<String, String[]> map = attr.asMap();
+        assertArrayEquals(new String[] { "http://example.com/thumb.jpg" }, map.get("thumbnail_loc"));
+        assertArrayEquals(new String[] { "Title" }, map.get("title"));
+        assertArrayEquals(new String[] { "Description" }, map.get("description"));
+        assertArrayEquals(new String[] { "http://example.com/video.flv" }, map.get("content_loc"));
+        assertArrayEquals(new String[] { "http://example.com/player.swf" }, map.get("player_loc"));
+        assertArrayEquals(new String[] { "600" }, map.get("duration"));
+        assertArrayEquals(new String[] { "4.2" }, map.get("rating"));
+        assertArrayEquals(new String[] { "true" }, map.get("family_friendly"));
+        assertArrayEquals(new String[] { "tag1", "tag2" }, map.get("tags"));
+        assertArrayEquals(new String[] { "IE", "US" }, map.get("allowed_countries"));
+        assertArrayEquals(new String[] { "false" }, map.get("live"));
+        assertEquals(11, map.size());
+    }
 }

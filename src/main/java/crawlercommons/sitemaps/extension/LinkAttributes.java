@@ -17,6 +17,7 @@
 package crawlercommons.sitemaps.extension;
 
 import java.net.URL;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Objects;
@@ -94,6 +95,22 @@ public class LinkAttributes extends ExtensionMetadata {
         LinkAttributes that = (LinkAttributes) other;
         return Objects.equals(href, that.href) //
                         && Objects.equals(params, that.params);
+    }
+
+    @Override
+    public Map<String, String[]> asMap() {
+        Map<String, String[]> map = new LinkedHashMap<>();
+        if (href != null) {
+            map.put("href", new String[] { href.toString() });
+        }
+        if (params != null) {
+            for (Entry<String, String> e : params.entrySet()) {
+                if (e.getKey() != null && e.getValue() != null) {
+                    map.put(e.getKey(), new String[] { e.getValue() });
+                }
+            }
+        }
+        return map;
     }
 
 }

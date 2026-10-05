@@ -16,7 +16,10 @@
 package crawlercommons.sitemaps.extension;
 
 import java.time.ZonedDateTime;
+import java.util.Arrays;
 import java.util.Date;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -184,5 +187,36 @@ public class NewsAttributes extends ExtensionMetadata {
             sb.append(", keywords: ").append(String.join(", ", stockTickers));
         }
         return sb.toString();
+    }
+
+    @Override
+    public Map<String, String[]> asMap() {
+        Map<String, String[]> map = new LinkedHashMap<>();
+        if (name != null) {
+            map.put("publication/name", new String[] { name });
+        }
+        if (language != null) {
+            map.put("publication/language", new String[] { language });
+        }
+        if (genres != null) {
+            String[] values = new String[genres.length];
+            for (int i = 0; i < genres.length; i++) {
+                values[i] = genres[i].name();
+            }
+            map.put("genres", values);
+        }
+        if (publicationDate != null) {
+            map.put("publication_date", new String[] { publicationDate.toString() });
+        }
+        if (title != null) {
+            map.put("title", new String[] { title });
+        }
+        if (keywords != null) {
+            map.put("keywords", Arrays.copyOf(keywords, keywords.length));
+        }
+        if (stockTickers != null) {
+            map.put("stock_tickers", Arrays.copyOf(stockTickers, stockTickers.length));
+        }
+        return map;
     }
 }

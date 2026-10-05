@@ -20,7 +20,9 @@ import java.net.URL;
 import java.time.ZonedDateTime;
 import java.util.Arrays;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -549,6 +551,88 @@ public class VideoAttributes extends ExtensionMetadata {
     @Override
     public boolean isValid() {
         return thumbnailLoc != null && title != null && title.length() <= 100 && description != null && description.length() <= 2048 && (contentLoc != null || playerLoc != null);
+    }
+
+    @Override
+    public Map<String, String[]> asMap() {
+        Map<String, String[]> map = new LinkedHashMap<>();
+        if (thumbnailLoc != null) {
+            map.put("thumbnail_loc", new String[] { thumbnailLoc.toString() });
+        }
+        if (title != null) {
+            map.put("title", new String[] { title });
+        }
+        if (description != null) {
+            map.put("description", new String[] { description });
+        }
+        if (contentLoc != null) {
+            map.put("content_loc", new String[] { contentLoc.toString() });
+        }
+        if (playerLoc != null) {
+            map.put("player_loc", new String[] { playerLoc.toString() });
+        }
+        if (duration != null) {
+            map.put("duration", new String[] { duration.toString() });
+        }
+        if (expirationDate != null) {
+            map.put("expiration_date", new String[] { expirationDate.toString() });
+        }
+        if (rating != null) {
+            map.put("rating", new String[] { rating.toString() });
+        }
+        if (viewCount != null) {
+            map.put("view_count", new String[] { viewCount.toString() });
+        }
+        if (publicationDate != null) {
+            map.put("publication_date", new String[] { publicationDate.toString() });
+        }
+        if (familyFriendly != null) {
+            map.put("family_friendly", new String[] { familyFriendly.toString() });
+        }
+        if (tags != null) {
+            map.put("tags", Arrays.copyOf(tags, tags.length));
+        }
+        if (category != null) {
+            map.put("category", new String[] { category });
+        }
+        if (restrictedCountries != null) {
+            map.put("restricted_countries", Arrays.copyOf(restrictedCountries, restrictedCountries.length));
+        }
+        if (allowedCountries != null) {
+            map.put("allowed_countries", Arrays.copyOf(allowedCountries, allowedCountries.length));
+        }
+        if (galleryLoc != null) {
+            map.put("gallery_loc", new String[] { galleryLoc.toString() });
+        }
+        if (galleryTitle != null) {
+            map.put("gallery_title", new String[] { galleryTitle });
+        }
+        if (prices != null) {
+            String[] values = new String[prices.length];
+            for (int i = 0; i < prices.length; i++) {
+                values[i] = prices[i].toString();
+            }
+            map.put("prices", values);
+        }
+        if (requiresSubscription != null) {
+            map.put("requires_subscription", new String[] { requiresSubscription.toString() });
+        }
+        if (uploader != null) {
+            map.put("uploader", new String[] { uploader });
+        }
+        if (uploaderInfo != null) {
+            map.put("uploader_info", new String[] { uploaderInfo.toString() });
+        }
+        if (restrictedPlatforms != null) {
+            map.put("restricted_platforms", Arrays.copyOf(restrictedPlatforms, restrictedPlatforms.length));
+        }
+        if (allowedPlatforms != null) {
+            map.put("allowed_platforms", Arrays.copyOf(allowedPlatforms, allowedPlatforms.length));
+        }
+        if (isLive != null) {
+            map.put("live", new String[] { isLive.toString() });
+        }
+        return map;
     }
 
 }
