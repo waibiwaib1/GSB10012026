@@ -10,6 +10,8 @@ To override the configuration parameter **{param}**, use an environment variable
 DYNACONF_HOST='otherhost.com' python yourapp.py
 ```
 
+Nested settings use the nested separator (`__` by default) in the environment variable name. For example, `DYNACONF_SERVICE__PORT=8080` sets `settings.SERVICE.PORT`. The separator can be changed with `NESTED_SEPARATOR_FOR_DYNACONF`.
+
 ## .env files
 
 If you don't want to declare the variables on every program call you can run `export DYNACONF_{PARAM}` in your shell or put the values in a `.env` file located in the same directory as your settings files (the root directory of your application or the same folder where your program script is located), variables in `.env` does not overrride existing environment variables.

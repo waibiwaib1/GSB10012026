@@ -22,16 +22,20 @@ def load(obj, env=None, silent=True, key=None):
 
 def load_from_env(identifier, key, env, obj, silent):
     env_ = ""
+    nested_separator = obj.get("NESTED_SEPARATOR_FOR_DYNACONF", "__")
     if env is not False:
         env = env.upper()
         env_ = "{0}_".format(env)
     try:
         if key:
-            value = os.environ.get("{0}{1}".format(env_, key))
+            env_key = key
+            if nested_separator:
+                env_key = env_key.replace(".", nested_separator)
+            value = os.environ.get("{0}{1}".format(env_, env_key))
             if value:
                 obj.logger.debug(
                     "env_loader: loading by key: %s:%s (%s:%s)",
-                    key,
+                    env_key,
                     value,
                     identifier,
                     env,
@@ -40,7 +44,9 @@ def load_from_env(identifier, key, env, obj, silent):
         else:
             trim_len = len(env_)
             data = {
-                key[trim_len:]: parse_conf_data(data, tomlfy=True)
+                key[trim_len:].replace(nested_separator, ".")
+                if nested_separator
+                else key[trim_len:]: parse_conf_data(data, tomlfy=True)
                 for key, data in os.environ.items()
                 if key.startswith(env_)
             }

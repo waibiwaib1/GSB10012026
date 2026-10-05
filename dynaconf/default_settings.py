@@ -113,6 +113,9 @@ DEFAULT_ENV_FOR_DYNACONF = get("DEFAULT_ENV_FOR_DYNACONF", "DEFAULT")
 # This namespace is used for files and also envvars
 ENVVAR_PREFIX_FOR_DYNACONF = get("ENVVAR_PREFIX_FOR_DYNACONF", "DYNACONF")
 
+# Separator used in environment variable names for nested settings
+NESTED_SEPARATOR_FOR_DYNACONF = get("NESTED_SEPARATOR_FOR_DYNACONF", "__")
+
 # The default encoding to open settings files
 ENCODING_FOR_DYNACONF = get("ENCODING_FOR_DYNACONF", "utf-8")
 

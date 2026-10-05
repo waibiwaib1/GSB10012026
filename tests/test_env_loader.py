@@ -131,3 +131,26 @@ def test_none_as_string_prefix():
         silent=True,
     )
     assert settings.VALUE == "none as prefix"
+
+
+def test_nested_environment_variable():
+    os.environ["DYNACONF_SERVICE__PORT"] = "@int 8080"
+    load(settings)
+
+    assert settings.SERVICE.PORT == 8080
+    assert settings["SERVICE.PORT"] == 8080
+    assert settings.get_fresh("SERVICE.PORT") == 8080
+
+    del os.environ["DYNACONF_SERVICE__PORT"]
+
+
+def test_custom_nested_environment_variable_separator():
+    os.environ["DYNACONF_DATABASE___HOST"] = "db.example.com"
+    settings.set("NESTED_SEPARATOR_FOR_DYNACONF", "___")
+    load(settings)
+
+    assert settings.DATABASE.HOST == "db.example.com"
+    assert settings.get_fresh("DATABASE.HOST") == "db.example.com"
+
+    settings.set("NESTED_SEPARATOR_FOR_DYNACONF", "__")
+    del os.environ["DYNACONF_DATABASE___HOST"]
