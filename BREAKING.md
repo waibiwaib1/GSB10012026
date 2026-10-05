@@ -1,5 +1,43 @@
 # Breaking Changes Migration Guide
 
+## Unreleased
+
+### Service setup and component execution
+
+The service is now fully set up (logging, tracing, OS signal handling) in `patron.New()` and the components
+to run are provided to the `Run()` method. The `WithComponents` option has been removed and the service no
+longer starts a default HTTP component unless the `WithRouter` option is used.
+
+#### v0.76.0 and before
+
+```go
+svc, err := patron.New(name, version, patron.WithComponents(amqp, grpc))
+if err != nil {
+    log.Fatalf("failed to create patron service due to : %s", err)
+}
+
+ctx := context.Background()
+err = svc.Run(ctx)
+if err != nil {
+    log.Fatalf("failed to run service %s", err)
+}
+```
+
+#### After
+
+```go
+svc, err := patron.New(name, version)
+if err != nil {
+    log.Fatalf("failed to create patron service due to : %s", err)
+}
+
+ctx := context.Background()
+err = svc.Run(ctx, amqp, grpc)
+if err != nil {
+    log.Fatalf("failed to run service %s", err)
+}
+```
+
 ## v0.76.0
 
 ### Introduction of an addition `error` return variable in http middleware and router helper functions

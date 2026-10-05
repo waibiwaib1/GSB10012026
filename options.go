@@ -25,20 +25,6 @@ func WithRouter(handler http.Handler) OptionFunc {
 	}
 }
 
-// WithComponents adds custom components to the Patron Service.
-func WithComponents(cc ...Component) OptionFunc {
-	return func(svc *Service) error {
-		if len(cc) == 0 {
-			return errors.New("provided components slice was empty")
-		}
-
-		log.Debug("setting components")
-		svc.cps = append(svc.cps, cc...)
-
-		return nil
-	}
-}
-
 // WithSIGHUP adds a custom handler for handling WithSIGHUP.
 func WithSIGHUP(handler func()) OptionFunc {
 	return func(svc *Service) error {

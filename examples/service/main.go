@@ -31,6 +31,7 @@ func init() {
 
 func main() {
 	var options []patron.OptionFunc
+	var components []patron.Component
 
 	options = append(options, patron.WithTextLogger())
 
@@ -48,7 +49,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	options = append(options, patron.WithComponents(cmp))
+	components = append(components, cmp)
 
 	// Setup Kafka
 	cmp, err = createKafkaConsumer()
@@ -56,7 +57,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	options = append(options, patron.WithComponents(cmp))
+	components = append(components, cmp)
 
 	// Setup SQS
 	cmp, err = createSQSConsumer()
@@ -64,7 +65,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	options = append(options, patron.WithComponents(cmp))
+	components = append(components, cmp)
 
 	// Setup AMQP
 	cmp, err = createAMQPConsumer()
@@ -72,7 +73,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	options = append(options, patron.WithComponents(cmp))
+	components = append(components, cmp)
 
 	ctx := context.Background()
 
@@ -81,7 +82,7 @@ func main() {
 		log.Fatalf("failed to set up service: %v", err)
 	}
 
-	err = service.Run(ctx)
+	err = service.Run(ctx, components...)
 	if err != nil {
 		log.Fatalf("failed to create and run service %v", err)
 	}

@@ -34,7 +34,7 @@ The following component implementations are available:
 The `Service` has the role of gluing all the above together:
 
 - setting up logging, metrics and tracing
-- setting up a default HTTP component with the following endpoints configured:
+- setting up an HTTP component, when the `WithRouter` option is used, with the following endpoints configured:
   - profiling via pprof
   - liveness check
   - readiness check
@@ -55,14 +55,11 @@ The service has some default settings which can be changed via environment varia
   - sampler param `0.0` with `PATRON_JAEGER_SAMPLER_PARAM`, which means that no traces are sent.
   
 
-The service provides also the option to bypass the legacy created HTTP component and use the new v2 component.
-This will effectively disable the default legacy HTTP component.
+The components to run are provided to the `Run` method of the service.
 
 ```go
-err = service.WithRouter(router).WithSIGHUP(sig).Run(ctx)
+err = service.Run(ctx, component1, component2)
     if err != nil {
     log.Fatalf("failed to create and run service %v", err)
 }
 ```
-
-This above builder extension is temporary until we fully replace the legacy HTTP component with our v2 component.

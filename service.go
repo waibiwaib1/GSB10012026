@@ -34,11 +34,9 @@ type Component interface {
 }
 
 // Service is responsible for managing and setting up everything.
-// The Service will start by default an HTTP component in order to host management endpoint.
 type Service struct {
 	name              string
 	version           string
-	cps               []Component
 	termSig           chan os.Signal
 	sighupHandler     func()
 	uncompressedPaths []string
@@ -50,18 +48,27 @@ func (s *Service) setupOSSignal() {
 	signal.Notify(s.termSig, os.Interrupt, syscall.SIGTERM, syscall.SIGHUP)
 }
 
-func (s *Service) Run(ctx context.Context) error {
+func (s *Service) Run(ctx context.Context, cps ...Component) error {
 	defer func() {
 		err := trace.Close()
 		if err != nil {
 			log.Errorf("failed to close trace %v", err)
 		}
 	}()
+
+	if s.httpRouter != nil {
+		httpCp, err := s.createHTTPComponent()
+		if err != nil {
+			return err
+		}
+		cps = append(cps, httpCp)
+	}
+
 	cctx, cnl := context.WithCancel(ctx)
-	chErr := make(chan error, len(s.cps))
+	chErr := make(chan error, len(cps))
 	wg := sync.WaitGroup{}
-	wg.Add(len(s.cps))
-	for _, cp := range s.cps {
+	wg.Add(len(cps))
+	for _, cp := range cps {
 		go func(c Component) {
 			defer wg.Done()
 			chErr <- c.Run(cctx)
@@ -69,7 +76,7 @@ func (s *Service) Run(ctx context.Context) error {
 	}
 
 	log.FromContext(ctx).Infof("Service %s started", s.name)
-	ee := make([]error, 0, len(s.cps))
+	ee := make([]error, 0, len(cps))
 	ee = append(ee, s.waitTermination(chErr))
 	cnl()
 
@@ -291,7 +298,6 @@ func New(name, version string, options ...OptionFunc) (*Service, error) {
 			log.Debug("WithSIGHUP received: nothing setup")
 		},
 		config: cfg,
-		cps:    make([]Component, 0),
 	}
 
 	var err error
@@ -317,12 +323,6 @@ func New(name, version string, options ...OptionFunc) (*Service, error) {
 		return nil, err
 	}
 
-	httpCp, err := s.createHTTPComponent()
-	if err != nil {
-		return nil, err
-	}
-
-	s.cps = append(s.cps, httpCp)
 	s.setupOSSignal()
 
 	return s, nil
