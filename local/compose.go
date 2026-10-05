@@ -136,7 +136,7 @@ func (s *composeService) Push(ctx context.Context, project *types.Project) error
 				if jm.Error != nil {
 					return errors.New(jm.Error.Message)
 				}
-				toProgressEvent(service.Name, jm, w)
+				toProgressEvent("Pushing", service.Name, jm, w)
 			}
 			return nil
 		})
@@ -144,7 +144,80 @@ func (s *composeService) Push(ctx context.Context, project *types.Project) error
 	return eg.Wait()
 }
 
-func toProgressEvent(prefix string, jm jsonmessage.JSONMessage, w progress.Writer) {
+func (s *composeService) Pull(ctx context.Context, project *types.Project) error {
+	configFile, err := config.Load(config.Dir())
+	if err != nil {
+		return err
+	}
+
+	info, err := s.apiClient.Info(ctx)
+	if err != nil {
+		return err
+	}
+	if info.IndexServerAddress == "" {
+		info.IndexServerAddress = registry.IndexServer
+	}
+
+	eg, ctx := errgroup.WithContext(ctx)
+	for _, service := range project.Services {
+		if service.Image == "" {
+			continue
+		}
+		service := service
+		eg.Go(func() error {
+			w := progress.ContextWriter(ctx)
+
+			ref, err := reference.ParseNormalizedNamed(service.Image)
+			if err != nil {
+				return err
+			}
+
+			repoInfo, err := registry.ParseRepositoryInfo(ref)
+			if err != nil {
+				return err
+			}
+
+			key := repoInfo.Index.Name
+			if repoInfo.Index.Official {
+				key = info.IndexServerAddress
+			}
+			authConfig, err := configFile.GetAuthConfig(key)
+			if err != nil {
+				return err
+			}
+
+			buf, err := json.Marshal(authConfig)
+			if err != nil {
+				return err
+			}
+
+			stream, err := s.apiClient.ImagePull(ctx, service.Image, moby.ImagePullOptions{
+				RegistryAuth: base64.URLEncoding.EncodeToString(buf),
+			})
+			if err != nil {
+				return err
+			}
+			dec := json.NewDecoder(stream)
+			for {
+				var jm jsonmessage.JSONMessage
+				if err := dec.Decode(&jm); err != nil {
+					if err == io.EOF {
+						break
+					}
+					return err
+				}
+				if jm.Error != nil {
+					return errors.New(jm.Error.Message)
+				}
+				toProgressEvent("Pulling", service.Name, jm, w)
+			}
+			return nil
+		})
+	}
+	return eg.Wait()
+}
+
+func toProgressEvent(action, prefix string, jm jsonmessage.JSONMessage, w progress.Writer) {
 	if jm.ID == "" {
 		// skipped
 		return
@@ -164,7 +237,7 @@ func toProgressEvent(prefix string, jm jsonmessage.JSONMessage, w progress.Write
 		text = jm.Progress.String()
 	}
 	w.Event(progress.Event{
-		ID:         fmt.Sprintf("Pushing %s: %s", prefix, jm.ID),
+		ID:         fmt.Sprintf("%s %s: %s", action, prefix, jm.ID),
 		Text:       jm.Status,
 		Status:     status,
 		StatusText: text,

@@ -86,3 +86,14 @@ func TestLocalBackendComposeUp(t *testing.T) {
 		assert.Equal(t, networkList.Stdout(), networksAfterDown.Stdout())
 	})
 }
+
+func TestLocalBackendComposePull(t *testing.T) {
+	c := NewParallelE2eCLI(t, binDir)
+	c.RunDockerCmd("context", "create", "local", "test-context").Assert(t, icmd.Success)
+	c.RunDockerCmd("context", "use", "test-context").Assert(t, icmd.Success)
+
+	t.Run("pull", func(t *testing.T) {
+		res := c.RunDockerCmd("compose", "pull", "-f", "../../tests/composefiles/nginx.yaml")
+		res.Assert(t, icmd.Expected{Out: "Pulled"})
+	})
+}
