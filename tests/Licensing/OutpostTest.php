@@ -71,6 +71,17 @@ class OutpostTest extends TestCase
     }
 
     /** @test */
+    public function it_contacts_the_outpost_when_the_cache_store_does_not_support_locks()
+    {
+        config(['cache.stores.outpost.driver' => 'null']);
+        app('cache')->forgetStore('outpost');
+
+        $outpost = $this->outpostWithJsonResponse(['foo' => 'bar']);
+
+        $this->assertSame('bar', $outpost->response()['foo']);
+    }
+
+    /** @test */
     public function the_cached_response_is_used()
     {
         $outpost = $this->outpostWithJsonResponse(['newer' => 'response']);
