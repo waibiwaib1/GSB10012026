@@ -32,6 +32,7 @@ workspaces
 - [ ] create_workspace_bundle
 - [X] create_workspace_image
 - [X] create_workspaces
+- [ ] create_workspaces_pool
 - [ ] delete_account_link_invitation
 - [ ] delete_client_branding
 - [ ] delete_connect_client_add_in
@@ -54,6 +55,7 @@ workspaces
 - [ ] describe_connect_client_add_ins
 - [ ] describe_connection_alias_permissions
 - [ ] describe_connection_aliases
+- [ ] describe_custom_workspace_image_import
 - [ ] describe_image_associations
 - [ ] describe_ip_groups
 - [X] describe_tags
@@ -67,11 +69,14 @@ workspaces
 - [ ] describe_workspace_snapshots
 - [X] describe_workspaces
 - [ ] describe_workspaces_connection_status
+- [ ] describe_workspaces_pool_sessions
+- [ ] describe_workspaces_pools
 - [ ] disassociate_connection_alias
 - [ ] disassociate_ip_groups
 - [ ] disassociate_workspace_application
 - [ ] get_account_link
 - [ ] import_client_branding
+- [ ] import_custom_workspace_image
 - [ ] import_workspace_image
 - [ ] list_account_links
 - [ ] list_available_management_cidr_ranges
@@ -79,8 +84,10 @@ workspaces
 - [ ] modify_account
 - [ ] modify_certificate_based_auth_properties
 - [X] modify_client_properties
+- [ ] modify_endpoint_encryption_mode
 - [ ] modify_saml_properties
 - [X] modify_selfservice_permissions
+- [ ] modify_streaming_properties
 - [ ] modify_workspace_access_properties
 - [X] modify_workspace_creation_properties
 - [ ] modify_workspace_properties
@@ -92,11 +99,16 @@ workspaces
 - [ ] restore_workspace
 - [ ] revoke_ip_rules
 - [ ] start_workspaces
+- [ ] start_workspaces_pool
 - [ ] stop_workspaces
+- [ ] stop_workspaces_pool
 - [ ] terminate_workspaces
+- [ ] terminate_workspaces_pool
+- [ ] terminate_workspaces_pool_session
 - [ ] update_connect_client_add_in
 - [ ] update_connection_alias_permission
 - [ ] update_rules_of_ip_group
 - [ ] update_workspace_bundle
 - [X] update_workspace_image_permission
+- [ ] update_workspaces_pool
 

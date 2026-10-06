@@ -18,12 +18,14 @@ ecs
 
 - [X] create_capacity_provider
 - [X] create_cluster
+- [ ] create_express_gateway_service
 - [X] create_service
 - [X] create_task_set
 - [X] delete_account_setting
 - [X] delete_attributes
 - [X] delete_capacity_provider
 - [X] delete_cluster
+- [ ] delete_express_gateway_service
 - [X] delete_service
 - [ ] delete_task_definitions
 - [X] delete_task_set
@@ -40,6 +42,9 @@ ecs
         
 
 - [X] describe_container_instances
+- [ ] describe_express_gateway_service
+- [ ] describe_service_deployments
+- [ ] describe_service_revisions
 - [X] describe_services
 - [X] describe_task_definition
 - [X] describe_task_sets
@@ -63,6 +68,7 @@ ecs
         
 
 - [X] list_container_instances
+- [ ] list_service_deployments
 - [X] list_services
 - [ ] list_services_by_namespace
 - [X] list_tags_for_resource
@@ -83,6 +89,7 @@ ecs
 - [X] register_task_definition
 - [X] run_task
 - [X] start_task
+- [ ] stop_service_deployment
 - [X] stop_task
 - [ ] submit_attachment_state_changes
 - [ ] submit_container_state_change
@@ -98,6 +105,7 @@ ecs
 - [ ] update_cluster_settings
 - [ ] update_container_agent
 - [X] update_container_instances_state
+- [ ] update_express_gateway_service
 - [X] update_service
 - [X] update_service_primary_task_set
   Updates task sets be PRIMARY or ACTIVE for given cluster:service task sets

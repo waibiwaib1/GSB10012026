@@ -91,7 +91,9 @@ athena
         
 
 - [ ] get_query_runtime_statistics
+- [ ] get_resource_dashboard
 - [ ] get_session
+- [ ] get_session_endpoint
 - [ ] get_session_status
 - [ ] get_table_metadata
 - [X] get_work_group

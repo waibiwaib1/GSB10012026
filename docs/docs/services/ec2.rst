@@ -17,6 +17,7 @@ ec2
 |start-h3| Implemented features for this service |end-h3|
 
 - [ ] accept_address_transfer
+- [ ] accept_capacity_reservation_billing_ownership
 - [ ] accept_reserved_instances_exchange_quote
 - [ ] accept_transit_gateway_multicast_domain_associations
 - [X] accept_transit_gateway_peering_attachment
@@ -32,6 +33,7 @@ ec2
 - [X] assign_private_ip_addresses
 - [ ] assign_private_nat_gateway_address
 - [X] associate_address
+- [ ] associate_capacity_reservation_billing_owner
 - [ ] associate_client_vpn_target_network
 - [X] associate_dhcp_options
 - [ ] associate_enclave_certificate_iam_role
@@ -40,7 +42,9 @@ ec2
 - [ ] associate_ipam_byoasn
 - [ ] associate_ipam_resource_discovery
 - [ ] associate_nat_gateway_address
+- [ ] associate_route_server
 - [X] associate_route_table
+- [ ] associate_security_group_vpc
 - [X] associate_subnet_cidr_block
 - [ ] associate_transit_gateway_multicast_domain
 - [ ] associate_transit_gateway_policy_table
@@ -61,6 +65,7 @@ ec2
 - [ ] cancel_capacity_reservation
 - [ ] cancel_capacity_reservation_fleets
 - [ ] cancel_conversion_task
+- [ ] cancel_declarative_policies_report
 - [ ] cancel_export_task
 - [ ] cancel_image_launch_permission
 - [ ] cancel_import_task
@@ -71,7 +76,10 @@ ec2
 - [ ] copy_fpga_image
 - [X] copy_image
 - [X] copy_snapshot
+- [ ] copy_volumes
+- [ ] create_capacity_manager_data_export
 - [ ] create_capacity_reservation
+- [ ] create_capacity_reservation_by_splitting
 - [ ] create_capacity_reservation_fleet
 - [X] create_carrier_gateway
 - [ ] create_client_vpn_endpoint
@@ -81,18 +89,25 @@ ec2
 - [X] create_customer_gateway
 - [ ] create_default_subnet
 - [X] create_default_vpc
+- [ ] create_delegate_mac_volume_ownership_task
 - [X] create_dhcp_options
 - [X] create_egress_only_internet_gateway
 - [X] create_fleet
 - [X] create_flow_logs
 - [ ] create_fpga_image
 - [X] create_image
+- [ ] create_image_usage_report
 - [ ] create_instance_connect_endpoint
 - [ ] create_instance_event_window
 - [ ] create_instance_export_task
 - [X] create_internet_gateway
+- [ ] create_interruptible_capacity_reservation_allocation
 - [ ] create_ipam
+- [ ] create_ipam_external_resource_verification_token
+- [ ] create_ipam_policy
 - [ ] create_ipam_pool
+- [ ] create_ipam_prefix_list_resolver
+- [ ] create_ipam_prefix_list_resolver_target
 - [ ] create_ipam_resource_discovery
 - [ ] create_ipam_scope
 - [X] create_key_pair
@@ -102,6 +117,9 @@ ec2
 - [ ] create_local_gateway_route_table
 - [ ] create_local_gateway_route_table_virtual_interface_group_association
 - [ ] create_local_gateway_route_table_vpc_association
+- [ ] create_local_gateway_virtual_interface
+- [ ] create_local_gateway_virtual_interface_group
+- [ ] create_mac_system_integrity_protection_modification_task
 - [X] create_managed_prefix_list
 - [X] create_nat_gateway
 - [X] create_network_acl
@@ -116,7 +134,12 @@ ec2
 - [ ] create_reserved_instances_listing
 - [ ] create_restore_image_task
 - [X] create_route
+- [ ] create_route_server
+- [ ] create_route_server_endpoint
+- [ ] create_route_server_peer
 - [X] create_route_table
+- [ ] create_secondary_network
+- [ ] create_secondary_subnet
 - [X] create_security_group
 - [X] create_snapshot
 - [X] create_snapshots
@@ -136,6 +159,8 @@ ec2
 - [X] create_transit_gateway
 - [ ] create_transit_gateway_connect
 - [ ] create_transit_gateway_connect_peer
+- [ ] create_transit_gateway_metering_policy
+- [ ] create_transit_gateway_metering_policy_entry
 - [ ] create_transit_gateway_multicast_domain
 - [X] create_transit_gateway_peering_attachment
 - [ ] create_transit_gateway_policy_table
@@ -150,13 +175,17 @@ ec2
 - [ ] create_verified_access_trust_provider
 - [X] create_volume
 - [X] create_vpc
+- [ ] create_vpc_block_public_access_exclusion
+- [ ] create_vpc_encryption_control
 - [X] create_vpc_endpoint
 - [ ] create_vpc_endpoint_connection_notification
 - [X] create_vpc_endpoint_service_configuration
 - [X] create_vpc_peering_connection
+- [ ] create_vpn_concentrator
 - [X] create_vpn_connection
 - [ ] create_vpn_connection_route
 - [X] create_vpn_gateway
+- [ ] delete_capacity_manager_data_export
 - [X] delete_carrier_gateway
 - [ ] delete_client_vpn_endpoint
 - [ ] delete_client_vpn_route
@@ -168,11 +197,16 @@ ec2
 - [X] delete_fleets
 - [X] delete_flow_logs
 - [ ] delete_fpga_image
+- [ ] delete_image_usage_report
 - [ ] delete_instance_connect_endpoint
 - [ ] delete_instance_event_window
 - [X] delete_internet_gateway
 - [ ] delete_ipam
+- [ ] delete_ipam_external_resource_verification_token
+- [ ] delete_ipam_policy
 - [ ] delete_ipam_pool
+- [ ] delete_ipam_prefix_list_resolver
+- [ ] delete_ipam_prefix_list_resolver_target
 - [ ] delete_ipam_resource_discovery
 - [ ] delete_ipam_scope
 - [X] delete_key_pair
@@ -182,6 +216,8 @@ ec2
 - [ ] delete_local_gateway_route_table
 - [ ] delete_local_gateway_route_table_virtual_interface_group_association
 - [ ] delete_local_gateway_route_table_vpc_association
+- [ ] delete_local_gateway_virtual_interface
+- [ ] delete_local_gateway_virtual_interface_group
 - [X] delete_managed_prefix_list
 - [X] delete_nat_gateway
 - [X] delete_network_acl
@@ -196,7 +232,12 @@ ec2
 - [ ] delete_public_ipv4_pool
 - [ ] delete_queued_reserved_instances
 - [X] delete_route
+- [ ] delete_route_server
+- [ ] delete_route_server_endpoint
+- [ ] delete_route_server_peer
 - [X] delete_route_table
+- [ ] delete_secondary_network
+- [ ] delete_secondary_subnet
 - [X] delete_security_group
 - [X] delete_snapshot
 - [ ] delete_spot_datafeed_subscription
@@ -210,6 +251,8 @@ ec2
 - [X] delete_transit_gateway
 - [ ] delete_transit_gateway_connect
 - [ ] delete_transit_gateway_connect_peer
+- [ ] delete_transit_gateway_metering_policy
+- [ ] delete_transit_gateway_metering_policy_entry
 - [ ] delete_transit_gateway_multicast_domain
 - [X] delete_transit_gateway_peering_attachment
 - [ ] delete_transit_gateway_policy_table
@@ -224,10 +267,13 @@ ec2
 - [ ] delete_verified_access_trust_provider
 - [X] delete_volume
 - [X] delete_vpc
+- [ ] delete_vpc_block_public_access_exclusion
+- [ ] delete_vpc_encryption_control
 - [ ] delete_vpc_endpoint_connection_notifications
 - [X] delete_vpc_endpoint_service_configurations
 - [X] delete_vpc_endpoints
 - [X] delete_vpc_peering_connection
+- [ ] delete_vpn_concentrator
 - [X] delete_vpn_connection
 - [ ] delete_vpn_connection_route
 - [X] delete_vpn_gateway
@@ -253,8 +299,15 @@ ec2
 - [ ] describe_aws_network_performance_metric_subscriptions
 - [ ] describe_bundle_tasks
 - [ ] describe_byoip_cidrs
+- [ ] describe_capacity_block_extension_history
+- [ ] describe_capacity_block_extension_offerings
 - [ ] describe_capacity_block_offerings
+- [ ] describe_capacity_block_status
+- [ ] describe_capacity_blocks
+- [ ] describe_capacity_manager_data_exports
+- [ ] describe_capacity_reservation_billing_requests
 - [ ] describe_capacity_reservation_fleets
+- [ ] describe_capacity_reservation_topology
 - [ ] describe_capacity_reservations
 - [X] describe_carrier_gateways
 - [ ] describe_classic_link_instances
@@ -266,6 +319,7 @@ ec2
 - [ ] describe_coip_pools
 - [ ] describe_conversion_tasks
 - [X] describe_customer_gateways
+- [ ] describe_declarative_policies_reports
 - [X] describe_dhcp_options
 - [X] describe_egress_only_internet_gateways
   
@@ -294,6 +348,9 @@ ec2
 - [ ] describe_id_format
 - [ ] describe_identity_id_format
 - [X] describe_image_attribute
+- [ ] describe_image_references
+- [ ] describe_image_usage_report_entries
+- [ ] describe_image_usage_reports
 - [X] describe_images
 - [ ] describe_import_image_tasks
 - [ ] describe_import_snapshot_tasks
@@ -302,6 +359,9 @@ ec2
 - [X] describe_instance_credit_specifications
 - [ ] describe_instance_event_notification_attributes
 - [ ] describe_instance_event_windows
+- [ ] describe_instance_image_metadata
+- [ ] describe_instance_sql_ha_history_states
+- [ ] describe_instance_sql_ha_states
 - [X] describe_instance_status
 - [ ] describe_instance_topology
 - [X] describe_instance_type_offerings
@@ -309,7 +369,11 @@ ec2
 - [X] describe_instances
 - [X] describe_internet_gateways
 - [ ] describe_ipam_byoasn
+- [ ] describe_ipam_external_resource_verification_tokens
+- [ ] describe_ipam_policies
 - [ ] describe_ipam_pools
+- [ ] describe_ipam_prefix_list_resolver_targets
+- [ ] describe_ipam_prefix_list_resolvers
 - [ ] describe_ipam_resource_discoveries
 - [ ] describe_ipam_resource_discovery_associations
 - [ ] describe_ipam_scopes
@@ -326,6 +390,7 @@ ec2
 - [ ] describe_local_gateways
 - [ ] describe_locked_snapshots
 - [ ] describe_mac_hosts
+- [ ] describe_mac_modification_tasks
 - [X] describe_managed_prefix_lists
 - [ ] describe_moving_addresses
 - [X] describe_nat_gateways
@@ -337,6 +402,7 @@ ec2
 - [ ] describe_network_interface_attribute
 - [ ] describe_network_interface_permissions
 - [X] describe_network_interfaces
+- [ ] describe_outpost_lags
 - [ ] describe_placement_groups
 - [ ] describe_prefix_lists
 - [ ] describe_principal_id_format
@@ -347,12 +413,20 @@ ec2
 - [ ] describe_reserved_instances_listings
 - [ ] describe_reserved_instances_modifications
 - [ ] describe_reserved_instances_offerings
+- [ ] describe_route_server_endpoints
+- [ ] describe_route_server_peers
+- [ ] describe_route_servers
 - [X] describe_route_tables
 - [ ] describe_scheduled_instance_availability
 - [ ] describe_scheduled_instances
+- [ ] describe_secondary_interfaces
+- [ ] describe_secondary_networks
+- [ ] describe_secondary_subnets
 - [ ] describe_security_group_references
 - [X] describe_security_group_rules
+- [ ] describe_security_group_vpc_associations
 - [X] describe_security_groups
+- [ ] describe_service_link_virtual_interfaces
 - [ ] describe_snapshot_attribute
 - [ ] describe_snapshot_tier_status
 - [X] describe_snapshots
@@ -366,12 +440,14 @@ ec2
 - [ ] describe_store_image_tasks
 - [X] describe_subnets
 - [X] describe_tags
+- [ ] describe_traffic_mirror_filter_rules
 - [ ] describe_traffic_mirror_filters
 - [ ] describe_traffic_mirror_sessions
 - [ ] describe_traffic_mirror_targets
 - [X] describe_transit_gateway_attachments
 - [ ] describe_transit_gateway_connect_peers
 - [ ] describe_transit_gateway_connects
+- [ ] describe_transit_gateway_metering_policies
 - [ ] describe_transit_gateway_multicast_domains
 - [X] describe_transit_gateway_peering_attachments
 - [ ] describe_transit_gateway_policy_tables
@@ -390,8 +466,12 @@ ec2
 - [X] describe_volumes
 - [X] describe_volumes_modifications
 - [X] describe_vpc_attribute
+- [ ] describe_vpc_block_public_access_exclusions
+- [ ] describe_vpc_block_public_access_options
 - [ ] describe_vpc_classic_link
 - [ ] describe_vpc_classic_link_dns_support
+- [ ] describe_vpc_encryption_controls
+- [ ] describe_vpc_endpoint_associations
 - [ ] describe_vpc_endpoint_connection_notifications
 - [ ] describe_vpc_endpoint_connections
 - [X] describe_vpc_endpoint_service_configurations
@@ -419,6 +499,7 @@ ec2
 - [X] describe_vpc_endpoints
 - [X] describe_vpc_peering_connections
 - [X] describe_vpcs
+- [ ] describe_vpn_concentrators
 - [X] describe_vpn_connections
 - [X] describe_vpn_gateways
 - [ ] detach_classic_link_vpc
@@ -428,7 +509,9 @@ ec2
 - [X] detach_volume
 - [X] detach_vpn_gateway
 - [ ] disable_address_transfer
+- [ ] disable_allowed_images_settings
 - [ ] disable_aws_network_performance_metric_subscription
+- [ ] disable_capacity_manager
 - [X] disable_ebs_encryption_by_default
 - [ ] disable_fast_launch
 - [ ] disable_fast_snapshot_restores
@@ -436,7 +519,10 @@ ec2
 - [ ] disable_image_block_public_access
 - [ ] disable_image_deprecation
 - [ ] disable_image_deregistration_protection
+- [ ] disable_instance_sql_ha_standby_detections
 - [ ] disable_ipam_organization_admin_account
+- [ ] disable_ipam_policy
+- [ ] disable_route_server_propagation
 - [ ] disable_serial_console_access
 - [ ] disable_snapshot_block_public_access
 - [X] disable_transit_gateway_route_table_propagation
@@ -444,6 +530,7 @@ ec2
 - [X] disable_vpc_classic_link
 - [X] disable_vpc_classic_link_dns_support
 - [X] disassociate_address
+- [ ] disassociate_capacity_reservation_billing_owner
 - [ ] disassociate_client_vpn_target_network
 - [ ] disassociate_enclave_certificate_iam_role
 - [X] disassociate_iam_instance_profile
@@ -451,7 +538,9 @@ ec2
 - [ ] disassociate_ipam_byoasn
 - [ ] disassociate_ipam_resource_discovery
 - [ ] disassociate_nat_gateway_address
+- [ ] disassociate_route_server
 - [X] disassociate_route_table
+- [ ] disassociate_security_group_vpc
 - [X] disassociate_subnet_cidr_block
 - [ ] disassociate_transit_gateway_multicast_domain
 - [ ] disassociate_transit_gateway_policy_table
@@ -459,7 +548,9 @@ ec2
 - [ ] disassociate_trunk_interface
 - [X] disassociate_vpc_cidr_block
 - [ ] enable_address_transfer
+- [ ] enable_allowed_images_settings
 - [ ] enable_aws_network_performance_metric_subscription
+- [ ] enable_capacity_manager
 - [X] enable_ebs_encryption_by_default
 - [ ] enable_fast_launch
 - [ ] enable_fast_snapshot_restores
@@ -467,8 +558,11 @@ ec2
 - [ ] enable_image_block_public_access
 - [ ] enable_image_deprecation
 - [ ] enable_image_deregistration_protection
+- [ ] enable_instance_sql_ha_standby_detections
 - [ ] enable_ipam_organization_admin_account
+- [ ] enable_ipam_policy
 - [ ] enable_reachability_analyzer_organization_sharing
+- [ ] enable_route_server_propagation
 - [ ] enable_serial_console_access
 - [ ] enable_snapshot_block_public_access
 - [X] enable_transit_gateway_route_table_propagation
@@ -480,29 +574,44 @@ ec2
 - [ ] export_client_vpn_client_configuration
 - [ ] export_image
 - [ ] export_transit_gateway_routes
+- [ ] export_verified_access_instance_client_configuration
+- [ ] get_active_vpn_tunnel_status
+- [ ] get_allowed_images_settings
 - [ ] get_associated_enclave_certificate_iam_roles
 - [ ] get_associated_ipv6_pool_cidrs
 - [ ] get_aws_network_performance_data
+- [ ] get_capacity_manager_attributes
+- [ ] get_capacity_manager_metric_data
+- [ ] get_capacity_manager_metric_dimensions
 - [ ] get_capacity_reservation_usage
 - [ ] get_coip_pool_usage
 - [ ] get_console_output
 - [ ] get_console_screenshot
+- [ ] get_declarative_policies_report_summary
 - [ ] get_default_credit_specification
 - [ ] get_ebs_default_kms_key_id
 - [X] get_ebs_encryption_by_default
+- [ ] get_enabled_ipam_policy
 - [ ] get_flow_logs_integration_template
 - [ ] get_groups_for_capacity_reservation
 - [ ] get_host_reservation_purchase_preview
+- [ ] get_image_ancestry
 - [ ] get_image_block_public_access_state
 - [ ] get_instance_metadata_defaults
+- [ ] get_instance_tpm_ek_pub
 - [ ] get_instance_types_from_instance_requirements
 - [ ] get_instance_uefi_data
 - [ ] get_ipam_address_history
 - [ ] get_ipam_discovered_accounts
 - [ ] get_ipam_discovered_public_addresses
 - [ ] get_ipam_discovered_resource_cidrs
+- [ ] get_ipam_policy_allocation_rules
+- [ ] get_ipam_policy_organization_targets
 - [ ] get_ipam_pool_allocations
 - [ ] get_ipam_pool_cidrs
+- [ ] get_ipam_prefix_list_resolver_rules
+- [ ] get_ipam_prefix_list_resolver_version_entries
+- [ ] get_ipam_prefix_list_resolver_versions
 - [ ] get_ipam_resource_cidrs
 - [X] get_launch_template_data
 - [ ] get_managed_prefix_list_associations
@@ -511,12 +620,16 @@ ec2
 - [ ] get_network_insights_access_scope_content
 - [X] get_password_data
 - [ ] get_reserved_instances_exchange_quote
+- [ ] get_route_server_associations
+- [ ] get_route_server_propagations
+- [ ] get_route_server_routing_database
 - [ ] get_security_groups_for_vpc
 - [ ] get_serial_console_access_status
 - [ ] get_snapshot_block_public_access_state
 - [ ] get_spot_placement_scores
 - [ ] get_subnet_cidr_reservations
 - [ ] get_transit_gateway_attachment_propagations
+- [ ] get_transit_gateway_metering_policy_entries
 - [ ] get_transit_gateway_multicast_domain_associations
 - [ ] get_transit_gateway_policy_table_associations
 - [ ] get_transit_gateway_policy_table_entries
@@ -524,7 +637,9 @@ ec2
 - [X] get_transit_gateway_route_table_associations
 - [X] get_transit_gateway_route_table_propagations
 - [ ] get_verified_access_endpoint_policy
+- [ ] get_verified_access_endpoint_targets
 - [ ] get_verified_access_group_policy
+- [ ] get_vpc_resources_blocking_encryption_enforcement
 - [ ] get_vpn_connection_device_sample_configuration
 - [ ] get_vpn_connection_device_types
 - [ ] get_vpn_tunnel_replacement_status
@@ -536,6 +651,7 @@ ec2
 - [ ] import_volume
 - [ ] list_images_in_recycle_bin
 - [ ] list_snapshots_in_recycle_bin
+- [ ] list_volumes_in_recycle_bin
 - [ ] lock_snapshot
 - [ ] modify_address_attribute
 - [ ] modify_availability_zone_group
@@ -552,15 +668,21 @@ ec2
 - [X] modify_image_attribute
 - [X] modify_instance_attribute
 - [ ] modify_instance_capacity_reservation_attributes
+- [ ] modify_instance_connect_endpoint
+- [ ] modify_instance_cpu_options
 - [ ] modify_instance_credit_specification
 - [ ] modify_instance_event_start_time
 - [ ] modify_instance_event_window
 - [ ] modify_instance_maintenance_options
 - [ ] modify_instance_metadata_defaults
 - [ ] modify_instance_metadata_options
+- [ ] modify_instance_network_performance_options
 - [ ] modify_instance_placement
 - [ ] modify_ipam
+- [ ] modify_ipam_policy_allocation_rules
 - [ ] modify_ipam_pool
+- [ ] modify_ipam_prefix_list_resolver
+- [ ] modify_ipam_prefix_list_resolver_target
 - [ ] modify_ipam_resource_cidr
 - [ ] modify_ipam_resource_discovery
 - [ ] modify_ipam_scope
@@ -569,7 +691,9 @@ ec2
 - [X] modify_managed_prefix_list
 - [X] modify_network_interface_attribute
 - [ ] modify_private_dns_name_options
+- [ ] modify_public_ip_dns_name_options
 - [ ] modify_reserved_instances
+- [ ] modify_route_server
 - [ ] modify_security_group_rules
 - [ ] modify_snapshot_attribute
 - [ ] modify_snapshot_tier
@@ -579,6 +703,7 @@ ec2
 - [ ] modify_traffic_mirror_filter_rule
 - [ ] modify_traffic_mirror_session
 - [X] modify_transit_gateway
+- [ ] modify_transit_gateway_metering_policy
 - [ ] modify_transit_gateway_prefix_list_reference
 - [X] modify_transit_gateway_vpc_attachment
 - [ ] modify_verified_access_endpoint
@@ -591,6 +716,9 @@ ec2
 - [X] modify_volume
 - [ ] modify_volume_attribute
 - [X] modify_vpc_attribute
+- [ ] modify_vpc_block_public_access_exclusion
+- [ ] modify_vpc_block_public_access_options
+- [ ] modify_vpc_encryption_control
 - [X] modify_vpc_endpoint
 - [ ] modify_vpc_endpoint_connection_notification
 - [X] modify_vpc_endpoint_service_configuration
@@ -609,11 +737,13 @@ ec2
 - [ ] monitor_instances
 - [ ] move_address_to_vpc
 - [ ] move_byoip_cidr_to_ipam
+- [ ] move_capacity_reservation_instances
 - [ ] provision_byoip_cidr
 - [ ] provision_ipam_byoasn
 - [ ] provision_ipam_pool_cidr
 - [ ] provision_public_ipv4_pool_cidr
 - [ ] purchase_capacity_block
+- [ ] purchase_capacity_block_extension
 - [ ] purchase_host_reservation
 - [ ] purchase_reserved_instances_offering
 - [ ] purchase_scheduled_instances
@@ -622,6 +752,7 @@ ec2
 - [ ] register_instance_event_notification_attributes
 - [ ] register_transit_gateway_multicast_group_members
 - [ ] register_transit_gateway_multicast_group_sources
+- [ ] reject_capacity_reservation_billing_ownership
 - [ ] reject_transit_gateway_multicast_domain_associations
 - [X] reject_transit_gateway_peering_attachment
 - [ ] reject_transit_gateway_vpc_attachment
@@ -631,6 +762,7 @@ ec2
 - [X] release_hosts
 - [ ] release_ipam_pool_allocation
 - [X] replace_iam_instance_profile_association
+- [ ] replace_image_criteria_in_allowed_images_settings
 - [X] replace_network_acl_association
 - [X] replace_network_acl_entry
 - [X] replace_route
@@ -652,6 +784,7 @@ ec2
 - [ ] restore_managed_prefix_list_version
 - [ ] restore_snapshot_from_recycle_bin
 - [ ] restore_snapshot_tier
+- [ ] restore_volume_from_recycle_bin
 - [ ] revoke_client_vpn_ingress
 - [X] revoke_security_group_egress
 - [X] revoke_security_group_ingress
@@ -678,6 +811,7 @@ ec2
         
 
 - [ ] send_diagnostic_interrupt
+- [ ] start_declarative_policies_report
 - [X] start_instances
 - [ ] start_network_insights_access_scope_analysis
 - [ ] start_network_insights_analysis
@@ -690,6 +824,8 @@ ec2
 - [ ] unassign_private_nat_gateway_address
 - [ ] unlock_snapshot
 - [ ] unmonitor_instances
+- [ ] update_capacity_manager_organizations_access
+- [ ] update_interruptible_capacity_reservation_allocation
 - [X] update_security_group_rule_descriptions_egress
 - [X] update_security_group_rule_descriptions_ingress
 - [ ] withdraw_byoip_cidr

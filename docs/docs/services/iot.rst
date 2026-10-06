@@ -17,6 +17,7 @@ iot
 - [ ] accept_certificate_transfer
 - [ ] add_thing_to_billing_group
 - [X] add_thing_to_thing_group
+- [ ] associate_sbom_with_package_version
 - [ ] associate_targets_with_job
 - [X] attach_policy
 - [X] attach_principal_policy
@@ -39,6 +40,7 @@ iot
 - [ ] create_billing_group
 - [X] create_certificate_from_csr
 - [ ] create_certificate_provider
+- [ ] create_command
 - [ ] create_custom_metric
 - [ ] create_dimension
 - [X] create_domain_configuration
@@ -76,6 +78,8 @@ iot
 - [X] delete_ca_certificate
 - [X] delete_certificate
 - [ ] delete_certificate_provider
+- [ ] delete_command
+- [ ] delete_command_execution
 - [ ] delete_custom_metric
 - [ ] delete_dimension
 - [X] delete_domain_configuration
@@ -127,6 +131,7 @@ iot
 - [ ] describe_detect_mitigation_actions_task
 - [ ] describe_dimension
 - [X] describe_domain_configuration
+- [ ] describe_encryption_configuration
 - [X] describe_endpoint
 - [ ] describe_event_configurations
 - [ ] describe_fleet_metric
@@ -151,10 +156,13 @@ iot
 - [ ] detach_security_profile
 - [X] detach_thing_principal
 - [X] disable_topic_rule
+- [ ] disassociate_sbom_from_package_version
 - [X] enable_topic_rule
 - [ ] get_behavior_model_training_summaries
 - [ ] get_buckets_aggregation
 - [ ] get_cardinality
+- [ ] get_command
+- [ ] get_command_execution
 - [ ] get_effective_policies
 - [ ] get_indexing_configuration
 - [X] get_job_document
@@ -168,6 +176,7 @@ iot
 - [X] get_policy_version
 - [X] get_registration_code
 - [ ] get_statistics
+- [ ] get_thing_connectivity_data
 - [X] get_topic_rule
 - [ ] get_topic_rule_destination
 - [ ] get_v2_logging_options
@@ -196,6 +205,8 @@ iot
         Pagination is not yet implemented
         
 
+- [ ] list_command_executions
+- [ ] list_commands
 - [ ] list_custom_metrics
 - [ ] list_detect_mitigation_actions_executions
 - [ ] list_detect_mitigation_actions_tasks
@@ -235,10 +246,12 @@ iot
         
 
 - [X] list_principal_things
+- [ ] list_principal_things_v2
 - [ ] list_provisioning_template_versions
 - [ ] list_provisioning_templates
 - [ ] list_related_resources_for_audit_finding
 - [ ] list_role_aliases
+- [ ] list_sbom_validation_results
 - [ ] list_scheduled_audits
 - [ ] list_security_profiles
 - [ ] list_security_profiles_for_target
@@ -257,6 +270,7 @@ iot
         
 
 - [X] list_thing_principals
+- [ ] list_thing_principals_v2
 - [ ] list_thing_registration_task_reports
 - [ ] list_thing_registration_tasks
 - [X] list_thing_types
@@ -315,10 +329,12 @@ iot
 
 - [X] update_certificate
 - [ ] update_certificate_provider
+- [ ] update_command
 - [ ] update_custom_metric
 - [ ] update_dimension
 - [X] update_domain_configuration
 - [ ] update_dynamic_thing_group
+- [ ] update_encryption_configuration
 - [ ] update_event_configurations
 - [ ] update_fleet_metric
 - [ ] update_indexing_configuration
@@ -339,6 +355,7 @@ iot
 
 - [X] update_thing_group
 - [X] update_thing_groups_for_thing
+- [ ] update_thing_type
 - [ ] update_topic_rule_destination
 - [ ] validate_security_profile_behaviors
 

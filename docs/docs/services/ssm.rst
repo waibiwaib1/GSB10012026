@@ -117,6 +117,7 @@ ssm
 - [ ] describe_patch_properties
 - [ ] describe_sessions
 - [ ] disassociate_ops_item_related_item
+- [ ] get_access_token
 - [ ] get_automation_execution
 - [ ] get_calendar_state
 - [X] get_command_invocation
@@ -124,6 +125,7 @@ ssm
 - [ ] get_default_patch_baseline
 - [ ] get_deployable_patch_snapshot_for_instance
 - [X] get_document
+- [ ] get_execution_preview
 - [ ] get_inventory
 - [ ] get_inventory_schema
 - [X] get_maintenance_window
@@ -164,6 +166,8 @@ ssm
 - [ ] list_document_versions
 - [X] list_documents
 - [ ] list_inventory_entries
+- [ ] list_nodes
+- [ ] list_nodes_summary
 - [ ] list_ops_item_events
 - [ ] list_ops_item_related_items
 - [ ] list_ops_metadata
@@ -188,9 +192,11 @@ ssm
 - [ ] resume_session
 - [ ] send_automation_signal
 - [X] send_command
+- [ ] start_access_request
 - [ ] start_associations_once
 - [ ] start_automation_execution
 - [ ] start_change_request_execution
+- [ ] start_execution_preview
 - [ ] start_session
 - [ ] stop_automation_execution
 - [ ] terminate_session

@@ -25,13 +25,18 @@ ecr
 - [ ] complete_layer_upload
 - [ ] create_pull_through_cache_rule
 - [X] create_repository
+- [ ] create_repository_creation_template
 - [X] delete_lifecycle_policy
 - [ ] delete_pull_through_cache_rule
 - [X] delete_registry_policy
 - [X] delete_repository
+- [ ] delete_repository_creation_template
 - [X] delete_repository_policy
+- [ ] delete_signing_configuration
+- [ ] deregister_pull_time_update_exclusion
 - [ ] describe_image_replication_status
 - [X] describe_image_scan_findings
+- [ ] describe_image_signing_status
 - [X] describe_images
 - [ ] describe_pull_through_cache_rules
 - [X] describe_registry
@@ -40,6 +45,8 @@ ecr
         maxResults and nextToken not implemented
         
 
+- [ ] describe_repository_creation_templates
+- [ ] get_account_setting
 - [ ] get_authorization_token
 - [ ] get_download_url_for_layer
 - [X] get_lifecycle_policy
@@ -47,13 +54,17 @@ ecr
 - [X] get_registry_policy
 - [X] get_registry_scanning_configuration
 - [X] get_repository_policy
+- [ ] get_signing_configuration
 - [ ] initiate_layer_upload
+- [ ] list_image_referrers
 - [X] list_images
   
         maxResults and filtering not implemented
         
 
+- [ ] list_pull_time_update_exclusions
 - [X] list_tags_for_resource
+- [ ] put_account_setting
 - [X] put_image
 - [X] put_image_scanning_configuration
 - [X] put_image_tag_mutability
@@ -61,12 +72,16 @@ ecr
 - [X] put_registry_policy
 - [X] put_registry_scanning_configuration
 - [X] put_replication_configuration
+- [ ] put_signing_configuration
+- [ ] register_pull_time_update_exclusion
 - [X] set_repository_policy
 - [X] start_image_scan
 - [ ] start_lifecycle_policy_preview
 - [X] tag_resource
 - [X] untag_resource
+- [ ] update_image_storage_class
 - [ ] update_pull_through_cache_rule
+- [ ] update_repository_creation_template
 - [ ] upload_layer_part
 - [ ] validate_pull_through_cache_rule
 

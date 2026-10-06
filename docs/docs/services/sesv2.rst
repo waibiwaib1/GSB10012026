@@ -30,6 +30,9 @@ sesv2
 - [ ] create_email_template
 - [ ] create_export_job
 - [ ] create_import_job
+- [ ] create_multi_region_endpoint
+- [ ] create_tenant
+- [ ] create_tenant_resource_association
 - [ ] delete_configuration_set
 - [ ] delete_configuration_set_event_destination
 - [X] delete_contact
@@ -39,7 +42,10 @@ sesv2
 - [ ] delete_email_identity
 - [ ] delete_email_identity_policy
 - [ ] delete_email_template
+- [ ] delete_multi_region_endpoint
 - [ ] delete_suppressed_destination
+- [ ] delete_tenant
+- [ ] delete_tenant_resource_association
 - [ ] get_account
 - [ ] get_blacklist_reports
 - [ ] get_configuration_set
@@ -54,13 +60,17 @@ sesv2
 - [ ] get_deliverability_test_report
 - [ ] get_domain_deliverability_campaign
 - [ ] get_domain_statistics_report
+- [ ] get_email_address_insights
 - [ ] get_email_identity
 - [ ] get_email_identity_policies
 - [ ] get_email_template
 - [ ] get_export_job
 - [ ] get_import_job
 - [ ] get_message_insights
+- [ ] get_multi_region_endpoint
+- [ ] get_reputation_entity
 - [ ] get_suppressed_destination
+- [ ] get_tenant
 - [ ] list_configuration_sets
 - [X] list_contact_lists
 - [X] list_contacts
@@ -72,14 +82,20 @@ sesv2
 - [ ] list_email_templates
 - [ ] list_export_jobs
 - [ ] list_import_jobs
+- [ ] list_multi_region_endpoints
 - [ ] list_recommendations
+- [ ] list_reputation_entities
+- [ ] list_resource_tenants
 - [ ] list_suppressed_destinations
 - [ ] list_tags_for_resource
+- [ ] list_tenant_resources
+- [ ] list_tenants
 - [ ] put_account_dedicated_ip_warmup_attributes
 - [ ] put_account_details
 - [ ] put_account_sending_attributes
 - [ ] put_account_suppression_attributes
 - [ ] put_account_vdm_attributes
+- [ ] put_configuration_set_archiving_options
 - [ ] put_configuration_set_delivery_options
 - [ ] put_configuration_set_reputation_options
 - [ ] put_configuration_set_sending_options
@@ -108,4 +124,6 @@ sesv2
 - [ ] update_custom_verification_email_template
 - [ ] update_email_identity_policy
 - [ ] update_email_template
+- [ ] update_reputation_entity_customer_managed_status
+- [ ] update_reputation_entity_policy
 
