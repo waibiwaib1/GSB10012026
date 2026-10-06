@@ -29,6 +29,30 @@ defmodule Commanded.Commands.RoutingCommandsTest do
     test "should fail to dispatch command with nil identity" do
       assert {:error, :invalid_aggregate_identity} = CommandHandlerRouter.dispatch(%OpenAccount{account_number: nil, initial_balance: 1_000})
     end
+
+    test "should generate a correlation id for events created by the command" do
+      assert :ok = CommandHandlerRouter.dispatch(%OpenAccount{account_number: "ACC123", initial_balance: 1_000})
+
+      [event] = EventStore.stream_forward("ACC123") |> Enum.to_list()
+
+      refute is_nil(event.correlation_id)
+      assert is_nil(event.causation_id)
+    end
+
+    test "should copy causation and correlation ids to events created by the command" do
+      causation_id = UUID.uuid4()
+      correlation_id = UUID.uuid4()
+
+      assert :ok = CommandHandlerRouter.dispatch(%OpenAccount{account_number: "ACC123", initial_balance: 1_000},
+        causation_id: causation_id,
+        correlation_id: correlation_id
+      )
+
+      [event] = EventStore.stream_forward("ACC123") |> Enum.to_list()
+
+      assert event.causation_id == causation_id
+      assert event.correlation_id == correlation_id
+    end
   end
 
   describe "routing to aggregate" do

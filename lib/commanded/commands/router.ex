@@ -268,6 +268,14 @@ defmodule Commanded.Commands.Router do
           - `:metadata` - An optional map containing key/value pairs comprising
             the metadata to be associated with all events created by the command.
 
+          - `:causation_id` - An optional UUID used to identify the cause of
+            the command being dispatched. It is copied to the `causation_id`
+            of any events created by the command.
+
+          - `:correlation_id` - An optional UUID used to correlate related
+            commands and events. It is copied to the `correlation_id` of any
+            events created by the command. Defaults to a generated UUID.
+
       Returns `:ok` on success, unless `:include_aggregate_version` or
       `:include_execution_result` is enabled, where it respectively returns
       `{:ok, aggregate_version}` or `{:ok, execution_result}`.
@@ -280,6 +288,8 @@ defmodule Commanded.Commands.Router do
 
       defp do_dispatch(%unquote(command_module){} = command, opts) do
         consistency = Keyword.get(opts, :consistency) || unquote(consistency) || @default_consistency
+        causation_id = Keyword.get(opts, :causation_id)
+        correlation_id = Keyword.get(opts, :correlation_id) || UUID.uuid4()
         metadata = Keyword.get(opts, :metadata) || @default_metadata
         timeout = Keyword.get(opts, :timeout) || unquote(timeout) || @default_dispatch_timeout
         include_aggregate_version = Keyword.get(opts, :include_aggregate_version) || @include_aggregate_version
@@ -302,8 +312,10 @@ defmodule Commanded.Commands.Router do
           end
 
         Commanded.Commands.Dispatcher.dispatch(%Commanded.Commands.Dispatcher.Payload{
+          causation_id: causation_id,
           command: command,
           consistency: consistency,
+          correlation_id: correlation_id,
           handler_module: unquote(handler),
           handler_function: unquote(function),
           aggregate_module: unquote(aggregate),

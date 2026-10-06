@@ -9,9 +9,12 @@ defmodule Commanded.Middleware.Pipeline do
   ## Pipeline fields
 
     * `assigns` - Shared user data as a map.
+    * `causation_id` - An optional UUID used to identify the cause of the
+       command being dispatched.
     * `command` - Command struct being dispatched.
     * `consistency` - Requested dispatch consistency, either: `:eventual`
        (default) or `:strong`
+    * `correlation_id` - A UUID used to correlate related commands and events.
     * `identity` - An atom specifying a field in the command containing the
        aggregate's identity or a one-arity function that returns
        an identity from the command being dispatched.
@@ -24,8 +27,10 @@ defmodule Commanded.Middleware.Pipeline do
 
   defstruct [
     assigns: %{},
+    causation_id: nil,
     command: nil,
     consistency: nil,
+    correlation_id: nil,
     identity: nil,
     identity_prefix: nil,
     metadata: nil,

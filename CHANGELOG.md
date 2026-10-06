@@ -8,6 +8,7 @@
 - Event handlers may define an `init/0` callback function to start any related processes. It must return `:ok`, otherwise the handler process will be stopped.
 - Add `include_execution_result` option to command dispatch ([#96](https://github.com/slashdotdash/commanded/pull/96)).
 - Add `Commanded.Aggregate.Multi` ([#98](https://github.com/slashdotdash/commanded/pull/98)).
+- Correlation and causation ids for commands and events ([#105](https://github.com/slashdotdash/commanded/issues/105)).
 
 ### Bug fixes
 

@@ -11,8 +11,10 @@ defmodule Commanded.Commands.Dispatcher do
   defmodule Payload do
     @moduledoc false
     defstruct [
+      causation_id: nil,
       command: nil,
       consistency: nil,
+      correlation_id: nil,
       handler_module: nil,
       handler_function: nil,
       aggregate_module: nil,
@@ -51,10 +53,12 @@ defmodule Commanded.Commands.Dispatcher do
     end
   end
 
-  defp to_pipeline(%Payload{command: command, consistency: consistency, identity: identity, identity_prefix: identity_prefix, metadata: metadata}) do
+  defp to_pipeline(%Payload{causation_id: causation_id, command: command, consistency: consistency, correlation_id: correlation_id, identity: identity, identity_prefix: identity_prefix, metadata: metadata}) do
     %Pipeline{
+      causation_id: causation_id,
       command: command,
       consistency: consistency,
+      correlation_id: correlation_id,
       identity: identity,
       identity_prefix: identity_prefix,
       metadata: metadata
@@ -101,11 +105,13 @@ defmodule Commanded.Commands.Dispatcher do
   end
 
   defp to_execution_context(
-    %Pipeline{command: command, metadata: metadata},
+    %Pipeline{causation_id: causation_id, command: command, correlation_id: correlation_id, metadata: metadata},
     %Payload{handler_module: handler_module, handler_function: handler_function, lifespan: lifespan})
   do
     %ExecutionContext{
+      causation_id: causation_id,
       command: command,
+      correlation_id: correlation_id,
       metadata: metadata,
       handler: handler_module,
       function: handler_function,

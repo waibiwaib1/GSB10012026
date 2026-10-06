@@ -258,7 +258,7 @@ defmodule Commanded.Event.Handler do
   defp enrich_metadata(%RecordedEvent{metadata: metadata} = event) do
     event
     |> Map.from_struct()
-    |> Map.take([:event_number, :stream_id, :stream_version, :created_at])
+    |> Map.take([:event_number, :stream_id, :stream_version, :causation_id, :correlation_id, :created_at])
     |> Map.merge(metadata || %{})
   end
 

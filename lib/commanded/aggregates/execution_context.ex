@@ -4,6 +4,14 @@ defmodule Commanded.Aggregates.ExecutionContext do
 
   The available options are:
 
+    - `causation_id` - an optional UUID used to identify the cause of the
+      command being dispatched. It is copied to the `causation_id` of any
+      events created by the command.
+
+    - `correlation_id` - a UUID used to correlate related commands and events.
+      It is copied to the `correlation_id` of any events created by the
+      command.
+
     - `command` - the command to execute, typically a struct
       (e.g. `%OpenBankAccount{...}`).
 
@@ -28,7 +36,9 @@ defmodule Commanded.Aggregates.ExecutionContext do
   alias Commanded.Aggregates.DefaultLifespan
 
   defstruct [
+    causation_id: nil,
     command: nil,
+    correlation_id: nil,
     metadata: %{},
     handler: nil,
     function: nil,
