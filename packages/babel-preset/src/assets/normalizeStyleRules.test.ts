@@ -128,4 +128,42 @@ describe('normalizeStyleRules', () => {
       },
     });
   });
+
+  it('handles animationName with an array of keyframes', () => {
+    expect(
+      normalizeStyleRules(
+        path.posix,
+        '/home/projects/foo',
+        '/home/projects/foo/src/styles/Component.styles.ts',
+
+        {
+          root: {
+            animationName: [
+              {
+                from: { transform: 'rotate(0deg)' },
+                to: { transform: 'rotate(180deg)' },
+              },
+              {
+                from: { backgroundImage: 'url(../../assets/from.jpg)' },
+                to: { backgroundImage: 'url(../../assets/to.jpg)' },
+              },
+            ],
+          },
+        },
+      ),
+    ).toEqual({
+      root: {
+        animationName: [
+          {
+            from: { transform: 'rotate(0deg)' },
+            to: { transform: 'rotate(180deg)' },
+          },
+          {
+            from: { backgroundImage: 'url(assets/from.jpg)' },
+            to: { backgroundImage: 'url(assets/to.jpg)' },
+          },
+        ],
+      },
+    });
+  });
 });

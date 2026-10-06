@@ -54,9 +54,18 @@ export function normalizeStyleRules(
         return [key, value];
       }
 
-      // Fallback value
+      // Fallback value or an array of keyframes (i.e. "animationName" property)
       if (Array.isArray(value)) {
-        return [key, value.map(rule => normalizeStyleRule(path, projectRoot, filename, rule as string))];
+        return [
+          key,
+          value.map(rule => {
+            if (typeof rule === 'object') {
+              return normalizeStyleRules(path, projectRoot, filename, rule as unknown as GriffelStyle);
+            }
+
+            return normalizeStyleRule(path, projectRoot, filename, rule as string);
+          }),
+        ];
       }
 
       // Nested objects

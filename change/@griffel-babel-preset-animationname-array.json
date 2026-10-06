@@ -1,0 +1,7 @@
+{
+  "type": "patch",
+  "comment": "fix: handle animationName with an array of keyframes in normalizeStyleRules",
+  "packageName": "@griffel/babel-preset",
+  "email": "not@tracked.yet",
+  "dependentChangeType": "patch"
+}
