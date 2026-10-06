@@ -1257,6 +1257,10 @@ func (s *AlterStatistics) SQL() string {
 	return "ALTER STATISTICS " + s.Name.SQL() + " SET " + s.Options.SQL()
 }
 
+func (s *Analyze) SQL() string {
+	return "ANALYZE"
+}
+
 // ================================================================================
 //
 // Types for Schema

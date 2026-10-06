@@ -1,0 +1,10 @@
+--- analyze.sql
+ANALYZE
+
+--- AST
+&ast.Analyze{
+  Analyze: 0,
+}
+
+--- SQL
+ANALYZE

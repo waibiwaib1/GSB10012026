@@ -213,7 +213,8 @@ func (p *Parser) parseStatement() ast.Statement {
 	case p.Token.Kind == "SELECT" || p.Token.Kind == "@" || p.Token.Kind == "WITH" || p.Token.Kind == "(":
 		return p.parseQueryStatement()
 	case p.Token.Kind == "CREATE" || p.Token.IsKeywordLike("ALTER") || p.Token.IsKeywordLike("DROP") ||
-		p.Token.IsKeywordLike("RENAME") || p.Token.IsKeywordLike("GRANT") || p.Token.IsKeywordLike("REVOKE"):
+		p.Token.IsKeywordLike("RENAME") || p.Token.IsKeywordLike("GRANT") || p.Token.IsKeywordLike("REVOKE") ||
+		p.Token.IsKeywordLike("ANALYZE"):
 		return p.parseDDL()
 	case p.Token.IsKeywordLike("INSERT") || p.Token.IsKeywordLike("DELETE") || p.Token.IsKeywordLike("UPDATE"):
 		return p.parseDML()
@@ -2372,13 +2373,22 @@ func (p *Parser) parseDDL() ast.DDL {
 	case p.Token.IsKeywordLike("REVOKE"):
 		p.nextToken()
 		return p.parseRevoke(pos)
+	case p.Token.IsKeywordLike("ANALYZE"):
+		p.nextToken()
+		return p.parseAnalyze(pos)
 	}
 
 	if p.Token.Kind != token.TokenIdent {
 		panic(p.errorfAtToken(&p.Token, "expected token: CREATE, <ident>, but: %s", p.Token.Kind))
 	}
 
-	panic(p.errorfAtToken(&p.Token, "expected pseudo keyword: ALTER, DROP, but: %s", p.Token.AsString))
+	panic(p.errorfAtToken(&p.Token, "expected pseudo keyword: ALTER, DROP, ANALYZE, but: %s", p.Token.AsString))
+}
+
+func (p *Parser) parseAnalyze(pos token.Pos) *ast.Analyze {
+	return &ast.Analyze{
+		Analyze: pos,
+	}
 }
 
 func (p *Parser) parseCreateSchema(pos token.Pos) *ast.CreateSchema {
