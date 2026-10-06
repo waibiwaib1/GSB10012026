@@ -159,6 +159,30 @@ type Interceptor struct {
 	ReportOnly []Policy
 }
 
+type disable struct{}
+
+// Disable disables the CSP interceptor for a handler.
+func Disable() safehttp.Config {
+	return disable{}
+}
+
+func (disable) Apply(i safehttp.Interceptor) (safehttp.Interceptor, bool) {
+	switch i.(type) {
+	case Interceptor:
+		return noopInterceptor{}, true
+	case *Interceptor:
+		return noopInterceptor{}, true
+	default:
+		return i, false
+	}
+}
+
+type noopInterceptor struct{}
+
+func (noopInterceptor) Before(w *safehttp.ResponseWriter, r *safehttp.IncomingRequest) safehttp.Result {
+	return safehttp.Result{}
+}
+
 // Default creates a new CSP interceptor with a strict nonce-based policy and a
 // framing policy, both in enforcement mode.
 func Default(reportURI string) Interceptor {
