@@ -3,6 +3,10 @@
 <!-- next-header -->
 ## [Unreleased] - ReleaseDate
 
+### Compatibility
+
+- Deprecated `tag_no_case` and `Compare::compare_no_case` in favor of `tag(ascii::Caseless(_))` / `compare(ascii::Caseless(_))`
+
 ## [0.5.19] - 2023-11-03
 
 ### Features
