@@ -2623,6 +2623,55 @@ class AsyncIOBackend(AsyncBackend):
         return UNIXSocketListener(sock)
 
     @classmethod
+    async def wrap_stream_socket(cls, sock: socket.socket) -> SocketStream:
+        transport, protocol = await get_running_loop().create_connection(
+            StreamProtocol, sock=sock
+        )
+        transport.pause_reading()
+        return SocketStream(transport, protocol)
+
+    @classmethod
+    async def wrap_unix_stream_socket(
+        cls, sock: socket.socket
+    ) -> abc.UNIXSocketStream:
+        return UNIXSocketStream(sock)
+
+    @classmethod
+    async def wrap_listener_socket(cls, sock: socket.socket) -> SocketListener:
+        if hasattr(socket, "AF_UNIX") and sock.family == socket.AF_UNIX:
+            return UNIXSocketListener(sock)
+
+        return TCPSocketListener(sock)
+
+    @classmethod
+    async def wrap_udp_socket(cls, sock: socket.socket) -> UDPSocket:
+        transport, protocol = await get_running_loop().create_datagram_endpoint(
+            DatagramProtocol, sock=sock
+        )
+        return UDPSocket(transport, protocol)
+
+    @classmethod
+    async def wrap_connected_udp_socket(
+        cls, sock: socket.socket
+    ) -> ConnectedUDPSocket:
+        transport, protocol = await get_running_loop().create_datagram_endpoint(
+            DatagramProtocol, sock=sock
+        )
+        return ConnectedUDPSocket(transport, protocol)
+
+    @classmethod
+    async def wrap_unix_datagram_socket(
+        cls, sock: socket.socket
+    ) -> abc.UNIXDatagramSocket:
+        return UNIXDatagramSocket(sock)
+
+    @classmethod
+    async def wrap_connected_unix_datagram_socket(
+        cls, sock: socket.socket
+    ) -> abc.ConnectedUNIXDatagramSocket:
+        return ConnectedUNIXDatagramSocket(sock)
+
+    @classmethod
     async def create_udp_socket(
         cls,
         family: AddressFamily,

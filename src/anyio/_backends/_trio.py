@@ -1192,6 +1192,45 @@ class TrioBackend(AsyncBackend):
         return UNIXSocketListener(sock)
 
     @classmethod
+    async def wrap_stream_socket(cls, sock: socket.socket) -> SocketStream:
+        return SocketStream(trio.socket.from_stdlib_socket(sock))
+
+    @classmethod
+    async def wrap_unix_stream_socket(
+        cls, sock: socket.socket
+    ) -> abc.UNIXSocketStream:
+        return UNIXSocketStream(trio.socket.from_stdlib_socket(sock))
+
+    @classmethod
+    async def wrap_listener_socket(cls, sock: socket.socket) -> abc.SocketListener:
+        if hasattr(socket, "AF_UNIX") and sock.family == socket.AF_UNIX:
+            return UNIXSocketListener(sock)
+
+        return TCPSocketListener(sock)
+
+    @classmethod
+    async def wrap_udp_socket(cls, sock: socket.socket) -> UDPSocket:
+        return UDPSocket(trio.socket.from_stdlib_socket(sock))
+
+    @classmethod
+    async def wrap_connected_udp_socket(
+        cls, sock: socket.socket
+    ) -> ConnectedUDPSocket:
+        return ConnectedUDPSocket(trio.socket.from_stdlib_socket(sock))
+
+    @classmethod
+    async def wrap_unix_datagram_socket(
+        cls, sock: socket.socket
+    ) -> abc.UNIXDatagramSocket:
+        return UNIXDatagramSocket(trio.socket.from_stdlib_socket(sock))
+
+    @classmethod
+    async def wrap_connected_unix_datagram_socket(
+        cls, sock: socket.socket
+    ) -> abc.ConnectedUNIXDatagramSocket:
+        return ConnectedUNIXDatagramSocket(trio.socket.from_stdlib_socket(sock))
+
+    @classmethod
     async def create_udp_socket(
         cls,
         family: socket.AddressFamily,

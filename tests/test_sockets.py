@@ -18,7 +18,15 @@ from pathlib import Path
 from socket import AddressFamily
 from ssl import SSLContext, SSLError
 from threading import Thread
-from typing import TYPE_CHECKING, Any, Literal, NoReturn, TypeVar, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Literal,
+    NoReturn,
+    Protocol,
+    TypeVar,
+    cast,
+)
 from unittest import mock
 
 import psutil
@@ -61,11 +69,16 @@ from anyio import (
 )
 from anyio._core._eventloop import get_async_backend
 from anyio.abc import (
+    ConnectedUDPSocket,
+    ConnectedUNIXDatagramSocket,
     IPSockAddrType,
     Listener,
     SocketAttribute,
     SocketListener,
     SocketStream,
+    UDPSocket,
+    UNIXDatagramSocket,
+    UNIXSocketStream,
 )
 from anyio.lowlevel import checkpoint
 from anyio.streams.stapled import MultiListener
@@ -128,6 +141,60 @@ def family(request: SubRequest) -> AnyIPAddressFamily:
     return request.param
 
 
+class SockFdFactoryProtocol(Protocol):
+    def __call__(
+        self,
+        family: socket.AddressFamily,
+        kind: socket.SocketKind,
+        *,
+        bound: bool = False,
+        connected: bool = False,
+    ) -> socket.socket | int: ...
+
+
+@pytest.fixture(
+    params=[pytest.param(False, id="sock"), pytest.param(True, id="fileno")]
+)
+def sock_or_fd_factory(
+    request: SubRequest, tmp_path_factory: TempPathFactory
+) -> SockFdFactoryProtocol:
+    def factory(
+        family: socket.AddressFamily,
+        kind: socket.SocketKind,
+        *,
+        bound: bool = False,
+        connected: bool = False,
+    ) -> socket.socket | int:
+        sock = socket.socket(family, kind)
+
+        if bound or connected:
+            if family in (socket.AF_INET, socket.AF_INET6):
+                local_addr: str | tuple[str, int] = ("localhost", 0)
+            else:
+                local_addr = str(tmp_path_factory.mktemp("anyio") / "socket")
+
+        if bound:
+            sock.bind(local_addr)
+            if kind == socket.SOCK_STREAM:
+                sock.listen()
+        elif connected:
+            server_sock = socket.socket(family, kind)
+            request.addfinalizer(server_sock.close)
+            server_sock.bind(local_addr)
+            if kind == socket.SOCK_STREAM:
+                server_sock.listen()
+
+            sock.connect(server_sock.getsockname())
+
+        if request.param:
+            return sock.detach()
+
+        request.addfinalizer(sock.close)
+        return sock
+
+    return factory
+
+
 @pytest.fixture
 def check_asyncio_bug(anyio_backend_name: str, family: AnyIPAddressFamily) -> None:
     if (
@@ -155,6 +222,112 @@ def fill_socket(sock: socket.socket) -> None:
             sock.send(b"x" * 65536)
     except BlockingIOError:
         pass
+
+
+@pytest.mark.network
+class TestWrapExistingSockets:
+    async def test_tcp_stream(self, family: AnyIPAddressFamily) -> None:
+        with socket.socket(family, socket.SOCK_STREAM) as server:
+            server.bind(("localhost", 0))
+            server.listen()
+            client = socket.socket(family, socket.SOCK_STREAM)
+            client.connect(server.getsockname())
+
+            async with await SocketStream.from_socket(client) as stream:
+                peer, _ = server.accept()
+                with peer:
+                    await stream.send(b"hello")
+                    peer.sendall(peer.recv(5)[::-1])
+                    assert await stream.receive() == b"olleh"
+
+    async def test_tcp_listener(self, family: AnyIPAddressFamily) -> None:
+        raw_listener = socket.socket(family, socket.SOCK_STREAM)
+        raw_listener.bind(("localhost", 0))
+        raw_listener.listen()
+
+        async with await SocketListener.from_socket(raw_listener) as listener:
+            with socket.socket(family, socket.SOCK_STREAM) as client:
+                client.connect(listener.extra(SocketAttribute.local_address))
+                async with await listener.accept() as stream:
+                    await stream.send(b"hello")
+                    assert client.recv(5) == b"hello"
+
+    async def test_udp_socket(self, family: AnyIPAddressFamily) -> None:
+        raw_socket = socket.socket(family, socket.SOCK_DGRAM)
+        raw_socket.bind(("localhost", 0))
+
+        async with await UDPSocket.from_socket(raw_socket) as udp_socket:
+            address = udp_socket.extra(SocketAttribute.local_address)
+            await udp_socket.send((b"hello", address))
+            assert await udp_socket.receive() == (b"hello", address)
+
+    async def test_connected_udp_socket(self, family: AnyIPAddressFamily) -> None:
+        with socket.socket(family, socket.SOCK_DGRAM) as peer:
+            peer.bind(("localhost", 0))
+            raw_socket = socket.socket(family, socket.SOCK_DGRAM)
+            raw_socket.connect(peer.getsockname())
+
+            async with await ConnectedUDPSocket.from_socket(
+                raw_socket
+            ) as udp_socket:
+                await udp_socket.send(b"hello")
+                assert peer.recv(5) == b"hello"
+
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="UNIX sockets are not available on Windows"
+    )
+    async def test_unix_socket_stream(self) -> None:
+        first, second = socket.socketpair(socket.AF_UNIX, socket.SOCK_STREAM)
+        try:
+            async with await UNIXSocketStream.from_socket(first) as stream:
+                second.sendall(b"hello")
+                assert await stream.receive() == b"hello"
+        finally:
+            second.close()
+
+    @pytest.mark.skipif(
+        sys.platform == "win32", reason="UNIX sockets are not available on Windows"
+    )
+    async def test_unix_datagram_socket(self, tmp_path: Path) -> None:
+        path = str(tmp_path / "socket")
+        with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as peer:
+            peer.bind(path)
+            raw_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+            raw_socket.connect(path)
+
+            async with await ConnectedUNIXDatagramSocket.from_socket(
+                raw_socket
+            ) as unix_socket:
+                await unix_socket.send(b"hello")
+                assert peer.recv(5) == b"hello"
+
+    async def test_invalid_type(self) -> None:
+        raw_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        raw_socket.connect(("localhost", 1))
+        try:
+            with pytest.raises(ValueError, match="socket type mismatch"):
+                await SocketStream.from_socket(raw_socket)
+        finally:
+            raw_socket.close()
+
+    async def test_invalid_object(self) -> None:
+        with pytest.raises(TypeError, match="expected an int or socket"):
+            await SocketStream.from_socket("not a socket")  # type: ignore[arg-type]
+
+    async def test_from_file_descriptor(
+        self, family: AnyIPAddressFamily, sock_or_fd_factory: SockFdFactoryProtocol
+    ) -> None:
+        sock_or_fd = sock_or_fd_factory(family, socket.SOCK_STREAM, connected=True)
+        async with await SocketStream.from_socket(sock_or_fd):
+            pass
+
+    async def test_unix_datagram_without_connection(self) -> None:
+        if sys.platform == "win32":
+            pytest.skip("UNIX sockets are not available on Windows")
+
+        raw_socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
+        async with await UNIXDatagramSocket.from_socket(raw_socket) as unix_socket:
+            assert isinstance(unix_socket, UNIXDatagramSocket)
 
 
 #  _ProactorBasePipeTransport.abort() after _ProactorBasePipeTransport.close()

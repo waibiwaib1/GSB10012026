@@ -172,6 +172,8 @@ Sockets and networking
 .. autoclass:: anyio.abc.UDPSocket()
 .. autoclass:: anyio.abc.ConnectedUDPSocket()
 .. autoclass:: anyio.abc.UNIXSocketStream()
+.. autoclass:: anyio.abc.UNIXDatagramSocket()
+.. autoclass:: anyio.abc.ConnectedUNIXDatagramSocket()
 .. autoclass:: anyio.TCPConnectable
 .. autoclass:: anyio.UNIXConnectable
 

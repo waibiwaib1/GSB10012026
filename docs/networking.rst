@@ -21,6 +21,25 @@ supported.
     libraries, AnyIO (from 2.0 onwards) signals the end of any stream by raising the
     :exc:`~EndOfStream` exception instead of returning an empty bytes object.
 
+Wrapping existing sockets
+-------------------------
+
+If a socket was created elsewhere (for example, with :func:`socket.socketpair` or by
+code that returns a connected file descriptor), it can be adopted by AnyIO using the
+appropriate ``from_socket()`` class method:
+
+* :meth:`~.abc.SocketStream.from_socket` for connected TCP sockets
+* :meth:`~.abc.UNIXSocketStream.from_socket` for connected UNIX stream sockets
+* :meth:`~.abc.SocketListener.from_socket` for bound stream listeners
+* :meth:`~.abc.UDPSocket.from_socket` for bound, unconnected UDP sockets
+* :meth:`~.abc.ConnectedUDPSocket.from_socket` for connected UDP sockets
+* :meth:`~.abc.UNIXDatagramSocket.from_socket` for UNIX datagram sockets
+* :meth:`~.abc.ConnectedUNIXDatagramSocket.from_socket` for connected UNIX datagram
+  sockets
+
+The socket is switched to non-blocking mode, and the returned AnyIO object takes
+ownership of it. A raw file descriptor may be passed instead of a socket object.
+
 Working with TCP sockets
 ------------------------
 
