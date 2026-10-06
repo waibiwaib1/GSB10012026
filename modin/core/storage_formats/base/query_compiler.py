@@ -463,6 +463,25 @@ class BaseQueryCompiler(
 
     # END To/From Pandas
 
+    def allow_coercion_to(self, other_qc_type) -> bool:
+        """
+        Check whether this query compiler may be coerced to another query compiler type.
+
+        Query compilers may override this method to prevent automatic coercion
+        (e.g. to avoid accidentally downloading an entire remote warehouse).
+
+        Parameters
+        ----------
+        other_qc_type : type
+            The query compiler type this query compiler would be coerced to.
+
+        Returns
+        -------
+        bool
+            True if coercion is allowed, False otherwise.
+        """
+        return True
+
     # From Arrow
     @classmethod
     @abc.abstractmethod

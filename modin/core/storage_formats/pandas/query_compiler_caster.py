@@ -73,6 +73,12 @@ def cast_nested_args_to_current_qc_type(arguments, current_qc):
     def cast_arg_to_current_qc(arg):
         current_qc_type = type(current_qc)
         if isinstance(arg, BaseQueryCompiler) and not isinstance(arg, current_qc_type):
+            if not arg.allow_coercion_to(current_qc_type):
+                raise TypeError(
+                    f"Cannot coerce argument of type {type(arg).__name__} to "
+                    f"{current_qc_type.__name__}: {type(arg).__name__} does not "
+                    "allow coercion to this query compiler type."
+                )
             data_cls = current_qc._modin_frame
             return current_qc_type.from_pandas(arg.to_pandas(), data_cls)
         else:
