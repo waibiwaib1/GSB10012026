@@ -19,6 +19,7 @@ package com.google.cloud.storage.testing;
 import com.google.api.services.storage.model.Bucket;
 import com.google.api.services.storage.model.BucketAccessControl;
 import com.google.api.services.storage.model.HmacKey;
+import com.google.api.services.storage.model.StorageObject;
 import com.google.api.services.storage.model.HmacKeyMetadata;
 import com.google.api.services.storage.model.Notification;
 import com.google.api.services.storage.model.ObjectAccessControl;
@@ -130,6 +131,17 @@ public class StorageRpcTestBase implements StorageRpc {
 
   @Override
   public void write(
+      String uploadId,
+      byte[] toWrite,
+      int toWriteOffset,
+      long destOffset,
+      int length,
+      boolean last) {
+    throw new UnsupportedOperationException("Not implemented yet");
+  }
+
+  @Override
+  public StorageObject writeWithResponse(
       String uploadId,
       byte[] toWrite,
       int toWriteOffset,
