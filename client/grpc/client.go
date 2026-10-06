@@ -53,10 +53,10 @@ func New(address, certPath string, insecure bool) (client.Client, error) {
 
 func asRD(r *drand.PublicRandResponse) *client.RandomData {
 	return &client.RandomData{
-		Rnd:               r.Round,
-		Random:            r.Randomness,
-		Sig:               r.Signature,
-		PreviousSignature: r.PreviousSignature,
+		Rnd:     r.Round,
+		Random:  r.Randomness,
+		Sig:     r.Signature,
+		PrevSig: r.PreviousSignature,
 	}
 }
 

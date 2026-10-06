@@ -36,10 +36,10 @@ func (d *drandProxy) Get(ctx context.Context, round uint64) (client.Result, erro
 		return nil, err
 	}
 	return &client.RandomData{
-		Rnd:               resp.Round,
-		Random:            resp.Randomness,
-		Sig:               resp.Signature,
-		PreviousSignature: resp.PreviousSignature,
+		Rnd:     resp.Round,
+		Random:  resp.Randomness,
+		Sig:     resp.Signature,
+		PrevSig: resp.PreviousSignature,
 	}, nil
 }
 
@@ -100,10 +100,10 @@ func newStreamProxy(ctx context.Context) *streamProxy {
 
 func (s *streamProxy) Send(next *drand.PublicRandResponse) error {
 	d := client.RandomData{
-		Rnd:               next.Round,
-		Random:            next.Randomness,
-		Sig:               next.Signature,
-		PreviousSignature: next.PreviousSignature,
+		Rnd:     next.Round,
+		Random:  next.Randomness,
+		Sig:     next.Signature,
+		PrevSig: next.PreviousSignature,
 	}
 	select {
 	case s.outgoing <- &d:

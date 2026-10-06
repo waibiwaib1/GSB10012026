@@ -21,9 +21,10 @@ func NewMockResult(round uint64) Result {
 
 // Result is a mock result that can be used for testing.
 type Result struct {
-	Rnd  uint64
-	Rand []byte
-	Sig  []byte
+	Rnd     uint64
+	Rand    []byte
+	Sig     []byte
+	PrevSig []byte
 }
 
 // Randomness is a hash of the signature.
@@ -39,6 +40,11 @@ func (r *Result) Signature() []byte {
 // Round is the round number for this random data.
 func (r *Result) Round() uint64 {
 	return r.Rnd
+}
+
+// PreviousSignature is the signature of the previous randomness beacon.
+func (r *Result) PreviousSignature() []byte {
+	return r.PrevSig
 }
 
 // AssertValid checks that this result is valid.

@@ -50,10 +50,10 @@ func toRandomDataChain(results ...mock.Result) []client.RandomData {
 	prevSig := results[0].Signature()
 	for i := 1; i < len(results); i++ {
 		randomness = append(randomness, client.RandomData{
-			Rnd:               results[i].Round(),
-			Random:            results[i].Randomness(),
-			Sig:               results[i].Signature(),
-			PreviousSignature: prevSig,
+			Rnd:     results[i].Round(),
+			Random:  results[i].Randomness(),
+			Sig:     results[i].Signature(),
+			PrevSig: prevSig,
 		})
 		prevSig = results[i].Signature()
 	}
