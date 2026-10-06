@@ -428,6 +428,25 @@ class BaseQueryCompiler(
     # END Data Management Methods
 
     # To/From Pandas
+    def allow_coercion_to(self, other_qc):
+        """
+        Check whether this query compiler is allowed to be coerced to the type of ``other_qc``.
+
+        Engines can override this method to prevent implicit coercion (for example,
+        to avoid accidentally materializing data from a remote warehouse into another
+        query compiler type).
+
+        Parameters
+        ----------
+        other_qc : BaseQueryCompiler
+            The query compiler that this query compiler would be coerced to.
+
+        Returns
+        -------
+        bool
+        """
+        return True
+
     @abc.abstractmethod
     def to_pandas(self):
         """
