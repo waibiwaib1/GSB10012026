@@ -42,6 +42,34 @@ pipx run --spec https://github.com/psf/black/archive/18.9b0.zip black --help
 pipx run https://gist.githubusercontent.com/cs01/fa721a17a326e551ede048c5088f9e0f/raw/6bdfbb6e9c1132b1c38fdd2f195d4a24c540c324/pipx-demo.py
 ```
 
+You can run local files, including scripts with arguments:
+
+```
+pipx run test.py
+pipx run test.py 1 2 3
+```
+
+A simple filename is ambiguous. It is treated as a local file if that file
+exists, otherwise it is treated as a package. Use `--path` to force local-file
+interpretation, or `--spec` to run an app from a package.
+
+Scripts can declare dependencies in a leading comment block:
+
+```python
+# Requirements:
+# requests
+#
+# The list ends at a blank comment line or non-comment line.
+
+import requests
+```
+
+Then run the script normally:
+
+```
+pipx run test.py
+```
+
 ## `pipx inject` example
 
 One use of the inject command is setting up a REPL with some useful extra packages.

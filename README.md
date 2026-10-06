@@ -268,6 +268,11 @@ pipx run https://gist.githubusercontent.com/cs01/fa721a17a326e551ede048c5088f9e0
 pipx is working!
 ```
 
+You can also run a local `.py` file. If it contains a `# Requirements:` comment
+block, pipx installs those requirements in a temporary virtual environment
+before running the script. Use `pipx run --path script.py` to require local-file
+interpretation.
+
 ### Summary
 
 That's it! Those are the most important commands `pipx` offers. To see all of pipx's documentation, run `pipx --help` or see the [docs](https://pypa.github.io/pipx/docs/).

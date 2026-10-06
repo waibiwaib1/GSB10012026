@@ -2,6 +2,7 @@ import logging
 import os
 import subprocess
 import sys
+import textwrap
 from unittest import mock
 
 import pytest  # type: ignore
@@ -11,6 +12,8 @@ import pipx.util
 from helpers import run_pipx_cli
 from package_info import PKG
 from pipx import constants
+from pipx.commands.run import _get_requirements_from_script
+from pipx.util import PipxError
 
 
 def test_help_text(pipx_temp_env, monkeypatch, capsys):
@@ -181,3 +184,102 @@ def test_package_determination(
 
     assert "Cannot determine package name" not in caplog.text
     assert f"Determined package name: {package}" in caplog.text
+
+
+@pytest.mark.parametrize(
+    "content, expected",
+    [
+        ("import packaging\n", None),
+        ("# Requirements:\n# packaging\n", ["packaging"]),
+        ("# Requirements:\n# Packaging >= 21.0\n", ["Packaging>=21.0"]),
+        ("# Requirements:\n# packaging\n#\nimport packaging\n", ["packaging"]),
+        ("# Requirements:\n# packaging\n\nimport packaging\n", ["packaging"]),
+        ("# Requirements:\n# packaging\n# six\n", ["packaging", "six"]),
+    ],
+)
+def test_get_requirements_from_script(content, expected):
+    assert _get_requirements_from_script(content) == expected
+
+
+def test_get_requirements_from_invalid_script():
+    with pytest.raises(PipxError, match="Invalid requirement"):
+        _get_requirements_from_script(
+            "# Requirements:\n# this is an invalid requirement\n"
+        )
+
+
+@mock.patch("os.execvpe", new=execvpe_mock)
+def test_run_local_script_without_requirements(pipx_temp_env, tmp_path):
+    script = tmp_path / "test.py"
+    output = tmp_path / "output.txt"
+    message = "Hello, world!"
+    script.write_text(
+        textwrap.dedent(
+            f"""
+                from pathlib import Path
+                Path({str(output)!r}).write_text({message!r})
+            """
+        ).strip()
+    )
+
+    run_pipx_cli_exit(["run", str(script)])
+
+    assert output.read_text() == message
+
+
+@mock.patch("os.execvpe", new=execvpe_mock)
+def test_run_local_script_with_args(pipx_temp_env, tmp_path):
+    script = tmp_path / "test.py"
+    output = tmp_path / "output.txt"
+    script.write_text(
+        textwrap.dedent(
+            f"""
+                import sys
+                from pathlib import Path
+                Path({str(output)!r}).write_text(str(int(sys.argv[1]) + 1))
+            """
+        ).strip()
+    )
+
+    run_pipx_cli_exit(["run", str(script), "1"])
+
+    assert output.read_text() == "2"
+
+
+@mock.patch("os.execvpe", new=execvpe_mock)
+def test_run_script_with_requirements(pipx_temp_env, tmp_path):
+    script = tmp_path / "test.py"
+    output = tmp_path / "output.txt"
+    script.write_text(
+        textwrap.dedent(
+            f"""
+                # Requirements:
+                # packaging
+
+                import packaging
+                from pathlib import Path
+                Path({str(output)!r}).write_text(packaging.__version__)
+            """
+        ).strip()
+    )
+
+    run_pipx_cli_exit(["run", str(script)])
+
+    assert output.read_text().count(".") >= 1
+
+
+@mock.patch("os.execvpe", new=execvpe_mock)
+def test_run_missing_path(pipx_temp_env, tmp_path):
+    script = tmp_path / "missing.py"
+
+    assert run_pipx_cli(["run", "--path", str(script)]) == 1
+
+
+@mock.patch("os.execvpe", new=execvpe_mock)
+def test_run_invalid_requirement(pipx_temp_env, capsys, tmp_path):
+    script = tmp_path / "test.py"
+    script.write_text("# Requirements:\n# this is invalid\n")
+
+    assert run_pipx_cli(["run", str(script)]) == 1
+
+    assert "Invalid requirement this is invalid" in capsys.readouterr().err
