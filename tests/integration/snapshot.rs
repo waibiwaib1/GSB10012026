@@ -341,6 +341,14 @@ fn cache_poisoning() -> Result<()> {
             .run()?
     );
 
+    insta::assert_snapshot!(
+        zizmor()
+            .input(input_under_test(
+                "cache-poisoning/setup-buildx-binary-cache.yml"
+            ))
+            .run()?
+    );
+
     Ok(())
 }
 

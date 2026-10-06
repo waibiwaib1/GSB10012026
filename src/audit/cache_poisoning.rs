@@ -1,14 +1,14 @@
 use std::str::FromStr;
 use std::sync::LazyLock;
 
-use github_actions_models::common::Uses;
+use github_actions_models::common::{Uses, expr::ExplicitExpr};
 use github_actions_models::workflow::Trigger;
 use github_actions_models::workflow::event::{BareEvent, BranchFilters, OptionalBody};
 
 use crate::audit::{Audit, audit_meta};
 use crate::finding::{Confidence, Finding, Severity};
 use crate::models::coordinate::{ActionCoordinate, Control, ControlFieldType, Toggle, Usage};
-use crate::models::{JobExt as _, NormalJob, Step, StepCommon, Steps};
+use crate::models::{JobExt as _, NormalJob, Step, StepBodyCommon, StepCommon, Steps};
 use crate::state::AuditState;
 
 /// The list of know cache-aware actions
@@ -106,12 +106,6 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
             control: Control::new(Toggle::OptOut, "cache-disabled", ControlFieldType::Boolean),
             enabled_by_default: true,
         },
-        // https://github.com/docker/setup-buildx-action/blob/master/action.yml
-        ActionCoordinate::Configurable {
-            uses: Uses::from_str("docker/setup-buildx-action").unwrap(),
-            control: Control::new(Toggle::OptIn, "cache-binary", ControlFieldType::Boolean),
-            enabled_by_default: true,
-        },
         // https://github.com/actions-rust-lang/setup-rust-toolchain/blob/main/action.yml
         ActionCoordinate::Configurable {
             uses: Uses::from_str("actions-rust-lang/setup-rust-toolchain").unwrap(),
@@ -133,6 +127,15 @@ static KNOWN_CACHE_AWARE_ACTIONS: LazyLock<Vec<ActionCoordinate>> = LazyLock::ne
             enabled_by_default: true,
         },
     ]
+});
+
+static SETUP_BUILDX_ACTION: LazyLock<ActionCoordinate> = LazyLock::new(|| {
+    // https://github.com/docker/setup-buildx-action/blob/master/action.yml
+    ActionCoordinate::Configurable {
+        uses: Uses::from_str("docker/setup-buildx-action").unwrap(),
+        control: Control::new(Toggle::OptIn, "cache-binary", ControlFieldType::Boolean),
+        enabled_by_default: false,
+    }
 });
 
 /// A list of well-know publisher actions
@@ -251,6 +254,22 @@ impl CachePoisoning {
     }
 
     fn evaluate_cache_usage<'s>(&self, step: &impl StepCommon<'s>) -> Option<Usage> {
+        if SETUP_BUILDX_ACTION.usage(step).is_some() {
+            let StepBodyCommon::Uses { with, .. } = step.body() else {
+                unreachable!("setup-buildx usage matched a non-uses step");
+            };
+
+            let version = with.get("version")?;
+            if version.to_string().trim().is_empty() {
+                return None;
+            }
+            if ExplicitExpr::from_curly(&version.to_string()).is_some() {
+                return Some(Usage::ConditionalOptIn);
+            }
+
+            return SETUP_BUILDX_ACTION.usage(step);
+        }
+
         KNOWN_CACHE_AWARE_ACTIONS
             .iter()
             .find_map(|coord| coord.usage(step))
