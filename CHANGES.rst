@@ -1,3 +1,8 @@
+Unreleased
+----------
+- Added pycode serializer `#695 <https://github.com/tefra/xsdata/issues/695>`_
+
+
 22.7 (2022-07-22)
 -----------------
 - Fix empty lists do not get serialized `#686 <https://github.com/tefra/xsdata/issues/686>`_
