@@ -1,5 +1,9 @@
 # cloudpathlib Changelog
 
+## Unreleased
+
+- Added Python 3.13 compatibility by replacing removed private `pathlib` glob and parent APIs.
+
 ## v0.20.0 (2024-10-18)
 
 - Added support for custom schemes in CloudPath and Client subclases. (Issue [#466](https://github.com/drivendataorg/cloudpathlib/issues/466), PR [#467](https://github.com/drivendataorg/cloudpathlib/pull/467))

@@ -2,6 +2,7 @@ import abc
 from collections import defaultdict
 import collections.abc
 from contextlib import contextmanager
+import fnmatch
 from io import BufferedRandom, BufferedReader, BufferedWriter, FileIO, TextIOWrapper
 import os
 from pathlib import (  # type: ignore
@@ -9,7 +10,6 @@ from pathlib import (  # type: ignore
     PosixPath,
     PurePosixPath,
     WindowsPath,
-    _PathParents,
 )
 
 import shutil
@@ -28,6 +28,7 @@ from typing import (
     List,
     Optional,
     Sequence,
+    Set,
     Tuple,
     Type,
     TYPE_CHECKING,
@@ -56,7 +57,18 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import Self
 
-if sys.version_info >= (3, 12):
+try:
+    from pathlib import _PathParents  # type: ignore[attr-defined]
+except ImportError:
+    _PathParents = type(PurePosixPath("/").parents)
+
+if sys.version_info >= (3, 13):
+    _posix_flavour = None
+
+    def _make_selector(pattern_parts, _flavour, case_sensitive=True):
+        return _CloudPathGlobSelector(pattern_parts, case_sensitive is not False)
+
+elif sys.version_info >= (3, 12):
     from pathlib import posixpath as _posix_flavour  # type: ignore[attr-defined]
     from pathlib import _make_selector  # type: ignore[attr-defined]
 else:
@@ -87,7 +99,6 @@ from .exceptions import (
     OverwriteNewerCloudError,
     OverwriteNewerLocalError,
 )
-
 
 if TYPE_CHECKING:
     from .client import Client
@@ -1463,3 +1474,72 @@ class _CloudPathSelectable:
 
             for child_dir in dirs_files[True]:
                 yield from child_dir.walk()
+
+
+class _CloudPathGlobSelector:
+    def __init__(self, pattern_parts: Tuple[str, ...], case_sensitive: bool) -> None:
+        if any("**" in part and part != "**" for part in pattern_parts):
+            raise ValueError("Invalid pattern: '**' can only be an entire path component")
+        self.pattern_parts = tuple(pattern_parts)
+        self.case_sensitive = case_sensitive
+
+    def select_from(self, root: "_CloudPathSelectable"):
+        if not root.is_dir():
+            return iter(())
+        yielded: Set[str] = set()
+        return self._select(root, self.pattern_parts, yielded)
+
+    def _matches(self, name: str, pattern: str) -> bool:
+        if not self.case_sensitive:
+            name = name.lower()
+            pattern = pattern.lower()
+        return fnmatch.fnmatchcase(name, pattern)
+
+    def _yield_if_new(self, path: "_CloudPathSelectable", yielded: Set[str]):
+        path_key = repr(path)
+        if path_key not in yielded:
+            yielded.add(path_key)
+            yield path
+
+    def _select(
+        self,
+        path: "_CloudPathSelectable",
+        pattern_parts: Tuple[str, ...],
+        yielded: Set[str],
+    ):
+        if not pattern_parts:
+            yield from self._yield_if_new(path, yielded)
+            return
+
+        part, *remaining = pattern_parts
+        remaining = tuple(remaining)
+
+        if part == "**":
+            for directory in self._iter_directories(path):
+                yield from self._select(directory, remaining, yielded)
+            return
+
+        with path.scandir(path) as scandir_entries:
+            entries: List["_CloudPathSelectable"] = list(scandir_entries)
+
+        for entry in entries:
+            if remaining and not entry.is_dir():
+                continue
+
+            if any(char in part for char in "*?["):
+                if not self._matches(entry.name, part):
+                    continue
+            elif self.case_sensitive:
+                if entry.name != part:
+                    continue
+            elif entry.name.lower() != part.lower():
+                continue
+
+            yield from self._select(entry, remaining, yielded)
+
+    def _iter_directories(self, path: "_CloudPathSelectable"):
+        yield path
+        with path.scandir(path) as entries:
+            for entry in entries:
+                if entry.is_dir():
+                    yield from self._iter_directories(entry)
