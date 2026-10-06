@@ -43,6 +43,31 @@ def cec_dc_snl_ac_system(sam_data):
 
 
 @pytest.fixture
+def pvsyst_dc_snl_ac_system(sam_data):
+    module_parameters = {
+        'gamma_ref': 1.05,
+        'mu_gamma': 0.001,
+        'I_L_ref': 6.0,
+        'I_o_ref': 5.0e-9,
+        'EgRef': 1.121,
+        'R_sh_ref': 300.0,
+        'R_sh_0': 1000.0,
+        'R_s': 0.5,
+        'R_sh_exp': 5.5,
+        'cells_in_series': 60,
+        'alpha_sc': 0.001,
+        'b': 0.05,
+    }
+    inverters = sam_data['cecinverter']
+    inverter_key = 'ABB__MICRO_0_25_I_OUTD_US_208_208V__CEC_2014_'
+    inverter = inverters[inverter_key].copy()
+    system = PVSystem(surface_tilt=32.2, surface_azimuth=180,
+                      module_parameters=module_parameters,
+                      inverter_parameters=inverter)
+    return system
+
+
+@pytest.fixture
 def cec_dc_adr_ac_system(sam_data):
     modules = sam_data['cecmod']
     module_parameters = modules['Canadian_Solar_CS5P_220M'].copy()
@@ -212,20 +237,29 @@ def test_dc_models(system, cec_dc_snl_ac_system, pvwatts_dc_pvwatts_ac_system,
 
 
 @requires_scipy
-@pytest.mark.parametrize('dc_model', ['sapm', 'singlediode', 'pvwatts_dc'])
+@pytest.mark.parametrize('dc_model', ['sapm', 'singlediode', 'pvsyst',
+                                      'pvwatts_dc'])
 def test_infer_dc_model(system, cec_dc_snl_ac_system,
-                        pvwatts_dc_pvwatts_ac_system, location, dc_model,
-                        mocker):
-    dc_systems = {'sapm': system, 'singlediode': cec_dc_snl_ac_system,
+                        pvsyst_dc_snl_ac_system,
+                        pvwatts_dc_pvwatts_ac_system, location, dc_model):
+    dc_systems = {'sapm': system,
+                  'singlediode': cec_dc_snl_ac_system,
+                  'pvsyst': pvsyst_dc_snl_ac_system,
                   'pvwatts_dc': pvwatts_dc_pvwatts_ac_system}
     system = dc_systems[dc_model]
-    m = mocker.spy(system, dc_model)
     mc = ModelChain(system, location,
                     aoi_model='no_loss', spectral_model='no_loss')
-    times = pd.date_range('20160101 1200-0700', periods=2, freq='6H')
-    mc.run_model(times)
-    assert m.call_count == 1
-    assert isinstance(mc.dc, (pd.Series, pd.DataFrame))
+    expected = {'sapm': ModelChain.sapm,
+                'singlediode': ModelChain.singlediode,
+                'pvsyst': ModelChain.pvsyst,
+                'pvwatts_dc': ModelChain.pvwatts_dc}
+    assert mc.dc_model.__func__ is expected[dc_model]
+
+
+def test_pvsyst_dc_model(pvsyst_dc_snl_ac_system, location):
+    mc = ModelChain(pvsyst_dc_snl_ac_system, location, dc_model='pvsyst',
+                    aoi_model='no_loss', spectral_model='no_loss')
+    assert mc.dc_model.__func__ is ModelChain.pvsyst
 
 
 def acdc(mc):

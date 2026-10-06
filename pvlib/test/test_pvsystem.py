@@ -174,6 +174,23 @@ def cec_module_params(sam_data):
     return module_parameters
 
 
+@pytest.fixture
+def pvsyst_module_params():
+    return {
+        'gamma_ref': 1.05,
+        'mu_gamma': 0.001,
+        'I_L_ref': 6.0,
+        'I_o_ref': 5.0e-9,
+        'EgRef': 1.121,
+        'R_sh_ref': 300.0,
+        'R_sh_0': 1000.0,
+        'R_s': 0.5,
+        'R_sh_exp': 5.5,
+        'cells_in_series': 60,
+        'alpha_sc': 0.001,
+    }
+
+
 def test_sapm(sapm_module_params):
 
     times = pd.DatetimeIndex(start='2015-01-01', periods=5, freq='12H')
@@ -412,6 +429,66 @@ def test_PVSystem_calcparams_desoto(cec_module_params, mocker):
     assert_allclose(Rs, 0.1, atol=0.1)
     assert_allclose(Rsh, np.array([np.inf, 20]), atol=1)
     assert_allclose(nNsVth, 0.5, atol=0.1)
+
+
+def test_calcparams_pvsyst(pvsyst_module_params):
+    times = pd.date_range(start='2015-01-01', periods=2, freq='12H')
+    effective_irradiance = pd.Series([0.0, 800.0], index=times)
+    temp_cell = pd.Series([25, 50], index=times)
+
+    IL, I0, Rs, Rsh, nNsVth = pvsystem.calcparams_pvsyst(
+        effective_irradiance,
+        temp_cell,
+        alpha_sc=pvsyst_module_params['alpha_sc'],
+        gamma_ref=pvsyst_module_params['gamma_ref'],
+        mu_gamma=pvsyst_module_params['mu_gamma'],
+        I_L_ref=pvsyst_module_params['I_L_ref'],
+        I_o_ref=pvsyst_module_params['I_o_ref'],
+        R_sh_ref=pvsyst_module_params['R_sh_ref'],
+        R_sh_0=pvsyst_module_params['R_sh_0'],
+        R_s=pvsyst_module_params['R_s'],
+        R_sh_exp=pvsyst_module_params['R_sh_exp'],
+        cells_in_series=pvsyst_module_params['cells_in_series'],
+        EgRef=pvsyst_module_params['EgRef'])
+
+    assert_series_equal(IL.round(3), pd.Series([0.0, 4.820], index=times))
+    assert_allclose(I0, pd.Series([5.0e-9, 1.47e-7], index=times), rtol=1e-3)
+    assert_allclose(Rs, 0.5)
+    assert_series_equal(Rsh.round(3),
+                        pd.Series([1000.0, 305.757], index=times))
+    assert_series_equal(nNsVth.round(4),
+                        pd.Series([1.6186, 1.7961], index=times))
+
+
+def test_PVSystem_calcparams_pvsyst(pvsyst_module_params, mocker):
+    mocker.spy(pvsystem, 'calcparams_pvsyst')
+    system = pvsystem.PVSystem(
+        module_parameters=pvsyst_module_params.copy())
+    effective_irradiance = np.array([0.0, 800.0])
+    temp_cell = np.array([25.0, 50.0])
+
+    IL, I0, Rs, Rsh, nNsVth = system.calcparams_pvsyst(
+        effective_irradiance, temp_cell)
+
+    pvsystem.calcparams_pvsyst.assert_called_once_with(
+        effective_irradiance,
+        temp_cell,
+        alpha_sc=pvsyst_module_params['alpha_sc'],
+        gamma_ref=pvsyst_module_params['gamma_ref'],
+        mu_gamma=pvsyst_module_params['mu_gamma'],
+        I_L_ref=pvsyst_module_params['I_L_ref'],
+        I_o_ref=pvsyst_module_params['I_o_ref'],
+        R_sh_ref=pvsyst_module_params['R_sh_ref'],
+        R_sh_0=pvsyst_module_params['R_sh_0'],
+        R_sh_exp=pvsyst_module_params['R_sh_exp'],
+        R_s=pvsyst_module_params['R_s'],
+        EgRef=pvsyst_module_params['EgRef'],
+        cells_in_series=pvsyst_module_params['cells_in_series'])
+    assert_allclose(IL, np.array([0.0, 4.820]), atol=1e-3)
+    assert_allclose(I0, np.array([5.0e-9, 1.47e-7]), rtol=1e-3)
+    assert_allclose(Rs, 0.5)
+    assert_allclose(Rsh, np.array([1000.0, 305.757]), rtol=1e-3)
+    assert_allclose(nNsVth, np.array([1.6186, 1.7961]), rtol=1e-3)
 
 
 @pytest.fixture(params=[

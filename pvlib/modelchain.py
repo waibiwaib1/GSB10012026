@@ -254,7 +254,8 @@ class ModelChain(object):
     dc_model: None, str, or function, default None
         If None, the model will be inferred from the contents of
         system.module_parameters. Valid strings are 'sapm',
-        'singlediode', 'pvwatts'. The ModelChain instance will be passed
+        'singlediode', 'pvsyst', 'pvwatts'. The ModelChain instance will be
+        passed
         as the first argument to a user-defined function.
 
     ac_model: None, str, or function, default None
@@ -375,6 +376,8 @@ class ModelChain(object):
                 self._dc_model = self.sapm
             elif model == 'singlediode':
                 self._dc_model = self.singlediode
+            elif model == 'pvsyst':
+                self._dc_model = self.pvsyst
             elif model == 'pvwatts':
                 self._dc_model = self.pvwatts_dc
             else:
@@ -386,6 +389,9 @@ class ModelChain(object):
         params = set(self.system.module_parameters.keys())
         if set(['A0', 'A1', 'C7']) <= params:
             return self.sapm
+        elif set(['gamma_ref', 'mu_gamma', 'I_L_ref', 'I_o_ref',
+                  'R_sh_ref', 'R_sh_0', 'R_sh_exp', 'R_s']) <= params:
+            return self.pvsyst
         elif set(['a_ref', 'I_L_ref', 'I_o_ref', 'R_sh_ref', 'R_s']) <= params:
             return self.singlediode
         elif set(['pdc0', 'gamma_pdc']) <= params:
@@ -410,6 +416,23 @@ class ModelChain(object):
 
         self.desoto = (photocurrent, saturation_current, resistance_series,
                        resistance_shunt, nNsVth)
+
+        self.dc = self.system.singlediode(
+            photocurrent, saturation_current, resistance_series,
+            resistance_shunt, nNsVth)
+
+        self.dc = self.system.scale_voltage_current_power(self.dc).fillna(0)
+
+        return self
+
+    def pvsyst(self):
+        (photocurrent, saturation_current, resistance_series,
+         resistance_shunt, nNsVth) = (
+            self.system.calcparams_pvsyst(self.effective_irradiance,
+                                          self.temps['temp_cell']))
+
+        self.pvsyst_params = (photocurrent, saturation_current,
+                              resistance_series, resistance_shunt, nNsVth)
 
         self.dc = self.system.singlediode(
             photocurrent, saturation_current, resistance_series,
