@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+import pandas as pd
+
 from narwhals._compliant.any_namespace import DateTimeNamespace
 from narwhals._constants import (
     EPOCH_YEAR,
@@ -10,9 +12,10 @@ from narwhals._constants import (
     SECONDS_PER_DAY,
     US_PER_SECOND,
 )
-from narwhals._duration import parse_interval_string
+from narwhals._duration import Interval
 from narwhals._pandas_like.utils import (
     UNIT_DICT,
+    UNITS_DICT,
     PandasLikeSeriesNamespace,
     calculate_timestamp_date,
     calculate_timestamp_datetime,
@@ -203,7 +206,8 @@ class PandasLikeSeriesDateTimeNamespace(
         return self.with_native(result)
 
     def truncate(self, every: str) -> PandasLikeSeries:
-        multiple, unit = parse_interval_string(every)
+        interval = Interval.parse(every)
+        multiple, unit = interval.multiple, interval.unit
         native = self.native
         if self.implementation.is_cudf():
             if multiple != 1:
@@ -242,3 +246,46 @@ class PandasLikeSeriesDateTimeNamespace(
         return self.with_native(
             self.native.dt.floor(f"{multiple}{UNIT_DICT.get(unit, unit)}")
         )
+
+    def offset_by(self, by: str) -> PandasLikeSeries:
+        if self.implementation.is_cudf():
+            msg = "Not implemented for cuDF."
+            raise NotImplementedError(msg)
+        native = self.native
+        if self._is_pyarrow():
+            import pyarrow as pa  # ignore-banned-import
+
+            from narwhals._arrow.series import ArrowSeries
+
+            ca = pa.chunked_array([self.compliant.to_arrow()])
+            result = (
+                ArrowSeries(ca, name=native.name, version=self.compliant._version)
+                .dt.offset_by(by)
+                .native
+            )
+            result_pd = native.__class__(
+                result, dtype=native.dtype, index=native.index, name=native.name
+            )
+        else:
+            interval = Interval.parse_no_constraints(by)
+            multiple, unit = interval.multiple, interval.unit
+            if unit == "q":
+                multiple *= 3
+                unit = "mo"
+            offset: pd.DateOffset | pd.Timedelta
+            if unit == "y":
+                offset = pd.DateOffset(years=multiple)
+            elif unit == "mo":
+                offset = pd.DateOffset(months=multiple)
+            else:
+                offset = pd.Timedelta(multiple, unit=UNITS_DICT[unit])  # type: ignore[arg-type]
+            if unit == "d":
+                original_timezone = native.dt.tz
+                native_without_timezone = native.dt.tz_localize(None)
+                result_pd = native_without_timezone + offset
+                if original_timezone is not None:
+                    result_pd = result_pd.dt.tz_localize(original_timezone)
+            else:
+                result_pd = native + offset
+
+        return self.with_native(result_pd)
