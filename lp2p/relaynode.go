@@ -155,7 +155,7 @@ func (g *GossipRelayNode) background(w client.Watcher) {
 				randB, err := proto.Marshal(&drand.PublicRandResponse{
 					Round:             res.Round(),
 					Signature:         res.Signature(),
-					PreviousSignature: rd.PreviousSignature,
+					PreviousSignature: rd.PreviousSig,
 					Randomness:        res.Randomness(),
 				})
 				if err != nil {

@@ -53,7 +53,7 @@ func toRandomDataChain(results ...mock.Result) []client.RandomData {
 			Rnd:               results[i].Round(),
 			Random:            results[i].Randomness(),
 			Sig:               results[i].Signature(),
-			PreviousSignature: prevSig,
+			PreviousSig:      prevSig,
 		})
 		prevSig = results[i].Signature()
 	}

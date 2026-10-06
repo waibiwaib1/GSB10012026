@@ -87,7 +87,7 @@ func randomnessValidator(info *chain.Info, cache client.Cache, c *Client) pubsub
 				curB := chain.Beacon{
 					Round:       current.Round(),
 					Signature:   current.Signature(),
-					PreviousSig: currentFull.PreviousSignature,
+					PreviousSig: currentFull.PreviousSig,
 				}
 				if b.Equal(&curB) {
 					return pubsub.ValidationIgnore
@@ -224,7 +224,7 @@ func (c *Client) Watch(ctx context.Context) <-chan client.Result {
 					Rnd:               resp.Round,
 					Random:            resp.Randomness,
 					Sig:               resp.Signature,
-					PreviousSignature: resp.PreviousSignature,
+					PreviousSig:      resp.PreviousSignature,
 				}:
 				default:
 					c.log.Warn("gossip client", "randomness notification dropped due to a full channel")

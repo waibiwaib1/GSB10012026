@@ -246,13 +246,13 @@ func (h *httpClient) Get(ctx context.Context, round uint64) (client.Result, erro
 			resC <- httpGetResponse{nil, fmt.Errorf("decoding response: %w", err)}
 			return
 		}
-		if len(randResp.Sig) == 0 || len(randResp.PreviousSignature) == 0 {
+		if len(randResp.Sig) == 0 || len(randResp.PreviousSig) == 0 {
 			resC <- httpGetResponse{nil, fmt.Errorf("insufficient response")}
 			return
 		}
 
 		b := chain.Beacon{
-			PreviousSig: randResp.PreviousSignature,
+			PreviousSig: randResp.PreviousSig,
 			Round:       randResp.Rnd,
 			Signature:   randResp.Sig,
 		}
