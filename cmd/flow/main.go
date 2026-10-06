@@ -30,6 +30,7 @@ import (
 	"github.com/onflow/flow-cli/internal/collections"
 	"github.com/onflow/flow-cli/internal/command"
 	"github.com/onflow/flow-cli/internal/config"
+	"github.com/onflow/flow-cli/internal/create"
 	"github.com/onflow/flow-cli/internal/emulator"
 	"github.com/onflow/flow-cli/internal/events"
 	"github.com/onflow/flow-cli/internal/keys"
@@ -82,6 +83,7 @@ func main() {
 	cmd.AddCommand(blocks.Cmd)
 	cmd.AddCommand(collections.Cmd)
 	cmd.AddCommand(project.Cmd)
+	cmd.AddCommand(create.Cmd)
 	cmd.AddCommand(config.Cmd)
 	cmd.AddCommand(signatures.Cmd)
 	cmd.AddCommand(snapshot.Cmd)
