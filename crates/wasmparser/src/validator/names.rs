@@ -414,22 +414,22 @@ impl<'a> InterfaceName<'a> {
         self.0
     }
 
-    /// Returns the `a` in `a:b/c`
+    /// Returns the namespace in `a:b/c` or `a:b:c/d`.
     pub fn namespace(&self) -> &'a KebabStr {
-        let colon = self.0.find(':').unwrap();
+        let colon = self.0.rfind(':').unwrap();
         KebabStr::new_unchecked(&self.0[..colon])
     }
 
-    /// Returns the `b` in `a:b/c`
+    /// Returns the package label in `a:b/c` or `a:b:c/d`.
     pub fn package(&self) -> &'a KebabStr {
-        let colon = self.0.find(':').unwrap();
+        let colon = self.0.rfind(':').unwrap();
         let slash = self.0.find('/').unwrap();
         KebabStr::new_unchecked(&self.0[colon + 1..slash])
     }
 
-    /// Returns the `c` in `a:b/c`
+    /// Returns the final projection in `a:b/c` or `a:b/c/d`.
     pub fn interface(&self) -> &'a KebabStr {
-        let slash = self.0.find('/').unwrap();
+        let slash = self.0.rfind('/').unwrap();
         let at = self.0.find('@').unwrap_or(self.0.len());
         KebabStr::new_unchecked(&self.0[slash + 1..at])
     }
@@ -505,18 +505,25 @@ impl<'a> ComponentNameParser<'a> {
             return Ok(ParsedComponentNameKind::Static);
         }
 
-        // 'unlocked-dep=<' <pkgidset> '>'
+        // 'unlocked-dep=<' <pkgnamequery> '>'
         if self.eat_str("unlocked-dep=") {
             self.expect_str("<")?;
-            self.pkgidset_up_to('>')?;
+            self.parse_pkgpath(Some('>'), 0)?;
+            if self.eat_str("@") {
+                self.verrange()?;
+            }
             self.expect_str(">")?;
             return Ok(ParsedComponentNameKind::Dependency);
         }
 
-        // 'locked-dep=<' <pkgid> '>' ( ',' <hashname> )?
+        // 'locked-dep=<' <pkgname> '>' ( ',' <hashname> )?
         if self.eat_str("locked-dep=") {
             self.expect_str("<")?;
-            self.pkgid_up_to('>')?;
+            self.parse_pkgpath(Some('>'), 0)?;
+            if self.eat_str("@") {
+                let version = self.take_up_to('>')?;
+                self.semver(version)?;
+            }
             self.expect_str(">")?;
             self.eat_optional_hash()?;
             return Ok(ParsedComponentNameKind::Dependency);
@@ -525,7 +532,7 @@ impl<'a> ComponentNameParser<'a> {
         // 'url=<' <nonbrackets> '>' (',' <hashname>)?
         if self.eat_str("url=") {
             self.expect_str("<")?;
-            let _url = self.take_up_to('>')?;
+            let _url = self.nonbrackets_up_to('>')?;
             self.expect_str(">")?;
             self.eat_optional_hash()?;
             return Ok(ParsedComponentNameKind::Url);
@@ -533,7 +540,7 @@ impl<'a> ComponentNameParser<'a> {
         // 'relative-url=<' <nonbrackets> '>' (',' <hashname>)?
         if self.eat_str("relative-url=") {
             self.expect_str("<")?;
-            let _url = self.take_up_to('>')?;
+            let _url = self.nonbrackets_up_to('>')?;
             self.expect_str(">")?;
             self.eat_optional_hash()?;
             return Ok(ParsedComponentNameKind::Url);
@@ -548,20 +555,13 @@ impl<'a> ComponentNameParser<'a> {
         }
 
         match self.eat_until(':') {
-            // interfacename ::= <namespace> <label> <projection> <version>?
+            // interfacename ::= <namespace>+ <label> <projection>+ <version>?
             Some(namespace) => {
                 self.kebab(namespace)?;
-                let pkg = self.take_until('/')?;
-                self.kebab(pkg)?;
-                match self.eat_until('@') {
-                    Some(interface) => {
-                        self.kebab(interface)?;
-                        let version = self.take_rest();
-                        self.semver(version)?;
-                    }
-                    None => {
-                        self.expect_kebab()?;
-                    }
+                self.parse_pkgpath_rest(None, 1)?;
+                if self.eat_str("@") {
+                    let version = self.take_rest();
+                    self.semver(version)?;
                 }
                 Ok(ParsedComponentNameKind::Interface)
             }
@@ -572,29 +572,13 @@ impl<'a> ComponentNameParser<'a> {
         }
     }
 
-    // pkgidset      ::= <pkgname> <verrange>?
-    // pkgname       ::= <namespace> <label>
     // verrange      ::= '@*'
     //                 | '@{' <verlower> '}'
     //                 | '@{' <verupper> '}'
     //                 | '@{' <verlower> ' ' <verupper> '}'
     // verlower      ::= '>=' <valid semver>
     // verupper      ::= '<' <valid semver>
-    fn pkgidset_up_to(&mut self, end: char) -> Result<()> {
-        let namespace = self.take_until(':')?;
-        self.kebab(namespace)?;
-        let name = match self.eat_until('@') {
-            Some(name) => name,
-            // a:b
-            None => {
-                let name = self.take_up_to(end)?;
-                self.kebab(name)?;
-                return Ok(());
-            }
-        };
-        self.kebab(name)?;
-
-        // a:b@*
+    fn verrange(&mut self) -> Result<()> {
         if self.eat_str("*") {
             return Ok(());
         }
@@ -613,33 +597,45 @@ impl<'a> ComponentNameParser<'a> {
             }
         }
 
-        // a:b@{<1.2.3}
-        // .. or
-        // a:b@{<1.2.3 >=1.2.3}
+        // a:b@{<1.2.3} or a:b@{>=1.2.3 <1.2.3}
         self.expect_str("<")?;
         let version = self.take_until('}')?;
         self.semver(version)?;
         Ok(())
     }
 
-    // pkgid         ::= <pkgname> <version>?
-    fn pkgid_up_to(&mut self, end: char) -> Result<()> {
-        let namespace = self.take_until(':')?;
-        self.kebab(namespace)?;
-        match self.eat_until('@') {
-            // a:b@1.2.3
-            Some(name) => {
-                self.kebab(name)?;
-                let version = self.take_up_to(end)?;
-                self.semver(version)?;
+    // pkgpath       ::= <namespace> <label>
+    //                 | <namespace>+ <label> <projection>*
+    //
+    // This is called after the first namespace has been consumed.
+    fn parse_pkgpath(&mut self, end: Option<char>, min_projections: usize) -> Result<()> {
+        let first_namespace = self.take_until(':')?;
+        self.kebab(first_namespace)?;
+        self.parse_pkgpath_rest(end, min_projections)
+    }
+
+    fn parse_pkgpath_rest(&mut self, end: Option<char>, min_projections: usize) -> Result<()> {
+        loop {
+            let label =
+                self.take_kebab_until(|c| c == ':' || c == '/' || c == '@' || Some(c) == end)?;
+            self.kebab(label)?;
+            if self.eat_str(":") {
+                continue;
             }
-            // a:b
-            None => {
-                let name = self.take_up_to(end)?;
-                self.kebab(name)?;
+
+            let mut projections = 0;
+            while self.eat_str("/") {
+                projections += 1;
+                let projection =
+                    self.take_kebab_until(|c| c == '/' || c == '@' || Some(c) == end)?;
+                self.kebab(projection)?;
             }
+
+            if projections < min_projections {
+                bail!(self.offset, "failed to find `/` character");
+            }
+            return Ok(());
         }
-        Ok(())
     }
 
     fn parse_hash(&mut self) -> Result<&'a str> {
@@ -744,6 +740,29 @@ impl<'a> ComponentNameParser<'a> {
         }
     }
 
+    fn take_kebab_until(&mut self, delimiter: impl Fn(char) -> bool) -> Result<&'a str> {
+        match self.next.find(delimiter) {
+            Some(i) => {
+                let label = &self.next[..i];
+                self.next = &self.next[i..];
+                Ok(label)
+            }
+            None => Ok(self.take_rest()),
+        }
+    }
+
+    fn nonbrackets_up_to(&mut self, end: char) -> Result<&'a str> {
+        match self.next.find(['<', end]) {
+            Some(i) if self.next[i..].starts_with(end) => {
+                let value = &self.next[..i];
+                self.next = &self.next[i..];
+                Ok(value)
+            }
+            Some(_) => bail!(self.offset, "URL cannot contain `<`"),
+            None => bail!(self.offset, "failed to find `{end}` character"),
+        }
+    }
+
     fn take_rest(&mut self) -> &'a str {
         let ret = self.next;
         self.next = "";
@@ -804,6 +823,30 @@ mod tests {
         assert!(parse_kebab_name("[method]a.b.c").is_none());
         assert!(parse_kebab_name("[static]a.b").is_some());
         assert!(parse_kebab_name("[static]a").is_none());
+    }
+
+    #[test]
+    fn nested_component_names() {
+        assert!(parse_kebab_name("a:b:c/d").is_some());
+        assert!(parse_kebab_name("a:b:c/d/e@1.2.3").is_some());
+        assert!(parse_kebab_name("unlocked-dep=<a:b:c/d/e>").is_some());
+        assert!(parse_kebab_name("unlocked-dep=<a:b:c/d/e@*>").is_some());
+        assert!(parse_kebab_name("locked-dep=<a:b:c/d/e@1.2.3>").is_some());
+        assert!(parse_kebab_name("relative-url=<https://example.com>").is_some());
+        assert!(parse_kebab_name("url=<relative/path>").is_some());
+        assert!(parse_kebab_name("url=<a<b>").is_none());
+    }
+
+    #[test]
+    fn nested_interface_accessors() {
+        let parsed_name = parse_kebab_name("a:b:c/d/e@1.2.3").unwrap();
+        let ComponentNameKind::Interface(name) = parsed_name.kind() else {
+            panic!("expected an interface name")
+        };
+        assert_eq!(name.namespace().as_str(), "a:b");
+        assert_eq!(name.package().as_str(), "c");
+        assert_eq!(name.interface().as_str(), "e");
+        assert_eq!(name.version().unwrap().to_string(), "1.2.3");
     }
 
     #[test]
