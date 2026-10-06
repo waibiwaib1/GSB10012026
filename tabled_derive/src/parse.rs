@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span};
 use syn::{
-    parenthesized, parse::Parse, punctuated::Punctuated, token, Attribute, LitBool, LitInt, LitStr,
-    Token,
+    parenthesized, parse::Parse, punctuated::Punctuated, token, Attribute, LitBool, LitInt,
+    LitStr, Token,
 };
 
 pub fn parse_attributes(
@@ -27,6 +27,7 @@ impl TabledAttr {
 
 #[derive(Clone)]
 pub enum TabledAttrKind {
+    Crate(LitStr),
     Skip(LitBool),
     Inline(LitBool, Option<LitStr>),
     Rename(LitStr),
@@ -39,6 +40,15 @@ impl Parse for TabledAttr {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         use TabledAttrKind::*;
 
+        // `crate` is a reserved keyword, so it can't be parsed as an `Ident`.
+        if input.peek(Token![crate]) && input.peek2(Token![=]) {
+            let crate_token = input.parse::<Token![crate]>()?;
+            input.parse::<Token![=]>()?;
+            let lit = input.parse::<LitStr>()?;
+
+            return Ok(Self::new(Ident::new("crate", crate_token.span), Crate(lit)));
+        }
+
         let name: Ident = input.parse()?;
         let name_str = name.to_string();
 
@@ -49,6 +59,7 @@ impl Parse for TabledAttr {
                 let lit = input.parse::<LitStr>()?;
 
                 match name_str.as_str() {
+                    "crate" => return Ok(Self::new(name, Crate(lit))),
                     "rename" => return Ok(Self::new(name, Rename(lit))),
                     "rename_all" => return Ok(Self::new(name, RenameAll(lit))),
                     "display_with" => {

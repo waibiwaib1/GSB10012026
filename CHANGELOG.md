@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Added
+
+- Added `#[tabled(crate = "...")]` attribute to the `Tabled` derive macro which allows specifying a custom path to the `tabled` crate (useful when it's re-exported by another crate).
+
 ## [0.15.0] - 2023-12-20
 
 ### Added

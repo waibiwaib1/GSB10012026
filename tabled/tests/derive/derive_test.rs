@@ -1097,3 +1097,53 @@ mod __ {
         struct __;
     }
 }
+
+#[allow(unused_imports)]
+pub mod tabled_reexport {
+    pub use tabled::*;
+}
+
+#[test]
+fn test_custom_crate_path() {
+    #[allow(dead_code)]
+    #[derive(Tabled)]
+    #[tabled(crate = "crate::derive::derive_test::tabled_reexport")]
+    struct Inner {
+        a: u8,
+        b: u8,
+    }
+
+    #[allow(dead_code)]
+    #[derive(Tabled)]
+    #[tabled(crate = "crate::derive::derive_test::tabled_reexport")]
+    struct Struct {
+        #[tabled(inline)]
+        inner: Inner,
+        name: u8,
+    }
+
+    let value = Struct {
+        inner: Inner { a: 1, b: 2 },
+        name: 3,
+    };
+
+    assert_eq!(Struct::headers(), vec!["a", "b", "name"]);
+    assert_eq!(value.fields(), vec!["1", "2", "3"]);
+    assert_eq!(<Struct as Tabled>::LENGTH, 3);
+}
+
+#[test]
+fn test_custom_crate_path_enum() {
+    #[allow(dead_code)]
+    #[derive(Tabled)]
+    #[tabled(crate = "crate::derive::derive_test::tabled_reexport")]
+    enum Enum {
+        Variant { number: u8 },
+        Unit,
+    }
+
+    assert_eq!(Enum::headers(), vec!["Variant", "Unit"]);
+    assert_eq!(Enum::Variant { number: 1 }.fields(), vec!["+", ""]);
+    assert_eq!(Enum::Unit.fields(), vec!["", "+"]);
+    assert_eq!(<Enum as Tabled>::LENGTH, 2);
+}

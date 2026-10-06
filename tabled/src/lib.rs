@@ -497,6 +497,22 @@ pub use crate::{tabled::Tabled, tables::Table};
 ///     price: f32,
 /// }
 /// ```
+///
+/// ### Custom crate path
+///
+/// If `tabled` is re-exported from another crate (for example, from a macro library),
+/// the derive macro can be pointed at the re-exported path using `#[tabled(crate = "...")]`.
+///
+/// ```rust,no_run
+/// # mod my_crate { pub use tabled::*; }
+/// use tabled::Tabled;
+///
+/// #[derive(Tabled)]
+/// #[tabled(crate = "my_crate")]
+/// struct MyType {
+///     value: u8,
+/// }
+/// ```
 #[cfg(feature = "derive")]
 #[cfg_attr(docsrs, doc(cfg(feature = "derive")))]
 pub use tabled_derive::Tabled;

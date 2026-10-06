@@ -16,7 +16,7 @@ use quote::{quote, ToTokens, TokenStreamExt};
 use std::{collections::HashMap, str};
 use syn::{
     parse_macro_input, token, Data, DataEnum, DataStruct, DeriveInput, Field, Fields, Ident, Index,
-    Type, Variant,
+    Path, Type, Variant,
 };
 
 use attributes::{Attributes, FuncArg, StructAttributes};
@@ -35,17 +35,19 @@ fn impl_tabled(ast: &DeriveInput) -> TokenStream {
         .map_err(error::abort)
         .unwrap();
 
-    let length = get_tabled_length(ast, &attrs)
+    let krate = get_crate_path(&attrs);
+
+    let length = get_tabled_length(ast, &attrs, &krate)
         .map_err(error::abort)
         .unwrap();
-    let info = collect_info(ast, &attrs).map_err(error::abort).unwrap();
+    let info = collect_info(ast, &attrs, &krate).map_err(error::abort).unwrap();
     let fields = info.values;
     let headers = info.headers;
 
     let name = &ast.ident;
     let (impl_generics, ty_generics, where_clause) = ast.generics.split_for_impl();
     let expanded = quote! {
-        impl #impl_generics ::tabled::Tabled for #name #ty_generics #where_clause {
+        impl #impl_generics #krate::Tabled for #name #ty_generics #where_clause {
             const LENGTH: usize = #length;
 
             fn fields(&self) -> Vec<::std::borrow::Cow<'_, str>> {
@@ -61,21 +63,41 @@ fn impl_tabled(ast: &DeriveInput) -> TokenStream {
     expanded
 }
 
-fn get_tabled_length(ast: &DeriveInput, attrs: &StructAttributes) -> Result<TokenStream, Error> {
+fn get_crate_path(attrs: &StructAttributes) -> Path {
+    match &attrs.krate {
+        Some(path) => syn::parse_str(path)
+            .map_err(|err| {
+                Error::new(
+                    format!("Failed to parse crate path '{path}'; {err}"),
+                    proc_macro2::Span::call_site(),
+                    None,
+                )
+            })
+            .map_err(error::abort)
+            .unwrap(),
+        None => syn::parse_str("::tabled").unwrap(),
+    }
+}
+
+fn get_tabled_length(
+    ast: &DeriveInput,
+    attrs: &StructAttributes,
+    krate: &Path,
+) -> Result<TokenStream, Error> {
     match &ast.data {
-        Data::Struct(data) => get_fields_length(&data.fields),
+        Data::Struct(data) => get_fields_length(&data.fields, krate),
         Data::Enum(data) => {
             if attrs.inline {
                 Ok(quote! { 1 })
             } else {
-                get_enum_length(data)
+                get_enum_length(data, krate)
             }
         }
         Data::Union(_) => Err(Error::message("Union type isn't supported")),
     }
 }
 
-fn get_fields_length(fields: &Fields) -> Result<TokenStream, Error> {
+fn get_fields_length(fields: &Fields, krate: &Path) -> Result<TokenStream, Error> {
     let size_components = fields
         .iter()
         .map(|field| {
@@ -88,7 +110,7 @@ fn get_fields_length(fields: &Fields) -> Result<TokenStream, Error> {
         .map(|(field, attr)| {
             if attr.inline {
                 let field_type = &field.ty;
-                quote!({<#field_type as tabled::Tabled>::LENGTH})
+                quote!({<#field_type as #krate::Tabled>::LENGTH})
             } else {
                 quote!({ 1 })
             }
@@ -102,8 +124,8 @@ fn get_fields_length(fields: &Fields) -> Result<TokenStream, Error> {
     Ok(stream)
 }
 
-fn get_enum_length(enum_ast: &DataEnum) -> Result<TokenStream, Error> {
-    let variant_sizes = get_enum_variant_length(enum_ast);
+fn get_enum_length(enum_ast: &DataEnum, krate: &Path) -> Result<TokenStream, Error> {
+    let variant_sizes = get_enum_variant_length(enum_ast, krate);
 
     let mut stream = TokenStream::new();
     for (i, size) in variant_sizes.enumerate() {
@@ -119,9 +141,10 @@ fn get_enum_length(enum_ast: &DataEnum) -> Result<TokenStream, Error> {
     Ok(stream)
 }
 
-fn get_enum_variant_length(
-    enum_ast: &DataEnum,
-) -> impl Iterator<Item = Result<TokenStream, Error>> + '_ {
+fn get_enum_variant_length<'a>(
+    enum_ast: &'a DataEnum,
+    krate: &'a Path,
+) -> impl Iterator<Item = Result<TokenStream, Error>> + 'a {
     enum_ast
         .variants
         .iter()
@@ -130,27 +153,35 @@ fn get_enum_variant_length(
             Ok((variant, attributes))
         })
         .filter(|result| result.is_err() || matches!(result, Ok((_, attr)) if !attr.is_ignored()))
-        .map(|result| {
+        .map(move |result| {
             let (variant, attr) = result?;
 
             if attr.inline {
-                get_fields_length(&variant.fields)
+                get_fields_length(&variant.fields, krate)
             } else {
                 Ok(quote!(1))
             }
         })
 }
 
-fn collect_info(ast: &DeriveInput, attrs: &StructAttributes) -> Result<Impl, Error> {
+fn collect_info(
+    ast: &DeriveInput,
+    attrs: &StructAttributes,
+    krate: &Path,
+) -> Result<Impl, Error> {
     match &ast.data {
-        Data::Struct(data) => collect_info_struct(data, attrs),
-        Data::Enum(data) => collect_info_enum(data, attrs, &ast.ident),
+        Data::Struct(data) => collect_info_struct(data, attrs, krate),
+        Data::Enum(data) => collect_info_enum(data, attrs, &ast.ident, krate),
         Data::Union(_) => Err(Error::message("Union type isn't supported")),
     }
 }
 
-fn collect_info_struct(ast: &DataStruct, attrs: &StructAttributes) -> Result<Impl, Error> {
-    info_from_fields(&ast.fields, attrs, field_var_name, "")
+fn collect_info_struct(
+    ast: &DataStruct,
+    attrs: &StructAttributes,
+    krate: &Path,
+) -> Result<Impl, Error> {
+    info_from_fields(&ast.fields, attrs, field_var_name, "", krate)
 }
 
 // todo: refactoring. instead of using a lambda + prefix
@@ -161,6 +192,7 @@ fn info_from_fields(
     attrs: &StructAttributes,
     field_name: impl Fn(usize, &Field) -> TokenStream,
     header_prefix: &str,
+    krate: &Path,
 ) -> Result<Impl, Error> {
     let count_fields = fields.len();
 
@@ -196,7 +228,7 @@ fn info_from_fields(
             reorder.insert(order, i - skipped);
         }
 
-        let header = field_headers(field, i, &attributes, header_prefix);
+        let header = field_headers(field, i, &attributes, header_prefix, krate);
         headers.push(header);
 
         let field_name = field_name(i, field);
@@ -257,13 +289,14 @@ fn field_headers(
     index: usize,
     attributes: &Attributes,
     prefix: &str,
+    krate: &Path,
 ) -> TokenStream {
     if attributes.inline {
         let prefix = attributes
             .inline_prefix
             .as_ref()
             .map_or_else(|| "", |s| s.as_str());
-        return get_type_headers(&field.ty, prefix, "");
+        return get_type_headers(&field.ty, prefix, "", krate);
     }
 
     let header_name = field_header_name(field, attributes, index);
@@ -279,6 +312,7 @@ fn collect_info_enum(
     ast: &DataEnum,
     attrs: &StructAttributes,
     name: &Ident,
+    krate: &Path,
 ) -> Result<Impl, Error> {
     match &attrs.inline {
         true => {
@@ -289,11 +323,15 @@ fn collect_info_enum(
 
             collect_info_enum_inlined(ast, attrs, enum_name)
         }
-        false => _collect_info_enum(ast, attrs),
+        false => _collect_info_enum(ast, attrs, krate),
     }
 }
 
-fn _collect_info_enum(ast: &DataEnum, attrs: &StructAttributes) -> Result<Impl, Error> {
+fn _collect_info_enum(
+    ast: &DataEnum,
+    attrs: &StructAttributes,
+    krate: &Path,
+) -> Result<Impl, Error> {
     // reorder variants according to order (if set)
     let orderedvariants = reodered_variants(ast)?;
 
@@ -306,15 +344,15 @@ fn _collect_info_enum(ast: &DataEnum, attrs: &StructAttributes) -> Result<Impl, 
             continue;
         }
 
-        let info = info_from_variant(v, &attributes, attrs)?;
+        let info = info_from_variant(v, &attributes, attrs, krate)?;
         variants.push((v, info.values));
         headers_list.push(info.headers);
     }
 
-    let variant_sizes = get_enum_variant_length(ast)
+    let variant_sizes = get_enum_variant_length(ast, krate)
         .collect::<Result<Vec<_>, Error>>()?
         .into_iter();
-    let values = values_for_enum(variant_sizes, &variants);
+    let values = values_for_enum(variant_sizes, &variants, krate);
 
     let headers = quote! {
         [
@@ -362,13 +400,14 @@ fn info_from_variant(
     variant: &Variant,
     attr: &Attributes,
     attrs: &StructAttributes,
+    krate: &Path,
 ) -> Result<Impl, Error> {
     if attr.inline {
         let prefix = attr
             .inline_prefix
             .as_ref()
             .map_or_else(|| "", |s| s.as_str());
-        return info_from_fields(&variant.fields, attrs, variant_var_name, prefix);
+        return info_from_fields(&variant.fields, attrs, variant_var_name, prefix, krate);
     }
 
     let variant_name = variant_name(variant, attr);
@@ -408,12 +447,17 @@ struct Impl {
     values: TokenStream,
 }
 
-fn get_type_headers(field_type: &Type, inline_prefix: &str, prefix: &str) -> TokenStream {
+fn get_type_headers(
+    field_type: &Type,
+    inline_prefix: &str,
+    prefix: &str,
+    krate: &Path,
+) -> TokenStream {
     if prefix.is_empty() && inline_prefix.is_empty() {
-        quote! { <#field_type as tabled::Tabled>::headers() }
+        quote! { <#field_type as #krate::Tabled>::headers() }
     } else {
         quote! {
-            <#field_type as tabled::Tabled>::headers().into_iter()
+            <#field_type as #krate::Tabled>::headers().into_iter()
                 .map(|header| {
                     let header = format!("{}{}{}", #prefix, #inline_prefix, header);
                     ::std::borrow::Cow::Owned(header)
@@ -499,6 +543,7 @@ fn variant_var_name(index: usize, field: &Field) -> TokenStream {
 fn values_for_enum(
     variant_sizes: impl Iterator<Item = TokenStream>,
     variants: &[(&Variant, TokenStream)],
+    krate: &Path,
 ) -> TokenStream {
     let branches = variants.iter().map(|(variant, _)| match_variant(variant));
 
@@ -536,7 +581,7 @@ fn values_for_enum(
             offsets[i] += offsets[i-1]
         }
 
-        let size = <Self as tabled::Tabled>::LENGTH;
+        let size = <Self as #krate::Tabled>::LENGTH;
         let mut out_vec = vec![::std::borrow::Cow::Borrowed(""); size];
 
         #[allow(unused_variables)]

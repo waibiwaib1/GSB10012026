@@ -4,6 +4,7 @@ use crate::{casing_style::CasingStyle, error::Error, parse};
 
 #[derive(Debug, Default)]
 pub struct Attributes {
+    pub krate: Option<String>,
     pub is_ignored: bool,
     pub inline: bool,
     pub inline_prefix: Option<String>,
@@ -35,6 +36,7 @@ impl Attributes {
 
     fn insert_attribute(&mut self, attr: parse::TabledAttr) -> Result<(), Error> {
         match attr.kind {
+            parse::TabledAttrKind::Crate(lit) => self.krate = Some(lit.value()),
             parse::TabledAttrKind::Skip(b) => {
                 if b.value {
                     self.is_ignored = true;
@@ -75,6 +77,7 @@ impl Attributes {
 }
 
 pub struct StructAttributes {
+    pub krate: Option<String>,
     pub rename_all: Option<CasingStyle>,
     pub inline: bool,
     pub inline_value: Option<String>,
@@ -84,6 +87,7 @@ impl StructAttributes {
     pub fn parse(attrs: &[Attribute]) -> Result<Self, Error> {
         let attrs = Attributes::parse(attrs)?;
         Ok(Self {
+            krate: attrs.krate,
             rename_all: attrs.rename_all,
             inline: attrs.inline,
             inline_value: attrs.inline_prefix,
