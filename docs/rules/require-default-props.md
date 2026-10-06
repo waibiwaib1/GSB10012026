@@ -1,77 +1,19 @@
 # Enforce a defaultProps definition for every prop that is not a required prop (react/require-default-props)
 
-This rule aims to ensure that any non-required prop types of a component has a
-corresponding `defaultProps` value.
+This rule aims to ensure that any non-required prop types of a class component
+or `createReactClass` component has a corresponding `defaultProps` value.
 
 > **Note**: You can provide types in runtime types using [PropTypes] and/or
 statically using [TypeScript] or [Flow]. This rule will validate your prop types
 regardless of how you define them.
 
-One advantage of `defaultProps` over custom default logic in your code is that
-`defaultProps` are resolved by React before the `PropTypes` typechecking
-happens, so typechecking will also apply to your `defaultProps`. The same also
-holds true for stateless functional components: default function parameters do
-not behave the same as `defaultProps` and thus using `defaultProps` is still
-preferred.
-
-To illustrate, consider the following example:
-
-With `defaultProps`:
-
-```jsx
-const HelloWorld = ({ name }) => (
-  <h1>Hello, {name.first} {name.last}!</h1>
-);
-
-HelloWorld.propTypes = {
-  name: PropTypes.shape({
-    first: PropTypes.string,
-    last: PropTypes.string,
-  })
-};
-
-HelloWorld.defaultProps = {
-  name: 'john'
-};
-
-// Logs:
-// Invalid prop `name` of type `string` supplied to `HelloWorld`, expected `object`.
-ReactDOM.render(<HelloWorld />,  document.getElementById('app'));
-```
-
-Without `defaultProps`:
-
-```jsx
-const HelloWorld = ({ name = 'John Doe' }) => (
-  <h1>Hello, {name.first} {name.last}!</h1>
-);
-
-HelloWorld.propTypes = {
-  name: PropTypes.shape({
-    first: PropTypes.string,
-    last: PropTypes.string,
-  })
-};
-
-// Nothing is logged, renders:
-// "Hello,!"
-ReactDOM.render(<HelloWorld />,  document.getElementById('app'));
-```
+`defaultProps` is deprecated for function components. Use ES6 default
+parameters instead, and reserve `defaultProps` for class components and
+`createReactClass` components.
 
 ## Rule Details
 
 Examples of **incorrect** code for this rule:
-
-```jsx
-function MyStatelessComponent({ foo, bar }) {
-  return <div>{foo}{bar}</div>;
-}
-
-MyStatelessComponent.propTypes = {
-  foo: PropTypes.string.isRequired,
-  bar: PropTypes.string
-};
-```
 
 ```jsx
 var Greeting = createReactClass({
@@ -111,18 +53,18 @@ Greeting.defaultProps = {
 };
 ```
 
-```jsx
-type Props = {
-  foo: string,
-  bar?: string
-};
-
-function MyStatelessComponent(props: Props) {
-  return <div>Hello {props.foo} {props.bar}</div>;
-}
-```
-
 Examples of **correct** code for this rule:
+
+```jsx
+function MyStatelessComponent({ foo, bar = 'some default' }) {
+  return <div>{foo}{bar}</div>;
+}
+
+MyStatelessComponent.propTypes = {
+  foo: PropTypes.string.isRequired,
+  bar: PropTypes.string
+};
+```
 
 ```jsx
 class Greeting extends React.Component {
@@ -155,17 +97,13 @@ MyStatelessComponent.propTypes = {
 ```
 
 ```jsx
-function MyStatelessComponent({ foo, bar }) {
+function MyStatelessComponent({ foo = 'some default', bar = 'another default' }) {
   return <div>{foo}{bar}</div>;
 }
 
 MyStatelessComponent.propTypes = {
-  foo: PropTypes.string.isRequired,
+  foo: PropTypes.string,
   bar: PropTypes.string
-};
-
-MyStatelessComponent.defaultProps = {
-    bar: 'some default'
 };
 ```
 
@@ -175,13 +113,9 @@ type Props = {
   bar?: string
 };
 
-function MyStatelessComponent(props: Props) {
-  return <div>Hello {props.foo} {props.bar}</div>;
+function MyStatelessComponent({ foo, bar = 'some default' }: Props) {
+  return <div>Hello {foo} {bar}</div>;
 }
-
-MyStatelessComponent.defaultProps = {
-  bar: 'some default'
-};
 ```
 
 ```js
@@ -203,7 +137,8 @@ NotAComponent.propTypes = {
 
 * `enabled`: for enabling the rule. 0=off, 1=warn, 2=error. Defaults to 0.
 * `forbidDefaultForRequired`: optional boolean to forbid prop default for a required prop. Defaults to false.
-* `ignoreFunctionalComponents`: optional boolean to ignore this rule for functional components. Defaults to false.
+* `ignoreFunctionalComponents`: optional boolean to ignore this rule for functional components. Defaults to true. Set this to `false` to restore the deprecated behavior of requiring `defaultProps` on function
+components.
 
 ### `forbidDefaultForRequired`
 
@@ -231,22 +166,6 @@ class Greeting extends React.Component {
 }
 ```
 
-```jsx
-function MyStatelessComponent({ foo, bar }) {
-  return <div>{foo}{bar}</div>;
-}
-
-MyStatelessComponent.propTypes = {
-  foo: PropTypes.string.isRequired,
-  bar: PropTypes.string
-};
-
-MyStatelessComponent.defaultProps = {
-  foo: 'foo',
-  bar: 'bar'
-};
-```
-
 Examples of **correct** code for this rule:
 
 ```jsx
@@ -269,19 +188,20 @@ class Greeting extends React.Component {
 ```
 
 ```jsx
-function MyStatelessComponent({ foo, bar }) {
+function MyStatelessComponent({ foo, bar = 'bar' }) {
   return <div>{foo}{bar}</div>;
 }
 
 MyStatelessComponent.propTypes = {
-  foo: PropTypes.string.isRequired,
-  bar: PropTypes.string.isRequired
+  foo: PropTypes.string,
+  bar: PropTypes.string
 };
 ```
 
 ### `ignoreFunctionalComponents`
 
-When set to `true`, ignores this rule for all functional components.
+Functional components are ignored by default. Set this to `false` to enforce `defaultProps` for functional components as
+well.
 
 Examples of **incorrect** code for this rule:
 

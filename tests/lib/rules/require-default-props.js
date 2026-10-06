@@ -157,7 +157,6 @@ ruleTester.run('require-default-props', rule, {
           bar: PropTypes.string.isRequired
         };
       `,
-      options: [{ ignoreFunctionalComponents: true }],
     },
     {
       code: `
@@ -169,7 +168,6 @@ ruleTester.run('require-default-props', rule, {
           bar: PropTypes.string.isRequired
         };
       `,
-      options: [{ ignoreFunctionalComponents: true }],
     },
     {
       code: `
@@ -996,6 +994,7 @@ ruleTester.run('require-default-props', rule, {
           bar: PropTypes.string.isRequired
         };
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1015,6 +1014,7 @@ ruleTester.run('require-default-props', rule, {
           bar: PropTypes.string.isRequired
         });
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1038,6 +1038,7 @@ ruleTester.run('require-default-props', rule, {
         };
         MyStatelessComponent.propTypes = forbidExtraProps(propTypes);
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1061,6 +1062,7 @@ ruleTester.run('require-default-props', rule, {
         };
         MyStatelessComponent.propTypes.baz = React.propTypes.string;
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1087,6 +1089,7 @@ ruleTester.run('require-default-props', rule, {
         }
         MyStatelessComponent.propTypes = types;
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1110,6 +1113,7 @@ ruleTester.run('require-default-props', rule, {
         };
         MyStatelessComponent.defaultProps = defaults;
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1134,6 +1138,7 @@ ruleTester.run('require-default-props', rule, {
         MyStatelessComponent.propTypes = types;
         MyStatelessComponent.defaultProps = defaults;
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1703,6 +1708,7 @@ ruleTester.run('require-default-props', rule, {
           foo: PropTypes.string
         };
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1726,6 +1732,7 @@ ruleTester.run('require-default-props', rule, {
           foo: PropTypes.string
         };
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1966,6 +1973,7 @@ ruleTester.run('require-default-props', rule, {
         }
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1982,6 +1990,7 @@ ruleTester.run('require-default-props', rule, {
         }
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -1999,6 +2008,7 @@ ruleTester.run('require-default-props', rule, {
         Hello.defaultProps = { foo: "foo" };
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2015,6 +2025,7 @@ ruleTester.run('require-default-props', rule, {
         }
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2040,6 +2051,7 @@ ruleTester.run('require-default-props', rule, {
         }
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2056,6 +2068,7 @@ ruleTester.run('require-default-props', rule, {
         };
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2073,6 +2086,7 @@ ruleTester.run('require-default-props', rule, {
         Hello.defaultProps = { foo: "foo" };
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2089,6 +2103,7 @@ ruleTester.run('require-default-props', rule, {
         };
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2106,6 +2121,7 @@ ruleTester.run('require-default-props', rule, {
         Hello.defaultProps = { foo: "foo" };
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2127,6 +2143,7 @@ ruleTester.run('require-default-props', rule, {
         Hello.defaultProps = { foo: "foo" };
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2145,6 +2162,7 @@ ruleTester.run('require-default-props', rule, {
         }
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2175,6 +2193,7 @@ ruleTester.run('require-default-props', rule, {
         }
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2208,6 +2227,7 @@ ruleTester.run('require-default-props', rule, {
         };
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2228,6 +2248,7 @@ ruleTester.run('require-default-props', rule, {
         }
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2254,6 +2275,7 @@ ruleTester.run('require-default-props', rule, {
         }
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2363,7 +2385,7 @@ ruleTester.run('require-default-props', rule, {
           foo: 'bar'
         };
       `,
-      options: [{ forbidDefaultForRequired: true }],
+      options: [{ forbidDefaultForRequired: true, ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'noDefaultWithRequired',
@@ -2383,7 +2405,7 @@ ruleTester.run('require-default-props', rule, {
           foo: 'bar'
         };
       `,
-      options: [{ forbidDefaultForRequired: true }],
+      options: [{ forbidDefaultForRequired: true, ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'noDefaultWithRequired',
@@ -2538,6 +2560,7 @@ ruleTester.run('require-default-props', rule, {
         }
       `,
       features: ['flow'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2565,6 +2588,7 @@ ruleTester.run('require-default-props', rule, {
 
         export default MyComponent;
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2582,6 +2606,7 @@ ruleTester.run('require-default-props', rule, {
           return <p>{props.a}</p>
         };
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2622,6 +2647,7 @@ ruleTester.run('require-default-props', rule, {
         );
       `,
       features: ['types'],
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2642,6 +2668,7 @@ ruleTester.run('require-default-props', rule, {
         };
         MyStatelessComponent.propTypes.baz = React.propTypes.string;
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
@@ -2667,6 +2694,7 @@ ruleTester.run('require-default-props', rule, {
         });
         MyStatelessComponent.propTypes = propTypes;
       `,
+      options: [{ ignoreFunctionalComponents: false }],
       errors: [
         {
           messageId: 'shouldHaveDefault',
