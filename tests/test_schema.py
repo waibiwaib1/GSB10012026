@@ -139,6 +139,19 @@ def test_date():
     }
 
 
+@pytest.mark.parametrize(
+    "get_type, extra",
+    [
+        (lambda: datetime.time, {}),
+        (lambda: Annotated[datetime.time, Meta(tz=None)], {}),
+        (lambda: Annotated[datetime.time, Meta(tz=True)], {"format": "time"}),
+        (lambda: Annotated[datetime.time, Meta(tz=False)], {}),
+    ],
+)
+def test_time(get_type, extra):
+    assert msgspec.json.schema(get_type()) == {"type": "string", **extra}
+
+
 def test_uuid():
     assert msgspec.json.schema(uuid.UUID) == {
         "type": "string",

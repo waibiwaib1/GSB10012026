@@ -2329,6 +2329,9 @@ typenode_simple_repr(TypeNode *self) {
     if (self->types & MS_TYPE_DATE) {
         if (!strbuilder_extend_literal(&builder, "date")) return NULL;
     }
+    if (self->types & MS_TYPE_TIME) {
+        if (!strbuilder_extend_literal(&builder, "time")) return NULL;
+    }
     if (self->types & MS_TYPE_UUID) {
         if (!strbuilder_extend_literal(&builder, "uuid")) return NULL;
     }
@@ -3047,14 +3050,14 @@ typenode_collect_check_invariants(
     if (ms_popcount(
             state->types & (
                 MS_TYPE_STR | MS_TYPE_STRLITERAL | MS_TYPE_ENUM |
-                MS_TYPE_DATETIME | MS_TYPE_DATE | MS_TYPE_UUID
+                MS_TYPE_DATETIME | MS_TYPE_DATE | MS_TYPE_TIME | MS_TYPE_UUID
             )
         ) > 1
     ) {
         PyErr_Format(
             PyExc_TypeError,
             "Type unions may not contain more than one str-like type (`str`, "
-            "`Enum`, `Literal[str values]`, `datetime`, `date`, `uuid`) - "
+            "`Enum`, `Literal[str values]`, `datetime`, `date`, `time`, `uuid`) - "
             "type `%R` is not supported",
             state->context
         );
@@ -3067,7 +3070,7 @@ typenode_collect_check_invariants(
             state->types & (
                 MS_TYPE_STR | MS_TYPE_STRLITERAL | MS_TYPE_ENUM |
                 MS_TYPE_BYTES | MS_TYPE_BYTEARRAY |
-                MS_TYPE_DATETIME | MS_TYPE_DATE | MS_TYPE_UUID
+                MS_TYPE_DATETIME | MS_TYPE_DATE | MS_TYPE_TIME | MS_TYPE_UUID
             )
         ) > 1
     ) {
@@ -3075,7 +3078,7 @@ typenode_collect_check_invariants(
             PyErr_Format(
                 PyExc_TypeError,
                 "JSON type unions may not contain more than one str-like type "
-                "(`str`, `Enum`, `Literal[str values]`, `datetime`, `date`, "
+                "(`str`, `Enum`, `Literal[str values]`, `datetime`, `date`, `time`, "
                 "`uuid`, `bytes`, `bytearray`) - type `%R` is not supported",
                 state->context
             );
@@ -3738,6 +3741,11 @@ typenode_collect_type_full(
     }
     else if (obj == (PyObject *)(PyDateTimeAPI->DateType)) {
         state->types |= MS_TYPE_DATE;
+        return 0;
+    }
+    else if (obj == (PyObject *)(PyDateTimeAPI->TimeType)) {
+        state->types |= MS_TYPE_TIME;
+        *kind = CK_TIME;
         return 0;
     }
     else if (obj == state->mod->UUIDType) {
@@ -7732,7 +7740,7 @@ ms_check_datetime_constraints(
     PyObject *tz,
     TypeNode *type, PathNode *path
 ) {
-    char *err, *type_str;
+    char *err;
     if (tz == Py_None) {
         if (type->types & MS_CONSTR_TZ_AWARE) {
             err = "Expected `%s` with a timezone component%U";
@@ -7750,14 +7758,34 @@ ms_check_datetime_constraints(
     );
 
 error:
-    if (type->types & MS_TYPE_TIME) {
-        type_str = "time";
+    ms_raise_validation_error(path, err, "datetime");
+    return NULL;
+}
+
+static PyObject *
+ms_check_time_constraints(
+    int hour, int minute, int second, int microsecond,
+    PyObject *tz,
+    TypeNode *type, PathNode *path
+) {
+    char *err;
+    if (tz == Py_None) {
+        if (type->types & MS_CONSTR_TZ_AWARE) {
+            err = "Expected `%s` with a timezone component%U";
+            goto error;
+        }
     }
-    else {
-        type_str = "datetime";
+    else if (type->types & MS_CONSTR_TZ_NAIVE) {
+        err = "Expected `%s` with no timezone component%U";
+        goto error;
     }
 
-    ms_raise_validation_error(path, err, type_str);
+    return PyDateTimeAPI->Time_FromTime(
+        hour, minute, second, microsecond, tz, PyDateTimeAPI->TimeType
+    );
+
+error:
+    ms_raise_validation_error(path, err, "time");
     return NULL;
 }
 
@@ -7779,8 +7807,11 @@ ms_encode_err_type_unsupported(PyTypeObject *type) {
 #if PY_VERSION_HEX < 0x030a00f0
 #define MS_GET_TZINFO(o)      (MS_HAS_TZINFO(o) ? \
     ((PyDateTime_DateTime *)(o))->tzinfo : Py_None)
+#define MS_TIME_GET_TZINFO(o) (MS_HAS_TZINFO(o) ? \
+    ((PyDateTime_Time *)(o))->tzinfo : Py_None)
 #else
 #define MS_GET_TZINFO(o) PyDateTime_DATE_GET_TZINFO(o)
+#define MS_TIME_GET_TZINFO(o) PyDateTime_TIME_GET_TZINFO(o)
 #endif
 
 static bool
@@ -7846,6 +7877,16 @@ datetime_apply_tz_offset(
     if (1 <= *year && *year <= 9999)
         return 0;
     return -1;
+}
+
+/* Convert a *valid* time with a tz offset (in minutes) to UTC time. */
+static void
+time_apply_tz_offset(int *hour, int *minute, int tz_offset) {
+    int x = *hour * 60 + *minute - tz_offset;
+    /* Wrap around to a valid minute-of-day */
+    x = ((x % 1440) + 1440) % 1440;
+    *hour = x / 60;
+    *minute = x % 60;
 }
 
 /* Days since 0001-01-01, the min value for python's datetime objects */
@@ -7995,28 +8036,17 @@ ms_encode_date(EncoderState *self, PyObject *obj, char *out)
     out = ms_write_fixint(out, day, 2);
 }
 
-/* Requires 32 bytes of scratch space max.
+/* Requires 21 bytes of scratch space max.
  *
  * Returns +nbytes if successful, -1 on failure */
 static int
-ms_encode_datetime(EncoderState *self, PyObject *obj, char *out)
+ms_encode_time_parts(
+    EncoderState *self, PyObject *obj,
+    uint8_t hour, uint8_t minute, uint8_t second, uint32_t microsecond,
+    PyObject *tzinfo, char *out
+)
 {
-    uint32_t year = PyDateTime_GET_YEAR(obj);
-    uint8_t month = PyDateTime_GET_MONTH(obj);
-    uint8_t day = PyDateTime_GET_DAY(obj);
-
-    uint8_t hour = PyDateTime_DATE_GET_HOUR(obj);
-    uint8_t minute = PyDateTime_DATE_GET_MINUTE(obj);
-    uint8_t second = PyDateTime_DATE_GET_SECOND(obj);
-    uint32_t microsecond = PyDateTime_DATE_GET_MICROSECOND(obj);
-
     char *p = out;
-    p = ms_write_fixint(p, year, 4);
-    *p++ = '-';
-    p = ms_write_fixint(p, month, 2);
-    *p++ = '-';
-    p = ms_write_fixint(p, day, 2);
-    *p++ = 'T';
     p = ms_write_fixint(p, hour, 2);
     *p++ = ':';
     p = ms_write_fixint(p, minute, 2);
@@ -8027,9 +8057,8 @@ ms_encode_datetime(EncoderState *self, PyObject *obj, char *out)
         p = ms_write_fixint(p, microsecond, 6);
     }
 
-    if (MS_HAS_TZINFO(obj)) {
+    if (tzinfo != Py_None) {
         int32_t offset_days = 0, offset_secs = 0;
-        PyObject *tzinfo = MS_GET_TZINFO(obj);
 
         if (tzinfo != PyDateTime_TimeZone_UTC) {
             PyObject *offset = CALL_METHOD_ONE_ARG(tzinfo, self->mod->str_utcoffset, obj);
@@ -8087,6 +8116,55 @@ ms_encode_datetime(EncoderState *self, PyObject *obj, char *out)
     return p - out;
 }
 
+/* Requires 21 bytes of scratch space max.
+ *
+ * Returns +nbytes if successful, -1 on failure */
+static int
+ms_encode_time(EncoderState *self, PyObject *obj, char *out)
+{
+    uint8_t hour = PyDateTime_TIME_GET_HOUR(obj);
+    uint8_t minute = PyDateTime_TIME_GET_MINUTE(obj);
+    uint8_t second = PyDateTime_TIME_GET_SECOND(obj);
+    uint32_t microsecond = PyDateTime_TIME_GET_MICROSECOND(obj);
+    PyObject *tzinfo = MS_TIME_GET_TZINFO(obj);
+
+    return ms_encode_time_parts(
+        self, Py_None, hour, minute, second, microsecond, tzinfo, out
+    );
+}
+
+/* Requires 32 bytes of scratch space max.
+ *
+ * Returns +nbytes if successful, -1 on failure */
+static int
+ms_encode_datetime(EncoderState *self, PyObject *obj, char *out)
+{
+    uint32_t year = PyDateTime_GET_YEAR(obj);
+    uint8_t month = PyDateTime_GET_MONTH(obj);
+    uint8_t day = PyDateTime_GET_DAY(obj);
+
+    uint8_t hour = PyDateTime_DATE_GET_HOUR(obj);
+    uint8_t minute = PyDateTime_DATE_GET_MINUTE(obj);
+    uint8_t second = PyDateTime_DATE_GET_SECOND(obj);
+    uint32_t microsecond = PyDateTime_DATE_GET_MICROSECOND(obj);
+
+    PyObject *tzinfo = MS_HAS_TZINFO(obj) ? MS_GET_TZINFO(obj) : Py_None;
+
+    char *p = out;
+    p = ms_write_fixint(p, year, 4);
+    *p++ = '-';
+    p = ms_write_fixint(p, month, 2);
+    *p++ = '-';
+    p = ms_write_fixint(p, day, 2);
+    *p++ = 'T';
+
+    int size = ms_encode_time_parts(
+        self, obj, hour, minute, second, microsecond, tzinfo, p
+    );
+    if (size < 0) return -1;
+    return (p - out) + size;
+}
+
 static PyObject *
 ms_decode_date(const char *buf, Py_ssize_t size, PathNode *path) {
     int year, month, day;
@@ -8112,27 +8190,19 @@ invalid:
     return ms_error_with_path("Invalid RFC3339 encoded date%U", path);
 }
 
-static PyObject *
-ms_decode_datetime(const char *buf, Py_ssize_t size, TypeNode *type, PathNode *path) {
-    int year, month, day, hour, minute, second, microsecond = 0, offset = 0;
+static int
+ms_decode_time_parts(
+    const char *buf, Py_ssize_t size,
+    int *hour_out, int *minute_out, int *second_out, int *microsecond_out,
+    PyObject **tz_out, int *offset_out
+) {
+    int hour, minute, second, microsecond = 0, offset = 0;
     const char *buf_end = buf + size;
     bool round_up_micros = false;
-    PyObject *tz = Py_None;
     char c;
 
-    /* A valid datetime is at least 19 characters in length */
-    if (size < 19) goto invalid;
-
-    /* Parse date */
-    if ((buf = ms_read_fixint(buf, 4, &year)) == NULL) goto invalid;
-    if (*buf++ != '-') goto invalid;
-    if ((buf = ms_read_fixint(buf, 2, &month)) == NULL) goto invalid;
-    if (*buf++ != '-') goto invalid;
-    if ((buf = ms_read_fixint(buf, 2, &day)) == NULL) goto invalid;
-
-    /* Date/time separator can be T or t */
-    c = *buf++;
-    if (!(c == 'T' || c == 't')) goto invalid;
+    /* A valid time is at least 8 characters in length */
+    if (size < 8) goto invalid;
 
     /* Parse time */
     if ((buf = ms_read_fixint(buf, 2, &hour)) == NULL) goto invalid;
@@ -8186,7 +8256,7 @@ end_decimal:
 
     /* Parse timezone */
     if (c == 'Z' || c == 'z') {
-        tz = PyDateTime_TimeZone_UTC;
+        *tz_out = PyDateTime_TimeZone_UTC;
 
         /* Check for trailing characters */
         if (buf != buf_end) goto invalid;
@@ -8211,13 +8281,10 @@ end_decimal:
         if ((buf = ms_read_fixint(buf, 2, &offset_min)) == NULL) goto invalid;
         if (offset_hour > 23 || offset_min > 59) goto invalid;
         offset *= (offset_hour * 60 + offset_min);
-        tz = PyDateTime_TimeZone_UTC;
+        *tz_out = PyDateTime_TimeZone_UTC;
     }
 
     /* Ensure all numbers are valid */
-    if (year == 0) goto invalid;
-    if (month == 0 || month > 12) goto invalid;
-    if (day == 0 || day > days_in_month(year, month)) goto invalid;
     if (hour > 23) goto invalid;
     if (minute > 59) goto invalid;
     if (second > 59) goto invalid;
@@ -8233,6 +8300,76 @@ end_decimal:
             }
         }
     }
+
+    *hour_out = hour;
+    *minute_out = minute;
+    *second_out = second;
+    *microsecond_out = microsecond;
+    *offset_out = offset;
+    return 0;
+
+invalid:
+    return -1;
+}
+
+static PyObject *
+ms_decode_time(const char *buf, Py_ssize_t size, TypeNode *type, PathNode *path) {
+    int hour, minute, second, microsecond, offset;
+    PyObject *tz = Py_None;
+
+    if (ms_decode_time_parts(
+            buf, size, &hour, &minute, &second, &microsecond, &tz, &offset
+        ) < 0
+    ) {
+        goto invalid;
+    }
+
+    if (offset) {
+        time_apply_tz_offset(&hour, &minute, offset);
+    }
+
+    return ms_check_time_constraints(
+        hour, minute, second, microsecond, tz, type, path
+    );
+
+invalid:
+    return ms_error_with_path("Invalid RFC3339 encoded time%U", path);
+}
+
+static PyObject *
+ms_decode_datetime(const char *buf, Py_ssize_t size, TypeNode *type, PathNode *path) {
+    int year, month, day, hour, minute, second, microsecond, offset;
+    const char *orig = buf;
+    PyObject *tz = Py_None;
+    char c;
+
+    /* A valid datetime is at least 19 characters in length */
+    if (size < 19) goto invalid;
+
+    /* Parse date */
+    if ((buf = ms_read_fixint(buf, 4, &year)) == NULL) goto invalid;
+    if (*buf++ != '-') goto invalid;
+    if ((buf = ms_read_fixint(buf, 2, &month)) == NULL) goto invalid;
+    if (*buf++ != '-') goto invalid;
+    if ((buf = ms_read_fixint(buf, 2, &day)) == NULL) goto invalid;
+
+    /* Date/time separator can be T or t */
+    c = *buf++;
+    if (!(c == 'T' || c == 't')) goto invalid;
+
+    /* Parse time */
+    if (ms_decode_time_parts(
+            buf, size - (buf - orig),
+            &hour, &minute, &second, &microsecond, &tz, &offset
+        ) < 0
+    ) {
+        goto invalid;
+    }
+
+    /* Ensure all numbers are valid */
+    if (year == 0) goto invalid;
+    if (month == 0 || month > 12) goto invalid;
+    if (day == 0 || day > days_in_month(year, month)) goto invalid;
 
     if (offset) {
         if (datetime_apply_tz_offset(&year, &month, &day, &hour, &minute, offset) < 0) {
@@ -9074,6 +9211,15 @@ mpack_encode_date(EncoderState *self, PyObject *obj)
 }
 
 static int
+mpack_encode_time(EncoderState *self, PyObject *obj)
+{
+    char buf[21];
+    int size = ms_encode_time(self, obj, buf);
+    if (size < 0) return -1;
+    return mpack_encode_cstr(self, buf, size);
+}
+
+static int
 mpack_encode_datetime(EncoderState *self, PyObject *obj)
 {
     int64_t seconds;
@@ -9182,6 +9328,9 @@ mpack_encode(EncoderState *self, PyObject *obj)
     }
     else if (type == PyDateTimeAPI->DateType) {
         return mpack_encode_date(self, obj);
+    }
+    else if (type == PyDateTimeAPI->TimeType) {
+        return mpack_encode_time(self, obj);
     }
     else if (type == &Ext_Type) {
         return mpack_encode_ext(self, obj);
@@ -9617,6 +9766,17 @@ json_encode_datetime(EncoderState *self, PyObject *obj)
 }
 
 static int
+json_encode_time(EncoderState *self, PyObject *obj)
+{
+    char buf[23];
+    buf[0] = '"';
+    int size = ms_encode_time(self, obj, buf + 1);
+    if (size < 0) return -1;
+    buf[size + 1] = '"';
+    return ms_write(self, buf, size + 2);
+}
+
+static int
 json_encode_list(EncoderState *self, PyObject *obj)
 {
     Py_ssize_t i, len;
@@ -9967,6 +10127,9 @@ json_encode(EncoderState *self, PyObject *obj)
     }
     else if (type == PyDateTimeAPI->DateType) {
         return json_encode_date(self, obj);
+    }
+    else if (type == PyDateTimeAPI->TimeType) {
+        return json_encode_time(self, obj);
     }
     else if (type == &PyBytes_Type) {
         return json_encode_bytes(self, obj);
@@ -10661,7 +10824,7 @@ mpack_decode_str(DecoderState *self, Py_ssize_t size, TypeNode *type, PathNode *
     if (MS_LIKELY(
             type->types & (
                 MS_TYPE_ANY | MS_TYPE_STR | MS_TYPE_ENUM | MS_TYPE_STRLITERAL |
-                MS_TYPE_DATETIME | MS_TYPE_DATE | MS_TYPE_UUID
+                MS_TYPE_DATETIME | MS_TYPE_DATE | MS_TYPE_TIME | MS_TYPE_UUID
             )
         )
     ) {
@@ -10675,6 +10838,9 @@ mpack_decode_str(DecoderState *self, Py_ssize_t size, TypeNode *type, PathNode *
         }
         if (MS_UNLIKELY(type->types & MS_TYPE_DATE)) {
             return ms_decode_date(s, size, path);
+        }
+        if (MS_UNLIKELY(type->types & MS_TYPE_TIME)) {
+            return ms_decode_time(s, size, type, path);
         }
         if (MS_UNLIKELY(type->types & MS_TYPE_UUID)) {
             return ms_decode_uuid(s, size, path);
@@ -12704,7 +12870,7 @@ json_decode_string(JSONDecoderState *self, TypeNode *type, PathNode *path) {
             type->types & (
                 MS_TYPE_ANY | MS_TYPE_STR | MS_TYPE_ENUM | MS_TYPE_STRLITERAL |
                 MS_TYPE_BYTES | MS_TYPE_BYTEARRAY |
-                MS_TYPE_DATETIME | MS_TYPE_DATE | MS_TYPE_UUID
+                MS_TYPE_DATETIME | MS_TYPE_DATE | MS_TYPE_TIME | MS_TYPE_UUID
             )
         )
     ) {
@@ -12728,6 +12894,9 @@ json_decode_string(JSONDecoderState *self, TypeNode *type, PathNode *path) {
         }
         else if (MS_UNLIKELY(type->types & MS_TYPE_DATE)) {
             return ms_decode_date(view, size, path);
+        }
+        else if (MS_UNLIKELY(type->types & MS_TYPE_TIME)) {
+            return ms_decode_time(view, size, type, path);
         }
         else if (MS_UNLIKELY(type->types & MS_TYPE_UUID)) {
             return ms_decode_uuid(view, size, path);

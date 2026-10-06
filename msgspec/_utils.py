@@ -382,6 +382,8 @@ class SchemaBuilder:
             if meta.tz is True:
                 if t is datetime.datetime:
                     schema["format"] = "date-time"
+                elif t is datetime.time:
+                    schema["format"] = "time"
             if t is str:
                 if meta.max_length is not None:
                     schema["maxLength"] = meta.max_length
@@ -437,6 +439,8 @@ class SchemaBuilder:
         elif t is datetime.date:
             schema["type"] = "string"
             schema["format"] = "date"
+        elif t is datetime.time:
+            schema["type"] = "string"
         elif t is uuid.UUID:
             schema["type"] = "string"
             schema["format"] = "uuid"

@@ -1991,6 +1991,147 @@ class TestDate:
             proto.decode(msg, type=datetime.date)
 
 
+class TestTime:
+    @pytest.mark.parametrize(
+        "t, sol",
+        [
+            (datetime.time(1, 2, 3), "01:02:03"),
+            (datetime.time(1, 2, 3, 4), "01:02:03.000004"),
+            (datetime.time(23, 59, 59, 999999), "23:59:59.999999"),
+            (datetime.time(1, 2, 3, tzinfo=datetime.timezone.utc), "01:02:03Z"),
+            (
+                datetime.time(1, 2, 3, 4, datetime.timezone.utc),
+                "01:02:03.000004Z",
+            ),
+            (
+                datetime.time(
+                    4,
+                    56,
+                    27,
+                    123456,
+                    datetime.timezone(datetime.timedelta(hours=-5, minutes=-30)),
+                ),
+                "04:56:27.123456-05:30",
+            ),
+        ],
+    )
+    def test_encode_time(self, proto, t, sol):
+        s = proto.decode(proto.encode(t))
+        assert s == sol
+
+    @pytest.mark.parametrize(
+        "s",
+        [
+            "00:00:00",
+            "23:59:59",
+            "01:02:03",
+            "01:02:03.004",
+            "01:02:03.000004",
+        ],
+    )
+    def test_decode_time_naive(self, proto, s):
+        sol = datetime.time.fromisoformat(s)
+        res = proto.decode(proto.encode(s), type=datetime.time)
+        assert type(res) is datetime.time
+        assert res == sol
+
+    @pytest.mark.parametrize("z", ["Z", "z", "+00:00", "-00:00"])
+    def test_decode_time_utc(self, proto, z):
+        s = f"01:02:03.000004{z}"
+        sol = datetime.time.fromisoformat(s.replace("Z", "+00:00").replace("z", "+00:00"))
+        res = proto.decode(proto.encode(s), type=datetime.time)
+        assert res == sol
+
+    @pytest.mark.parametrize(
+        "s, sol",
+        [
+            ("12:00:00+05:00", datetime.time(7, 0, tzinfo=datetime.timezone.utc)),
+            ("12:00:00-05:00", datetime.time(17, 0, tzinfo=datetime.timezone.utc)),
+            ("00:30:00+05:00", datetime.time(19, 30, tzinfo=datetime.timezone.utc)),
+            ("23:30:00-05:00", datetime.time(4, 30, tzinfo=datetime.timezone.utc)),
+            (
+                "04:56:27.123456-05:30",
+                datetime.time(10, 26, 27, 123456, tzinfo=datetime.timezone.utc),
+            ),
+        ],
+    )
+    def test_decode_time_with_timezone(self, proto, s, sol):
+        res = proto.decode(proto.encode(s), type=datetime.time)
+        assert res == sol
+
+    @pytest.mark.parametrize(
+        "msg, sol",
+        [
+            ("03:04:05.1234564Z", datetime.time(3, 4, 5, 123456, datetime.timezone.utc)),
+            ("03:04:05.1234565Z", datetime.time(3, 4, 5, 123457, datetime.timezone.utc)),
+            ("03:04:05.9999995Z", datetime.time(3, 4, 6, 0, datetime.timezone.utc)),
+            ("03:04:59.9999995Z", datetime.time(3, 5, 0, 0, datetime.timezone.utc)),
+            ("03:59:59.9999995Z", datetime.time(4, 0, 0, 0, datetime.timezone.utc)),
+            ("23:59:59.9999995Z", datetime.time(0, 0, 0, 0, datetime.timezone.utc)),
+        ],
+    )
+    def test_decode_time_nanos(self, proto, msg, sol):
+        res = proto.decode(proto.encode(msg), type=datetime.time)
+        assert res == sol
+
+    def test_decode_time_wrong_type(self, proto):
+        msg = proto.encode([])
+        with pytest.raises(
+            msgspec.ValidationError, match="Expected `time`, got `array`"
+        ):
+            proto.decode(msg, type=datetime.time)
+
+    @pytest.mark.parametrize(
+        "s",
+        [
+            # Incorrect field lengths
+            "1:02:03",
+            "01:2:03",
+            "01:02:3",
+            "01:02:03+0:00",
+            "01:02:03+00:0",
+            # Trailing data
+            "01:02:030",
+            "01:02:03+00:000",
+            "01:02:03Z0",
+            "01:02:03a",
+            "01:02:03.000004a",
+            # Truncated
+            "01:02:",
+            "01:02",
+            # Missing +/-
+            "01:02:03.00000400:00",
+            # Missing digits after decimal
+            "01:02:03.",
+            "01:02:03.Z",
+            # Invalid characters
+            "0a:02:03",
+            "01:0a:03",
+            "01:02:0a",
+            "01:02:03.00000a",
+            "01:02:03.000004a",
+            "01:02:03.000004+0a:00",
+            "01:02:03.000004+00:0a",
+            # Hour out of range
+            "24:02:03",
+            # Minute out of range
+            "01:60:03",
+            # Second out of range
+            "01:02:60",
+            # Timezone hour out of range
+            "01:02:03+24:00",
+            "01:02:03-24:00",
+            # Timezone minute out of range
+            "01:02:03+00:60",
+            "01:02:03-00:60",
+        ],
+    )
+    def test_decode_time_malformed(self, proto, s):
+        msg = proto.encode(s)
+        with pytest.raises(msgspec.ValidationError, match="Invalid RFC3339"):
+            proto.decode(msg, type=datetime.time)
+
+
 class TestUUID:
     def test_encode_uuid(self, proto):
         u = uuid.uuid4()
