@@ -43,6 +43,13 @@ def _fixture_sbb(tmp_path, request):
     yield OcrdMets(filename=mets_path, cache_flag=request.param)
 
 
+@pytest.fixture(name='logical_structmap_ocrd_mets', params=CACHING_ENABLED)
+def _fixture_logical_structmap(request):
+    mets = OcrdMets(filename='tests/data/logical-structmap-workspace/mets.xml',
+                    cache_flag=request.param)
+    yield mets
+
+
 def test_unique_identifier():
     mets = OcrdMets(filename=assets.url_of('SBB0000F29300010000/data/mets.xml'))
     assert mets.unique_identifier == 'http://resolver.staatsbibliothek-berlin.de/SBB0000F29300010000', 'Right identifier'
@@ -136,6 +143,55 @@ def test_physical_pages_for_fileids(sbb_directory_ocrd_mets):
 def test_physical_pages_for_empty_fileids(sbb_directory_ocrd_mets):
     assert sbb_directory_ocrd_mets.get_physical_pages(
         for_fileIds=[]) == []
+
+
+def test_physical_pages_for_pageids_logical_type(logical_structmap_ocrd_mets):
+    mets = logical_structmap_ocrd_mets
+    assert mets.get_physical_pages(for_pageIds='cover_front') == ['PHYS_0001']
+    assert mets.get_physical_pages(for_pageIds='cover_front,cover_back') == ['PHYS_0001', 'PHYS_0005']
+    assert mets.get_physical_pages(for_pageIds='chapter') == ['PHYS_0003', 'PHYS_0004']
+    assert mets.get_physical_pages(for_pageIds='//cover_.*') == ['PHYS_0001', 'PHYS_0005']
+
+
+def test_physical_pages_for_pageids_logical_id(logical_structmap_ocrd_mets):
+    mets = logical_structmap_ocrd_mets
+    assert mets.get_physical_pages(for_pageIds='LOG_0004') == ['PHYS_0003']
+    assert mets.get_physical_pages(for_pageIds='LOG_0004..LOG_0005') == ['PHYS_0003', 'PHYS_0004']
+
+
+def test_physical_pages_for_pageids_negation(logical_structmap_ocrd_mets):
+    mets = logical_structmap_ocrd_mets
+    # negation of physical page IDs
+    assert mets.get_physical_pages(for_pageIds='~PHYS_0001') == \
+        ['PHYS_0002', 'PHYS_0003', 'PHYS_0004', 'PHYS_0005']
+    # negation of a range expression applies to the whole range
+    assert mets.get_physical_pages(for_pageIds='~PHYS_0001..PHYS_0004') == ['PHYS_0005']
+    # negation of a regex
+    assert mets.get_physical_pages(for_pageIds='~//PHYS_000[1-4]') == ['PHYS_0005']
+    # negation of logical structMap types
+    assert mets.get_physical_pages(for_pageIds='~cover_front,~cover_back') == \
+        ['PHYS_0002', 'PHYS_0003', 'PHYS_0004']
+    # positive selection combined with negation
+    assert mets.get_physical_pages(for_pageIds='PHYS_0001..PHYS_0004,~title_page') == \
+        ['PHYS_0001', 'PHYS_0003', 'PHYS_0004']
+    assert mets.get_physical_pages(for_pageIds='//PHYS_000.,~chapter') == \
+        ['PHYS_0001', 'PHYS_0002', 'PHYS_0005']
+    # negated patterns matching nothing are not an error
+    assert mets.get_physical_pages(for_pageIds='~NONEXISTENT') == \
+        ['PHYS_0001', 'PHYS_0002', 'PHYS_0003', 'PHYS_0004', 'PHYS_0005']
+    # but unmatched positive patterns still raise
+    with pytest.raises(ValueError, match='matches none'):
+        mets.get_physical_pages(for_pageIds='NONEXISTENT')
+    with pytest.raises(ValueError, match='matches none'):
+        mets.get_physical_pages(for_pageIds='PHYS_0001,NONEXISTENT')
+
+
+def test_find_all_files_pageid_logical_type(logical_structmap_ocrd_mets):
+    mets = logical_structmap_ocrd_mets
+    assert [f.ID for f in mets.find_all_files(pageId='chapter')] == \
+        ['OCR-D-IMG_0003', 'OCR-D-IMG_0004']
+    assert [f.ID for f in mets.find_all_files(pageId='~cover_front,~cover_back')] == \
+        ['OCR-D-IMG_0002', 'OCR-D-IMG_0003', 'OCR-D-IMG_0004']
 
 
 def test_add_group():

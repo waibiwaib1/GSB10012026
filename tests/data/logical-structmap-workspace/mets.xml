@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mets:mets xmlns:mets="http://www.loc.gov/METS/" xmlns:xlink="http://www.w3.org/1999/xlink" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.loc.gov/METS/ http://www.loc.gov/standards/mets/mets.xsd">
+  <mets:metsHdr CREATEDATE="2024-01-01T00:00:00">
+    <mets:agent TYPE="OTHER" OTHERTYPE="SOFTWARE" ROLE="CREATOR">
+      <mets:name>ocrd/core test</mets:name>
+    </mets:agent>
+  </mets:metsHdr>
+  <mets:amdSec ID="AMD">
+  </mets:amdSec>
+  <mets:fileSec>
+    <mets:fileGrp USE="OCR-D-IMG">
+      <mets:file ID="OCR-D-IMG_0001" MIMETYPE="image/tiff">
+        <mets:FLocat xlink:href="OCR-D-IMG/0001.tif" LOCTYPE="OTHER" OTHERLOCTYPE="FILE"/>
+      </mets:file>
+      <mets:file ID="OCR-D-IMG_0002" MIMETYPE="image/tiff">
+        <mets:FLocat xlink:href="OCR-D-IMG/0002.tif" LOCTYPE="OTHER" OTHERLOCTYPE="FILE"/>
+      </mets:file>
+      <mets:file ID="OCR-D-IMG_0003" MIMETYPE="image/tiff">
+        <mets:FLocat xlink:href="OCR-D-IMG/0003.tif" LOCTYPE="OTHER" OTHERLOCTYPE="FILE"/>
+      </mets:file>
+      <mets:file ID="OCR-D-IMG_0004" MIMETYPE="image/tiff">
+        <mets:FLocat xlink:href="OCR-D-IMG/0004.tif" LOCTYPE="OTHER" OTHERLOCTYPE="FILE"/>
+      </mets:file>
+      <mets:file ID="OCR-D-IMG_0005" MIMETYPE="image/tiff">
+        <mets:FLocat xlink:href="OCR-D-IMG/0005.tif" LOCTYPE="OTHER" OTHERLOCTYPE="FILE"/>
+      </mets:file>
+    </mets:fileGrp>
+  </mets:fileSec>
+  <mets:structMap TYPE="LOGICAL">
+    <mets:div ID="LOG_0001" TYPE="monograph" DMDID="DMDLOG_0001">
+      <mets:div ID="LOG_0002" TYPE="cover_front"/>
+      <mets:div ID="LOG_0003" TYPE="title_page"/>
+      <mets:div ID="LOG_0004" TYPE="chapter"/>
+      <mets:div ID="LOG_0005" TYPE="chapter"/>
+      <mets:div ID="LOG_0006" TYPE="cover_back"/>
+    </mets:div>
+  </mets:structMap>
+  <mets:structMap TYPE="PHYSICAL">
+    <mets:div ID="PHYS_0000" TYPE="physSequence">
+      <mets:div ID="PHYS_0001" TYPE="page" ORDER="1" ORDERLABEL="cover front">
+        <mets:fptr FILEID="OCR-D-IMG_0001"/>
+      </mets:div>
+      <mets:div ID="PHYS_0002" TYPE="page" ORDER="2" ORDERLABEL="i">
+        <mets:fptr FILEID="OCR-D-IMG_0002"/>
+      </mets:div>
+      <mets:div ID="PHYS_0003" TYPE="page" ORDER="3" ORDERLABEL="1">
+        <mets:fptr FILEID="OCR-D-IMG_0003"/>
+      </mets:div>
+      <mets:div ID="PHYS_0004" TYPE="page" ORDER="4" ORDERLABEL="2">
+        <mets:fptr FILEID="OCR-D-IMG_0004"/>
+      </mets:div>
+      <mets:div ID="PHYS_0005" TYPE="page" ORDER="5" ORDERLABEL="cover back">
+        <mets:fptr FILEID="OCR-D-IMG_0005"/>
+      </mets:div>
+    </mets:div>
+  </mets:structMap>
+  <mets:structLink>
+    <mets:smLink xlink:from="LOG_0002" xlink:to="PHYS_0001"/>
+    <mets:smLink xlink:from="LOG_0003" xlink:to="PHYS_0002"/>
+    <mets:smLink xlink:from="LOG_0004" xlink:to="PHYS_0003"/>
+    <mets:smLink xlink:from="LOG_0005" xlink:to="PHYS_0004"/>
+    <mets:smLink xlink:from="LOG_0006" xlink:to="PHYS_0005"/>
+  </mets:structLink>
+</mets:mets>

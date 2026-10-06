@@ -4,7 +4,7 @@ API to METS
 from datetime import datetime
 import re
 from lxml import etree as ET
-from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, Set, Tuple, Union
 
 from ocrd_utils import (
     getLogger,
@@ -259,6 +259,10 @@ class OcrdMets(OcrdXmlDocument):
         The :py:attr:`pageId` parameter supports the numeric range operator ``..``. For
         example, to find all files in pages ``PHYS_0001`` to ``PHYS_0003``,
         ``PHYS_0001..PHYS_0003`` will be expanded to ``PHYS_0001,PHYS_0002,PHYS_0003``.
+        Each comma-separated token can be negated by prefixing it with ``~``, excluding
+        the matching pages from the selection. Tokens also match the ``@TYPE`` and ``@ID``
+        of logical ``mets:structMap`` ``mets:div`` entries linked to a page via
+        ``mets:structLink``/``mets:smLink``.
         Keyword Args:
             ID (string) : ``@ID`` of the ``mets:file``
             fileGrp (string) : ``@USE`` of the ``mets:fileGrp`` to list files of
@@ -590,12 +594,46 @@ class OcrdMets(OcrdXmlDocument):
             'mets:structMap[@TYPE="PHYSICAL"]/mets:div[@TYPE="physSequence"]/mets:div[@TYPE="page"]/@ID',
             namespaces=NS)]
 
+    def _get_logical_divs_for_pages(self) -> Dict[str, List[ET._Element]]:
+        """
+        Map each physical page ID (``@ID`` of the physical ``mets:structMap`` ``mets:div``)
+        to the logical ``mets:structMap`` ``mets:div`` entries linked to it via
+        ``mets:structLink``/``mets:smLink`` (empty if there is no logical structMap).
+        """
+        ret : Dict[str, List[ET._Element]] = {}
+        logical_divs = {div.get('ID'): div for div in self._tree.getroot().xpath(
+            'mets:structMap[@TYPE="LOGICAL"]//mets:div', namespaces=NS)}
+        if not logical_divs:
+            return ret
+        for smlink in self._tree.getroot().xpath('mets:structLink/mets:smLink', namespaces=NS):
+            logical_id = smlink.get('{%s}from' % NS['xlink'])
+            physical_id = smlink.get('{%s}to' % NS['xlink'])
+            if logical_id in logical_divs and physical_id:
+                ret.setdefault(physical_id, []).append(logical_divs[logical_id])
+        return ret
+
     def get_physical_pages(self, for_fileIds : Optional[List[str]] = None, for_pageIds : Optional[str] = None, 
                            return_divs : bool = False) -> List[Union[str, ET._Element]]:
         """
         List all page IDs (the ``@ID`` of each physical ``mets:structMap`` ``mets:div``),
         optionally for a subset of ``mets:file`` ``@ID`` :py:attr:`for_fileIds`,
-        or for a subset selector expression (comma-separated, range, and/or regex) :py:attr:`for_pageIds`.
+        or for a subset selector expression (comma-separated, range, and/or regex,
+        optionally negated with ``~``, also matching logical structMap ``@TYPE``/``@ID``)
+        :py:attr:`for_pageIds`.
+
+        The selector expression :py:attr:`for_pageIds` is a comma-separated list of tokens, where
+        each token is either a literal string, a ``..`` range expression, or a regular expression
+        (if prefixed with ``//``). Each token is matched against the ``@ID``, ``@ORDER``,
+        ``@ORDERLABEL``, ``@LABEL`` and ``@CONTENTIDS`` attributes of the physical
+        ``mets:structMap`` page ``mets:div`` entries, as well as against the ``@TYPE`` and
+        ``@ID`` of any logical ``mets:structMap`` ``mets:div`` entries linked to a page
+        via ``mets:structLink``/``mets:smLink``.
+
+        Each token can be negated individually by prefixing it with ``~``. Negated tokens
+        exclude their matches from the selection. If the expression contains only negated
+        tokens, all pages are selected except the excluded ones. For ``..`` range and ``//``
+        regex expressions, the negation prefix applies to the entire expression.
+
         If return_divs is set, returns div memory objects instead of strings of ids
         """
         if for_fileIds is None and for_pageIds is None:
@@ -609,101 +647,62 @@ class OcrdMets(OcrdXmlDocument):
 
             return self.physical_pages
 
-        # log = getLogger('ocrd.models.ocrd_mets.get_physical_pages')
         if for_pageIds is not None:
-            ret = []
-            page_attr_patterns = []
-            page_attr_patterns_raw = re.split(r',', for_pageIds)
-            for pageId_token in page_attr_patterns_raw:
+            page_divs = self.get_physical_pages(return_divs=True)
+            logical_divs = self._get_logical_divs_for_pages()
+            # The values each page can be matched against: its attributes in the
+            # physical structMap, plus @TYPE and @ID of the logical structMap
+            # divs linked to it via mets:structLink/mets:smLink
+            page_values : Dict[str, List[str]] = {}
+            for page in page_divs:
+                values = [page.get(attr.name) for attr in METS_PAGE_DIV_ATTRIBUTE]
+                for logical_div in logical_divs.get(page.get('ID'), []):
+                    values += [logical_div.get('TYPE'), logical_div.get('ID')]
+                page_values[page.get('ID')] = [v for v in values if v is not None]
+
+            positive_matches : Set[str] = set()
+            negative_matches : Set[str] = set()
+            has_positive_pattern = False
+            has_negative_pattern = False
+            for pageId_token_raw in re.split(r',', for_pageIds):
+                if not pageId_token_raw:
+                    continue
+                negated = pageId_token_raw.startswith('~')
+                pageId_token = pageId_token_raw[1:] if negated else pageId_token_raw
+                if not pageId_token:
+                    continue
                 if pageId_token.startswith(REGEX_PREFIX):
-                    page_attr_patterns.append((None, re.compile(pageId_token[REGEX_PREFIX_LEN:])))
+                    re_pat = re.compile(pageId_token[REGEX_PREFIX_LEN:])
+                    matched = [page_id for page_id, values in page_values.items()
+                               if any(re_pat.fullmatch(value) for value in values)]
+                    if not matched and not negated:
+                        raise ValueError(f"Regex pattern '{pageId_token_raw}' matches none of the pages")
                 elif '..' in pageId_token:
                     val_range = generate_range(*pageId_token.split('..', 1))
-                    page_attr_patterns.append(val_range)
+                    val_range_set = set(val_range)
+                    matched = [page_id for page_id, values in page_values.items()
+                               if val_range_set.intersection(values)]
+                    if not matched:
+                        if not negated:
+                            raise ValueError(f"Range pattern '{pageId_token_raw}' matches none of the pages")
+                    elif not negated and not any(val_range[0] in values for values in page_values.values()):
+                        raise ValueError(f"Start of range pattern '{pageId_token_raw}' not matched - invalid range")
                 else:
-                    page_attr_patterns.append(pageId_token)
-            if not page_attr_patterns:
+                    matched = [page_id for page_id, values in page_values.items()
+                               if pageId_token in values]
+                    if not matched and not negated:
+                        raise ValueError(f"Pattern '{pageId_token_raw}' matches none of the pages")
+                if negated:
+                    has_negative_pattern = True
+                    negative_matches.update(matched)
+                else:
+                    has_positive_pattern = True
+                    positive_matches.update(matched)
+            if not has_positive_pattern and not has_negative_pattern:
                 return []
-            range_patterns_first_last = [(x[0], x[-1]) if isinstance(x, list) else None for x in page_attr_patterns]
-            page_attr_patterns_copy = list(page_attr_patterns)
-            if self._cache_flag:
-                for pat in page_attr_patterns:
-                    try:
-                        attr : METS_PAGE_DIV_ATTRIBUTE
-                        if isinstance(pat, str):
-                            attr = next(a for a in list(METS_PAGE_DIV_ATTRIBUTE) if pat in self._page_cache[a])
-                            cache_keys = [pat]
-                        elif isinstance(pat, list):
-                            attr = next(a for a in list(METS_PAGE_DIV_ATTRIBUTE) if any(x in self._page_cache[a] for x in pat))
-                            cache_keys = [v for v in pat if v in self._page_cache[attr]]
-                            for k in cache_keys:
-                                pat.remove(k)
-                        elif isinstance(pat, tuple):
-                            _, re_pat = pat
-                            attr = next(a for a in list(METS_PAGE_DIV_ATTRIBUTE) for v in self._page_cache[a] if re_pat.fullmatch(v))
-                            cache_keys = [v for v in self._page_cache[attr] if re_pat.fullmatch(v)]
-                        else:
-                            raise ValueError
-                        if return_divs:
-                            ret += [self._page_cache[attr][v] for v in cache_keys]
-                        else:
-                            ret += [self._page_cache[attr][v].get('ID') for v in cache_keys]
-                    except StopIteration:
-                        raise ValueError(f"{pat} matches none of the keys of any of the _page_caches.")
-            else:
-                page_attr_patterns_matched = []
-                for page in self._tree.getroot().xpath(
-                        'mets:structMap[@TYPE="PHYSICAL"]/mets:div[@TYPE="physSequence"]/mets:div[@TYPE="page"]',
-                        namespaces=NS):
-                    patterns_exhausted = []
-                    for pat_idx, pat in enumerate(page_attr_patterns):
-                        try:
-                            if isinstance(pat, str):
-                                attr = next(a for a in list(METS_PAGE_DIV_ATTRIBUTE) if pat == page.get(a.name))
-                                ret.append(page if return_divs else page.get('ID'))
-                                patterns_exhausted.append(pat)
-                            elif isinstance(pat, list):
-                                if not isinstance(pat[0], METS_PAGE_DIV_ATTRIBUTE):
-                                    pat.insert(0, next(a for a in list(METS_PAGE_DIV_ATTRIBUTE) if any(x == page.get(a.name) for x in pat)))
-                                attr_val = page.get(pat[0].name)
-                                if attr_val in pat:
-                                    pat.remove(attr_val)
-                                    ret.append(page if return_divs else page.get('ID'))
-                                if len(pat) == 1:
-                                    patterns_exhausted.append(pat)
-                            elif isinstance(pat, tuple):
-                                attr, re_pat = pat
-                                if not attr:
-                                    attr = next(a for a in list(METS_PAGE_DIV_ATTRIBUTE) if re_pat.fullmatch(page.get(a.name) or ''))
-                                    page_attr_patterns[pat_idx] = (attr, re_pat)
-                                if re_pat.fullmatch(page.get(attr.name) or ''):
-                                    ret.append(page if return_divs else page.get('ID'))
-                            else:
-                                raise ValueError
-                            page_attr_patterns_matched.append(pat)
-                        except StopIteration:
-                            continue
-                    for p in patterns_exhausted:
-                        page_attr_patterns.remove(p)
-                unmatched = [x for x in page_attr_patterns_copy if x not in page_attr_patterns_matched]
-                if unmatched:
-                    raise ValueError(f"Patterns {unmatched} match none of the pages")
-
-            ranges_without_start_match = []
-            ranges_without_last_match = []
-            for idx, pat in enumerate(page_attr_patterns_copy):
-                if isinstance(pat, list):
-                    start, last = range_patterns_first_last[idx]
-                    if start in pat:
-                        print(pat, start, last)
-                        ranges_without_start_match.append(page_attr_patterns_raw[idx])
-                    # if last in pat:
-                    #     ranges_without_last_match.append(page_attr_patterns_raw[idx])
-            if ranges_without_start_match:
-                raise ValueError(f"Start of range patterns {ranges_without_start_match} not matched - invalid range")
-            # if ranges_without_last_match:
-            #     raise ValueError(f"End of range patterns {ranges_without_last_match} not matched - invalid range")
-            return ret
+            selected = (positive_matches if has_positive_pattern else set(page_values)) - negative_matches
+            return [page if return_divs else page.get('ID')
+                    for page in page_divs if page.get('ID') in selected]
 
         if for_fileIds == []:
             return []

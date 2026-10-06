@@ -326,9 +326,12 @@ class Processor():
                  Deprecated since version 3.0: Should be ``None`` here, but then needs to be set \
                  before processing.
              page_id (string): comma-separated list of METS physical ``page`` IDs to process \
-                 (or empty for all pages). \
-                 Deprecated since version 3.0: Should be ``None`` here, but then needs to be set \
-                 before processing.
+                 (or empty for all pages). Each token may be a literal value, a ``..`` range, \
+                 or a ``//`` regular expression, matched against the pages' ``@ID``, ``@ORDER``, \
+                 ``@ORDERLABEL``, ``@LABEL`` and ``@CONTENTIDS`` as well as the ``@TYPE`` and \
+                 ``@ID`` of linked logical structMap divs, and may be negated with a ``~`` prefix. \
+                Deprecated since version 3.0: Should be ``None`` here, but then needs to be set \
+                before processing.
         """
         if ocrd_tool is not None:
             deprecation_warning("Passing 'ocrd_tool' as keyword argument to Processor is deprecated - "
@@ -1231,7 +1234,12 @@ def generate_processor_help(ocrd_tool, processor_instance=None, subcommand=None)
   -w, --working-dir PATH          Working directory of local workspace [dirname(URL-PATH)]
   -I, --input-file-grp USE        File group(s) used as input
   -O, --output-file-grp USE       File group(s) used as output
-  -g, --page-id ID                Physical page ID(s) to process instead of full document []
+  -g, --page-id ID                Physical page ID(s) to process instead of full document [].
+                                  Comma-separated list of literal values, ".." ranges, or
+                                  "//" regular expressions, matched against the pages'
+                                  @ID, @ORDER, @ORDERLABEL, @LABEL and @CONTENTIDS as well
+                                  as the @TYPE and @ID of linked logical structMap divs.
+                                  Prefix a token with "~" to exclude its matches instead.
   --overwrite                     Remove existing output pages/images
                                   (with "--page-id", remove only those).
                                   Short-hand for OCRD_EXISTING_OUTPUT=OVERWRITE

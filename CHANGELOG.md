@@ -5,6 +5,12 @@ Versioned according to [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
+Added:
+
+  * `--page-id` / `OcrdMets.get_physical_pages(for_pageIds)`: allow filtering by logical structMap
+    `mets:div` `@TYPE` and `@ID` (via `mets:structLink`/`mets:smLink`) and negating any
+    comma-separated token, `..` range or `//` regex with a `~` prefix, #1329
+
 ## [3.4.1] - 2025-06-20
 
 Fixed:
