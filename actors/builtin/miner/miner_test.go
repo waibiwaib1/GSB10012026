@@ -150,6 +150,7 @@ func TestCommitments(t *testing.T) {
 		WithActorType(owner, builtin.AccountActorCodeID).
 		WithActorType(worker, builtin.AccountActorCodeID).
 		WithHasher(fixedHasher(uint64(periodBoundary))).
+		WithBalance(big.Mul(big.NewInt(1000), big.NewInt(1e18)), big.Zero()).
 		WithCaller(builtin.InitActorAddr, builtin.InitActorCodeID)
 
 	t.Run("invalid pre-commit rejected", func(t *testing.T) {
@@ -168,6 +169,7 @@ func TestCommitments(t *testing.T) {
 		rt.ExpectAbort(exitcode.ErrIllegalArgument, func() {
 			actor.preCommitSector(rt, makePreCommit(100, challengeEpoch, deadline.PeriodEnd()), big.Zero())
 		})
+		rt.Reset()
 
 		// Bad seal proof type
 		rt.ExpectAbort(exitcode.ErrIllegalArgument, func() {
@@ -175,26 +177,36 @@ func TestCommitments(t *testing.T) {
 			pc.SealProof = abi.RegisteredSealProof_StackedDrg8MiBV1
 			actor.preCommitSector(rt, pc, big.Zero())
 		})
+		rt.Reset()
 
 		// Expires at current epoch
 		rt.SetEpoch(deadline.PeriodEnd())
 		rt.ExpectAbort(exitcode.ErrIllegalArgument, func() {
 			actor.preCommitSector(rt, makePreCommit(111, challengeEpoch, deadline.PeriodEnd()), big.Zero())
 		})
+		rt.Reset()
 
 		// Expires before current epoch
 		rt.SetEpoch(deadline.PeriodEnd() + 1)
 		rt.ExpectAbort(exitcode.ErrIllegalArgument, func() {
 			actor.preCommitSector(rt, makePreCommit(112, challengeEpoch, deadline.PeriodEnd()), big.Zero())
 		})
+		rt.Reset()
 
 		// Expires not on period end
 		rt.SetEpoch(precommitEpoch)
 		rt.ExpectAbort(exitcode.ErrIllegalArgument, func() {
 			actor.preCommitSector(rt, makePreCommit(113, challengeEpoch, deadline.PeriodEnd()-1), big.Zero())
 		})
+		rt.Reset()
 
-		// TODO: test insufficient funds when the precommit deposit is set above zero
+		// Insufficient funds for pre-commit deposit
+		st = getState(rt)
+		rt.SetBalance(st.PreCommitDeposits)
+		rt.ExpectAbort(exitcode.ErrInsufficientFunds, func() {
+			actor.preCommitSector(rt, makePreCommit(115, challengeEpoch, deadline.PeriodEnd()), big.Zero())
+		})
+		rt.Reset()
 	})
 
 	t.Run("invalid proof rejected", func(t *testing.T) {
@@ -241,6 +253,7 @@ func TestCommitments(t *testing.T) {
 		rt.Reset()
 
 		// Insufficient funds for initial pledge
+		rt.SetBalance(big.Zero())
 		rt.ExpectAbort(exitcode.ErrInsufficientFunds, func() {
 			actor.proveCommitSector(rt, precommit, precommitEpoch, makeProveCommit(sectorNo), proveCommitConf{
 				networkPower: 1 << 50,
@@ -612,6 +625,15 @@ func (h *actorHarness) controlAddresses(rt *mock.Runtime) (owner, worker addr.Ad
 func (h *actorHarness) preCommitSector(rt *mock.Runtime, params *miner.SectorPreCommitInfo, pledgeDelta abi.TokenAmount) {
 	rt.SetCaller(h.worker, builtin.AccountActorCodeID)
 	rt.ExpectValidateCallerAddr(h.worker)
+	{
+		rt.ExpectSend(builtin.RewardActorAddr, builtin.MethodsReward.LastPerEpochReward, nil, big.Zero(), &epochReward, exitcode.Ok)
+		pwrTotal := power.CurrentTotalPowerReturn{
+			RawBytePower:     networkPower,
+			QualityAdjPower:  networkPower,
+			PledgeCollateral: networkPledge,
+		}
+		rt.ExpectSend(builtin.StoragePowerActorAddr, builtin.MethodsPower.CurrentTotalPower, nil, big.Zero(), &pwrTotal, exitcode.Ok)
+	}
 	if !pledgeDelta.IsZero() {
 		rt.ExpectSend(builtin.StoragePowerActorAddr, builtin.MethodsPower.UpdatePledgeTotal, &pledgeDelta, big.Zero(), nil, exitcode.Ok)
 	}
@@ -643,6 +665,14 @@ type proveCommitConf struct {
 	verifySealErr   error
 }
 
+// Network values visible to the actor at pre-commit time, used to compute the expected pre-commit deposit
+// (which is also the sector's initial pledge).
+var (
+	epochReward   = big.Mul(big.NewIntUnsigned(100), big.NewIntUnsigned(1e18))
+	networkPower  = big.NewIntUnsigned(1 << 50)
+	networkPledge = big.Mul(epochReward, big.NewIntUnsigned(1000))
+)
+
 func (h *actorHarness) proveCommitSector(rt *mock.Runtime, precommit *miner.SectorPreCommitInfo, precommitEpoch abi.ChainEpoch,
 	params *miner.ProveCommitSectorParams, conf proveCommitConf) {
 	commd := cbg.CborCid(tutil.MakeCID("commd"))
@@ -651,8 +681,6 @@ func (h *actorHarness) proveCommitSector(rt *mock.Runtime, precommit *miner.Sect
 	interactiveEpoch := precommitEpoch + miner.PreCommitChallengeDelay
 	dealWeight := big.NewInt(10)
 	verifiedDealWeight := big.NewInt(100)
-	epochReward := big.Mul(big.NewIntUnsigned(100), big.NewIntUnsigned(1e18))
-	networkPledge := big.Mul(epochReward, big.NewIntUnsigned(1000))
 
 	// Prepare for and receive call to ProveCommitSector
 	{
@@ -693,16 +721,6 @@ func (h *actorHarness) proveCommitSector(rt *mock.Runtime, precommit *miner.Sect
 
 	// Prepare for and receive call to ConfirmSectorProofsValid at the end of the same epoch.
 	{
-		rt.ExpectSend(builtin.RewardActorAddr, builtin.MethodsReward.LastPerEpochReward, nil, big.Zero(), &epochReward, exitcode.Ok)
-
-		pwrTotal := power.CurrentTotalPowerReturn{
-			RawBytePower:     big.NewIntUnsigned(conf.networkPower),
-			QualityAdjPower:  big.NewIntUnsigned(conf.networkPower),
-			PledgeCollateral: networkPledge,
-		}
-		rt.ExpectSend(builtin.StoragePowerActorAddr, builtin.MethodsPower.CurrentTotalPower, nil, big.Zero(), &pwrTotal, exitcode.Ok)
-	}
-	{
 		vdParams := market.VerifyDealsOnSectorProveCommitParams{
 			DealIDs:      precommit.DealIDs,
 			SectorExpiry: precommit.Expiration,
@@ -733,7 +751,11 @@ func (h *actorHarness) proveCommitSector(rt *mock.Runtime, precommit *miner.Sect
 		}
 		rt.ExpectSend(builtin.StoragePowerActorAddr, builtin.MethodsPower.UpdateClaimedPower, &pcParams, big.Zero(), nil, exitcode.Ok)
 
-		expectedPledge := miner.InitialPledgeForPower(qaPower, big.NewIntUnsigned(conf.networkPower), networkPledge,
+		// The pledge locked up is the deposit computed at pre-commit time, from the sector's
+		// committed-capacity power (deal weights are unknown at pre-commit).
+		duration := precommit.Expiration - precommitEpoch
+		sectorWeight := miner.QAPowerForWeight(sectorSize, duration, big.Zero(), big.Zero())
+		expectedPledge := miner.InitialPledgeForPower(sectorWeight, networkPower, networkPledge,
 			epochReward, rt.TotalFilCircSupply())
 		rt.ExpectSend(builtin.StoragePowerActorAddr, builtin.MethodsPower.UpdatePledgeTotal, &expectedPledge, big.Zero(), nil, exitcode.Ok)
 	}

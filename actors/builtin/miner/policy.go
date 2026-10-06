@@ -131,12 +131,6 @@ func QAPowerForSector(size abi.SectorSize, sector *SectorOnChainInfo) abi.Storag
 	return QAPowerForWeight(size, duration, sector.DealWeight, sector.VerifiedDealWeight)
 }
 
-// Deposit per sector required at pre-commitment, refunded after the commitment is proven (else burned).
-func precommitDeposit(sectorSize abi.SectorSize, duration abi.ChainEpoch) abi.TokenAmount {
-	depositPerByte := abi.NewTokenAmount(0) // PARAM_FINISH
-	return big.Mul(depositPerByte, big.NewIntUnsigned(uint64(sectorSize)))
-}
-
 type BigFrac struct {
 	numerator   big.Int
 	denominator big.Int

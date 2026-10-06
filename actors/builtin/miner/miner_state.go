@@ -130,9 +130,12 @@ type SectorPreCommitInfo struct {
 
 // Information stored on-chain for a pre-committed sector.
 type SectorPreCommitOnChainInfo struct {
-	Info             SectorPreCommitInfo
-	PreCommitDeposit abi.TokenAmount
-	PreCommitEpoch   abi.ChainEpoch
+	Info           SectorPreCommitInfo
+	PreCommitEpoch abi.ChainEpoch
+	// The pre-commit deposit is also the sector's initial pledge, calculated at pre-commit time.
+	// This value is locked up as a deposit during the pre-commit phase, and rolled into the
+	// locked pledge funds when the sector is proven.
+	InitialPledge abi.TokenAmount
 }
 
 // Information stored on-chain for a proven sector.

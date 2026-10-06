@@ -695,8 +695,8 @@ func (t *SectorPreCommitOnChainInfo) MarshalCBOR(w io.Writer) error {
 		return err
 	}
 
-	// t.PreCommitDeposit (big.Int) (struct)
-	if err := t.PreCommitDeposit.MarshalCBOR(w); err != nil {
+	// t.InitialPledge (big.Int) (struct)
+	if err := t.InitialPledge.MarshalCBOR(w); err != nil {
 		return err
 	}
 
@@ -737,12 +737,12 @@ func (t *SectorPreCommitOnChainInfo) UnmarshalCBOR(r io.Reader) error {
 		}
 
 	}
-	// t.PreCommitDeposit (big.Int) (struct)
+	// t.InitialPledge (big.Int) (struct)
 
 	{
 
-		if err := t.PreCommitDeposit.UnmarshalCBOR(br); err != nil {
-			return xerrors.Errorf("unmarshaling t.PreCommitDeposit: %w", err)
+		if err := t.InitialPledge.UnmarshalCBOR(br); err != nil {
+			return xerrors.Errorf("unmarshaling t.InitialPledge: %w", err)
 		}
 
 	}

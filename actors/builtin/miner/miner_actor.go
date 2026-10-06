@@ -335,6 +335,13 @@ func (a Actor) PreCommitSector(rt Runtime, params *SectorPreCommitInfo) *adt.Emp
 
 	store := adt.AsStore(rt)
 	var st State
+
+	// Request network values to compute the initial pledge requirement, which is locked up as a deposit
+	// until the sector is proven.
+	epochReward := requestCurrentEpochBlockReward(rt)
+	pwrTotal := requestCurrentTotalPower(rt)
+	circulatingSupply := rt.TotalFilCircSupply()
+
 	newlyVestedAmount := rt.State().Transaction(&st, func() interface{} {
 		rt.ValidateImmediateCallerIs(st.Info.Worker)
 		if params.SealProof != st.Info.SealProofType {
@@ -359,7 +366,12 @@ func (a Actor) PreCommitSector(rt Runtime, params *SectorPreCommitInfo) *adt.Emp
 		newlyVestedFund, err := st.UnlockVestedFunds(store, rt.CurrEpoch())
 		builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to vest funds")
 		availableBalance := st.GetAvailableBalance(rt.CurrentBalance())
-		depositReq := precommitDeposit(st.GetSectorSize(), params.Expiration-rt.CurrEpoch())
+		// The deposit requirement is the sector's initial pledge, computed from the power the sector
+		// will have if proven with no deals (deal weights are not known until prove-commit).
+		duration := params.Expiration - rt.CurrEpoch()
+		sectorWeight := QAPowerForWeight(st.GetSectorSize(), duration, big.Zero(), big.Zero())
+		depositReq := InitialPledgeForPower(sectorWeight, pwrTotal.QualityAdjPower, pwrTotal.PledgeCollateral,
+			epochReward, circulatingSupply)
 		if availableBalance.LessThan(depositReq) {
 			rt.Abortf(exitcode.ErrInsufficientFunds, "insufficient funds for pre-commit deposit: %v", depositReq)
 		}
@@ -368,9 +380,9 @@ func (a Actor) PreCommitSector(rt Runtime, params *SectorPreCommitInfo) *adt.Emp
 		st.AssertBalanceInvariants(rt.CurrentBalance())
 
 		if err := st.PutPrecommittedSector(store, &SectorPreCommitOnChainInfo{
-			Info:             *params,
-			PreCommitDeposit: depositReq,
-			PreCommitEpoch:   rt.CurrEpoch(),
+			Info:           *params,
+			PreCommitEpoch: rt.CurrEpoch(),
+			InitialPledge:  depositReq,
 		}); err != nil {
 			rt.Abortf(exitcode.ErrIllegalState, "failed to write pre-committed sector %v: %v", params.SectorNumber, err)
 		}
@@ -458,13 +470,6 @@ func (a Actor) ProveCommitSector(rt Runtime, params *ProveCommitSectorParams) *a
 func (a Actor) ConfirmSectorProofsValid(rt Runtime, params *builtin.ConfirmSectorProofsParams) *adt.EmptyValue {
 	rt.ValidateImmediateCallerIs(builtin.StoragePowerActorAddr)
 
-	// Request network values used for initial pledge calculations.
-	// Note that the pledge calculation is expected to move to PreCommitSector,
-	// https://github.com/filecoin-project/specs-actors/issues/424
-	epochReward := requestCurrentEpochBlockReward(rt)
-	pwrTotal := requestCurrentTotalPower(rt) // We could save a call by accepting this in the parameters.
-	circulatingSupply := rt.TotalFilCircSupply()
-
 	var st State
 	rt.State().Readonly(&st)
 	store := adt.AsStore(rt)
@@ -511,9 +516,11 @@ func (a Actor) ConfirmSectorProofsValid(rt Runtime, params *builtin.ConfirmSecto
 		// Request power for activated sector.
 		// TODO: aggregate new power calculation and move this outside the loop, requesting power and pledge just once at the end.
 		// https://github.com/filecoin-project/specs-actors/issues/475
-		_, qaPower := requestUpdateSectorPower(rt, st.Info.SectorSize, []*SectorOnChainInfo{&newSectorInfo}, nil)
+		requestUpdateSectorPower(rt, st.Info.SectorSize, []*SectorOnChainInfo{&newSectorInfo}, nil)
 
-		initialPledge := InitialPledgeForPower(qaPower, pwrTotal.QualityAdjPower, pwrTotal.PledgeCollateral, epochReward, circulatingSupply)
+		// The initial pledge was computed and locked up as a deposit at pre-commit time, and is now
+		// rolled directly into the locked pledge funds.
+		initialPledge := precommit.InitialPledge
 
 		// Add sector and pledge lock-up to miner state
 		// TODO: do this all at once after the loop
@@ -524,8 +531,8 @@ func (a Actor) ConfirmSectorProofsValid(rt Runtime, params *builtin.ConfirmSecto
 				rt.Abortf(exitcode.ErrIllegalState, "failed to vest new funds: %s", err)
 			}
 
-			// Unlock deposit for successful proof, make it available for lock-up as initial pledge.
-			st.AddPreCommitDeposit(precommit.PreCommitDeposit.Neg())
+			// Unlock deposit for successful proof, to be locked up again as initial pledge below.
+			st.AddPreCommitDeposit(precommit.InitialPledge.Neg())
 
 			// Verify locked funds are are at least the sum of sector initial pledges.
 			verifyPledgeMeetsInitialRequirements(rt, &st)
@@ -1332,7 +1339,7 @@ func checkPrecommitExpiry(rt Runtime, sectors *abi.BitField) {
 				return err
 			}
 			// increment deposit to burn
-			depositToBurn = big.Add(depositToBurn, sector.PreCommitDeposit)
+			depositToBurn = big.Add(depositToBurn, sector.InitialPledge)
 			return nil
 		})
 		builtin.RequireNoErr(rt, err, exitcode.ErrIllegalState, "failed to check precommit expiries")
