@@ -269,6 +269,47 @@ fn it_accepts_individual_template_values_via_flag() {
 }
 
 #[test]
+fn it_rejects_individual_template_values_that_do_not_match_placeholder_regex() {
+    let template = tmp_dir()
+        .file(
+            "cargo-generate.toml",
+            indoc! {r#"
+                [placeholders]
+                my_value = {type = "string", prompt = "?", regex = "^$"}
+            "#},
+        )
+        .file(
+            "random.toml",
+            indoc! {r#"
+                value = "{{my_value}}"
+            "#},
+        )
+        .init_git()
+        .build();
+
+    let dir = tmp_dir().build();
+
+    binary()
+        .arg("generate")
+        .arg("--silent")
+        .arg("--name")
+        .arg("foobar-project")
+        .arg("--git")
+        .arg(template.path())
+        .arg("--define")
+        .arg("my_value=invalid")
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(
+            predicates::str::contains(
+                "provided value does not match configured regex for placeholder `my_value`",
+            )
+            .from_utf8(),
+        );
+}
+
+#[test]
 fn it_accepts_values_via_long_option() {
     let template = tmp_dir()
         .file(

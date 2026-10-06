@@ -58,6 +58,8 @@ pub enum ConversionError {
     ChoicesOnBool { var_name: String },
     #[error("bool type does not support `regex` field")]
     RegexOnBool { var_name: String },
+    #[error("provided value does not match configured regex for placeholder `{var_name}`")]
+    InvalidProvidedValue { var_name: String },
     #[error("variable `{var_name}` was missing in config file running on silent mode")]
     MissingPlaceholderVariable { var_name: String },
     #[error("field `{field}` of variable `{var_name}` does not match configured regex")]

@@ -594,14 +594,8 @@ fn fill_placeholders_and_merge_conditionals(
     template_values: &HashMap<String, toml::Value>,
     args: &GenerateArgs,
 ) -> Result<liquid::Object, anyhow::Error> {
-    let conditionals = config.conditional.take();
-    if conditionals.is_none() {
-        return Ok(liquid_object);
-    }
-    let mut conditionals = conditionals.unwrap();
-
-    loop {
-        project_variables::fill_project_variables(&mut liquid_object, config, |slot| {
+    let fill_variables = |liquid_object: &mut liquid::Object, config: &Config| {
+        project_variables::fill_project_variables(liquid_object, config, |slot| {
             let provided_value = template_values.get(&slot.var_name).and_then(|v| match v {
                 toml::Value::String(s) => Some(s.clone()),
                 toml::Value::Integer(s) => Some(s.to_string()),
@@ -617,7 +611,18 @@ fn fill_placeholders_and_merge_conditionals(
                 })
             }
             interactive::variable(slot, provided_value.as_ref())
-        })?;
+        })
+    };
+
+    fill_variables(&mut liquid_object, config)?;
+
+    let mut conditionals = match config.conditional.take() {
+        Some(conditionals) => conditionals,
+        None => return Ok(liquid_object),
+    };
+
+    loop {
+        fill_variables(&mut liquid_object, config)?;
 
         let placeholders_changed = conditionals
             .iter_mut()

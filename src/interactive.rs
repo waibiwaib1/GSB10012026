@@ -1,6 +1,6 @@
 use crate::{
     emoji,
-    project_variables::{StringEntry, TemplateSlots, VarInfo},
+    project_variables::{ConversionError, StringEntry, TemplateSlots, VarInfo},
 };
 use anyhow::Result;
 use console::style;
@@ -102,15 +102,27 @@ pub fn variable(variable: &TemplateSlots, provided_value: Option<&impl ToString>
     let user_input = provided_value
         .map(|v| Ok(v.to_string()))
         .unwrap_or_else(|| prompt_for_variable(variable))?;
-    into_value(user_input, &variable.var_info)
+    into_value(user_input, variable)
 }
 
-fn into_value(user_entry: String, var_info: &VarInfo) -> Result<Value> {
+fn into_value(user_entry: String, variable: &TemplateSlots) -> Result<Value> {
+    let var_name = &variable.var_name;
+    let var_info = &variable.var_info;
     match var_info {
         VarInfo::Bool { .. } => {
             let as_bool = user_entry.parse::<bool>()?; // this shouldn't fail if checked before
             Ok(Value::Scalar(as_bool.into()))
         }
-        VarInfo::String { .. } => Ok(Value::Scalar(user_entry.into())),
+        VarInfo::String { entry } => {
+            if let Some(regex) = &entry.regex {
+                if !regex.is_match(&user_entry) {
+                    return Err(ConversionError::InvalidProvidedValue {
+                        var_name: var_name.clone(),
+                    }
+                    .into());
+                }
+            }
+            Ok(Value::Scalar(user_entry.into()))
+        }
     }
 }
