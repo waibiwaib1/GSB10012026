@@ -80,7 +80,8 @@ type ServeMux struct {
 	handlers map[string]methodHandler
 
 	// Maps interceptor key to interceptor.
-	interceps map[string]Interceptor
+	interceps      map[string]Interceptor
+	intercepsOrder []string
 }
 
 // NewServeMux allocates and returns a new ServeMux
@@ -101,14 +102,23 @@ func NewServeMux(d Dispatcher, domains ...string) *ServeMux {
 
 // Handle registers a handler for the given pattern and method. If another
 // handler is already registered for the same pattern and method, Handle panics.
-func (m *ServeMux) Handle(pattern string, method string, h Handler) {
+//
+// Configs can be passed to customize installed interceptors for this handler.
+// A Config that does not match an installed interceptor has no effect.
+func (m *ServeMux) Handle(pattern string, method string, h Handler, cfgs ...Config) {
+	m.validateConfigs(cfgs)
+	hi := handlerWithInterceptors{
+		handler: h,
+		mux:     m,
+		configs: cfgs,
+		disp:    m.disp,
+	}
+
 	mh, ok := m.handlers[pattern]
 	if !ok {
 		mh := methodHandler{
-			handlers:     map[string]Handler{method: h},
-			domains:      m.domains,
-			disp:         m.disp,
-			muxInterceps: m.interceps,
+			handlers: map[string]handlerWithInterceptors{method: hi},
+			domains:  m.domains,
 		}
 
 		m.handlers[pattern] = mh
@@ -119,7 +129,34 @@ func (m *ServeMux) Handle(pattern string, method string, h Handler) {
 	if _, ok := mh.handlers[method]; ok {
 		panic("method already registered")
 	}
-	mh.handlers[method] = h
+	mh.handlers[method] = hi
+}
+
+func (m *ServeMux) validateConfigs(cfgs []Config) {
+	for _, key := range m.intercepsOrder {
+		matched := false
+		for _, cfg := range cfgs {
+			if cfg.Match(m.interceps[key]) {
+				if matched {
+					panic("multiple configurations specified for interceptor with key " + key)
+				}
+				matched = true
+			}
+		}
+	}
+}
+
+func (m *ServeMux) configFor(key string, cfgs []Config) Config {
+	var matched Config
+	for _, cfg := range cfgs {
+		if cfg.Match(m.interceps[key]) {
+			if matched != nil {
+				panic("multiple configurations specified for interceptor with key " + key)
+			}
+			matched = cfg
+		}
+	}
+	return matched
 }
 
 // Install installs an Interceptor. Interceptor keys need to be unique. If an
@@ -133,6 +170,7 @@ func (m *ServeMux) Install(key string, i Interceptor) {
 		panic("interceptor with same key already installed")
 	}
 	m.interceps[key] = i
+	m.intercepsOrder = append(m.intercepsOrder, key)
 }
 
 // ServeHTTP dispatches the request to the handler whose method matches the
@@ -143,20 +181,14 @@ func (m *ServeMux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 // methodHandler is a collection of handlers based on the request method.
 type methodHandler struct {
-	// Maps an HTTP method to its handler
-	handlers     map[string]Handler
-	domains      map[string]bool
-	disp         Dispatcher
-	muxInterceps map[string]Interceptor
+	// Maps an HTTP method to its handler.
+	handlers map[string]handlerWithInterceptors
+	domains  map[string]bool
 }
 
-// ServeHTTP dispatches the request to the handler associated with
-// the incoming request's method after calling the Before function of all
-// ServeMux interceptors the handler is registered on.
+// ServeHTTP dispatches the request to the handler associated with the
+// incoming request's method.
 func (m methodHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	rw := NewResponseWriter(m.disp, w, m.muxInterceps)
-	ir := NewIncomingRequest(r)
-
 	if !m.domains[r.Host] {
 		http.Error(w, http.StatusText(http.StatusNotFound), http.StatusNotFound)
 		return
@@ -168,21 +200,32 @@ func (m methodHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The `net/http` package recovers handler panics, but we cannot rely on that behavior here.
-	// The reason is, we might need to run After/Commit stages of the interceptors before we
-	// respond with a 500 Internal Server Error.
+	h.ServeHTTP(w, r)
+}
+
+type handlerWithInterceptors struct {
+	handler Handler
+	mux     *ServeMux
+	configs []Config
+	disp    Dispatcher
+}
+
+func (h handlerWithInterceptors) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	rw := NewResponseWriter(h.disp, w, h.mux.interceps)
+	ir := NewIncomingRequest(r)
+
 	defer func() {
 		if r := recover(); r != nil {
 			rw.ServerError(StatusInternalServerError)
 		}
 	}()
 
-	for _, intercep := range m.muxInterceps {
-		intercep.Before(rw, ir)
+	for _, key := range h.mux.intercepsOrder {
+		h.mux.interceps[key].Before(rw, ir, h.mux.configFor(key, h.configs))
 		if rw.written {
 			return
 		}
 	}
 
-	h.ServeHTTP(rw, ir)
+	h.handler.ServeHTTP(rw, ir)
 }

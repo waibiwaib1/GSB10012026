@@ -168,7 +168,7 @@ type setHeaderInterceptor struct {
 	value string
 }
 
-func (p setHeaderInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.IncomingRequest) safehttp.Result {
+func (p setHeaderInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.IncomingRequest, _ safehttp.Config) safehttp.Result {
 	if err := w.Header().Set(p.name, p.value); err != nil {
 		return w.ServerError(safehttp.StatusInternalServerError)
 	}
@@ -177,7 +177,7 @@ func (p setHeaderInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.Inc
 
 type internalErrorInterceptor struct{}
 
-func (internalErrorInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.IncomingRequest) safehttp.Result {
+func (internalErrorInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.IncomingRequest, _ safehttp.Config) safehttp.Result {
 	return w.ServerError(safehttp.StatusInternalServerError)
 }
 
@@ -186,7 +186,7 @@ type claimHeaderInterceptor struct {
 	setValue      func([]string)
 }
 
-func (p *claimHeaderInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.IncomingRequest) safehttp.Result {
+func (p *claimHeaderInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.IncomingRequest, _ safehttp.Config) safehttp.Result {
 	f, err := w.Header().Claim(p.headerToClaim)
 	if err != nil {
 		return w.ServerError(safehttp.StatusInternalServerError)
@@ -201,7 +201,7 @@ func (p *claimHeaderInterceptor) SetHeader(value string) {
 
 type panickingInterceptor struct{}
 
-func (panickingInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.IncomingRequest) safehttp.Result {
+func (panickingInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.IncomingRequest, _ safehttp.Config) safehttp.Result {
 	panic("bad")
 }
 
@@ -335,4 +335,95 @@ func TestMuxInterceptors(t *testing.T) {
 			}
 		})
 	}
+}
+
+type configurableInterceptor struct{}
+
+func (configurableInterceptor) Before(w *safehttp.ResponseWriter, _ *safehttp.IncomingRequest, cfg safehttp.Config) safehttp.Result {
+	name, value := "Default-Header", "default"
+	if c, ok := cfg.(testInterceptorConfig); ok {
+		name, value = c.name, c.value
+	}
+	if err := w.Header().Set(name, value); err != nil {
+		return w.ServerError(safehttp.StatusInternalServerError)
+	}
+	return safehttp.Result{}
+}
+
+type testInterceptorConfig struct {
+	name  string
+	value string
+}
+
+func (testInterceptorConfig) Match(i safehttp.Interceptor) bool {
+	_, ok := i.(configurableInterceptor)
+	return ok
+}
+
+type unmatchedConfig struct{}
+
+func (unmatchedConfig) Match(safehttp.Interceptor) bool {
+	return false
+}
+
+func TestMuxInterceptorConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      safehttp.Config
+		wantHeaders map[string][]string
+	}{
+		{
+			name:        "matching config",
+			config:      testInterceptorConfig{name: "Foo", value: "Bar"},
+			wantHeaders: map[string][]string{"Foo": {"Bar"}},
+		},
+		{
+			name:        "unmatched config",
+			config:      unmatchedConfig{},
+			wantHeaders: map[string][]string{"Default-Header": {"default"}},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mux := safehttp.NewServeMux(testDispatcher{}, "foo.com")
+			mux.Install("configurable", configurableInterceptor{})
+
+			h := safehttp.HandlerFunc(func(w *safehttp.ResponseWriter, r *safehttp.IncomingRequest) safehttp.Result {
+				return w.Write(safehtml.HTMLEscaped("<h1>Hello World!</h1>"))
+			})
+			mux.Handle("/bar", safehttp.MethodGet, h, tt.config)
+
+			b := &strings.Builder{}
+			rw := newResponseRecorder(b)
+			req := httptest.NewRequest(safehttp.MethodGet, "http://foo.com/bar", nil)
+			mux.ServeHTTP(rw, req)
+
+			if diff := cmp.Diff(tt.wantHeaders, map[string][]string(rw.header)); diff != "" {
+				t.Errorf("rw.header mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestMuxDuplicateInterceptorConfigs(t *testing.T) {
+	mux := safehttp.NewServeMux(testDispatcher{}, "foo.com")
+	mux.Install("configurable", configurableInterceptor{})
+
+	h := safehttp.HandlerFunc(func(w *safehttp.ResponseWriter, r *safehttp.IncomingRequest) safehttp.Result {
+		return w.Write(safehtml.HTMLEscaped("<h1>Hello World!</h1>"))
+	})
+
+	defer func() {
+		if recover() == nil {
+			t.Error("Handle() with duplicate configs expected panic")
+		}
+	}()
+	mux.Handle(
+		"/bar",
+		safehttp.MethodGet,
+		h,
+		testInterceptorConfig{name: "Foo", value: "Bar"},
+		testInterceptorConfig{name: "Baz", value: "Qux"},
+	)
 }

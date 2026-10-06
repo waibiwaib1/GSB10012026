@@ -154,7 +154,7 @@ func TestBefore(t *testing.T) {
 			rr := safehttptest.NewResponseRecorder()
 			req := safehttptest.NewRequest(safehttp.MethodGet, "/", nil)
 
-			tt.interceptor.Before(rr.ResponseWriter, req)
+			tt.interceptor.Before(rr.ResponseWriter, req, nil)
 
 			h := rr.Header()
 			if diff := cmp.Diff(tt.wantEnforcePolicy, h.Values("Content-Security-Policy"), cmpopts.EquateEmpty()); diff != "" {
@@ -176,6 +176,35 @@ func TestBefore(t *testing.T) {
 	}
 }
 
+func TestDisable(t *testing.T) {
+	rr := safehttptest.NewResponseRecorder()
+	req := safehttptest.NewRequest(safehttp.MethodGet, "/", nil)
+
+	Default("").Before(rr.ResponseWriter, req, Disable())
+
+	if got, want := rr.Status(), safehttp.StatusOK; got != want {
+		t.Errorf("rr.Status() got: %v want: %v", got, want)
+	}
+	if got := rr.Header().Values("Content-Security-Policy"); len(got) != 0 {
+		t.Errorf("Content-Security-Policy got: %v want: empty", got)
+	}
+	if got := rr.Header().Values("Content-Security-Policy-Report-Only"); len(got) != 0 {
+		t.Errorf("Content-Security-Policy-Report-Only got: %v want: empty", got)
+	}
+	if got := req.Context().Value(ctxKey{}); got != nil {
+		t.Errorf("CSP nonce got: %v want: nil", got)
+	}
+}
+
+func TestDisableConfigMatch(t *testing.T) {
+	if !Disable().Match(Default("")) {
+		t.Error("Disable().Match(Interceptor{}) got: false want: true")
+	}
+	if Disable().Match(nil) {
+		t.Error("Disable().Match(nil) got: true want: false")
+	}
+}
+
 func TestAlreadyClaimed(t *testing.T) {
 	headers := []string{
 		"Content-Security-Policy",
@@ -191,7 +220,7 @@ func TestAlreadyClaimed(t *testing.T) {
 			req := safehttptest.NewRequest(safehttp.MethodGet, "/", nil)
 
 			it := Interceptor{}
-			it.Before(rr.ResponseWriter, req)
+			it.Before(rr.ResponseWriter, req, nil)
 
 			if got, want := rr.Status(), safehttp.StatusInternalServerError; got != want {
 				t.Errorf("rr.Status() got: %v want: %v", got, want)

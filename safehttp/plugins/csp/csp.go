@@ -159,6 +159,19 @@ type Interceptor struct {
 	ReportOnly []Policy
 }
 
+type disabledConfig struct{}
+
+// Disable returns a handler configuration that disables the CSP interceptor.
+func Disable() safehttp.Config {
+	return disabledConfig{}
+}
+
+// Match reports whether the configuration applies to a CSP Interceptor.
+func (disabledConfig) Match(i safehttp.Interceptor) bool {
+	_, ok := i.(Interceptor)
+	return ok
+}
+
 // Default creates a new CSP interceptor with a strict nonce-based policy and a
 // framing policy, both in enforcement mode.
 func Default(reportURI string) Interceptor {
@@ -172,7 +185,11 @@ func Default(reportURI string) Interceptor {
 
 // Before claims and sets the Content-Security-Policy header and the
 // Content-Security-Policy-Report-Only header.
-func (it Interceptor) Before(w *safehttp.ResponseWriter, r *safehttp.IncomingRequest) safehttp.Result {
+func (it Interceptor) Before(w *safehttp.ResponseWriter, r *safehttp.IncomingRequest, cfg safehttp.Config) safehttp.Result {
+	if _, ok := cfg.(disabledConfig); ok {
+		return safehttp.Result{}
+	}
+
 	nonce := generateNonce()
 	r.SetContext(context.WithValue(r.Context(), ctxKey{}, nonce))
 
