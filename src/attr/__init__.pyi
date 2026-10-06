@@ -41,6 +41,11 @@ if sys.version_info >= (3, 10):
 else:
     from typing_extensions import TypeGuard
 
+if sys.version_info >= (3, 8):
+    from typing import Literal
+else:
+    from typing_extensions import Literal
+
 if sys.version_info >= (3, 11):
     from typing import dataclass_transform
 else:
@@ -100,6 +105,35 @@ else:
         takes_self: bool = ...,
     ) -> _T: ...
 
+_In = TypeVar("_In")
+_Out = TypeVar("_Out")
+
+class Converter(Generic[_In, _Out]):
+    @overload
+    def __init__(self, converter: Callable[[_In], _Out]) -> None: ...
+    @overload
+    def __init__(
+        self,
+        converter: Callable[[_In, AttrsInstance, Attribute], _Out],
+        *,
+        takes_self: Literal[True],
+        takes_field: Literal[True],
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        converter: Callable[[_In, Attribute], _Out],
+        *,
+        takes_field: Literal[True],
+    ) -> None: ...
+    @overload
+    def __init__(
+        self,
+        converter: Callable[[_In, AttrsInstance], _Out],
+        *,
+        takes_self: Literal[True],
+    ) -> None: ...
+
 class Attribute(Generic[_T]):
     name: str
     default: _T | None
@@ -110,7 +144,7 @@ class Attribute(Generic[_T]):
     order: _EqOrderType
     hash: bool | None
     init: bool
-    converter: _ConverterType | None
+    converter: _ConverterType | Converter[Any, _T] | None
     metadata: dict[Any, Any]
     type: type[_T] | None
     kw_only: bool
@@ -174,7 +208,7 @@ def attrib(
     init: bool = ...,
     metadata: Mapping[Any, Any] | None = ...,
     type: type[_T] | None = ...,
-    converter: _ConverterType | None = ...,
+    converter: _ConverterType | Converter[Any, _T] | None = ...,
     factory: Callable[[], _T] | None = ...,
     kw_only: bool = ...,
     eq: _EqOrderType | None = ...,
@@ -194,7 +228,7 @@ def attrib(
     init: bool = ...,
     metadata: Mapping[Any, Any] | None = ...,
     type: type[_T] | None = ...,
-    converter: _ConverterType | None = ...,
+    converter: _ConverterType | Converter[Any, _T] | None = ...,
     factory: Callable[[], _T] | None = ...,
     kw_only: bool = ...,
     eq: _EqOrderType | None = ...,
@@ -214,7 +248,7 @@ def attrib(
     init: bool = ...,
     metadata: Mapping[Any, Any] | None = ...,
     type: object = ...,
-    converter: _ConverterType | None = ...,
+    converter: _ConverterType | Converter[Any, _T] | None = ...,
     factory: Callable[[], _T] | None = ...,
     kw_only: bool = ...,
     eq: _EqOrderType | None = ...,

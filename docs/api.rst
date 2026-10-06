@@ -94,6 +94,24 @@ Core
       C(x=[1, 2, 3], y={1, 2, 3})
 
 
+.. autoclass:: Converter
+
+   For example, using ``takes_field=True``:
+
+   .. doctest::
+
+      >>> def converter(value, field):
+      ...     return value + field.metadata["suffix"]
+      >>> @define
+      ... class C:
+      ...     x = field(
+      ...         converter=attrs.Converter(converter, takes_field=True),
+      ...         metadata={"suffix": "!"},
+      ...     )
+      >>> C("hello")
+      C(x='hello!')
+
+
 Exceptions
 ----------
 
