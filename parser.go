@@ -120,7 +120,7 @@ func (p *Parser) ParseType() (typ ast.Type, err error) {
 	return
 }
 
-// ParseDDL parses a CREATE/ALTER/DROP statement.
+// ParseDDL parses a DDL statement.
 func (p *Parser) ParseDDL() (ddl ast.DDL, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -141,7 +141,7 @@ func (p *Parser) ParseDDL() (ddl ast.DDL, err error) {
 	return
 }
 
-// ParseDDLs parses CREATE/ALTER/DROP statements list separated by semi-colon.
+// ParseDDLs parses DDL statements list separated by semi-colon.
 func (p *Parser) ParseDDLs() (ddls []ast.DDL, err error) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -213,7 +213,8 @@ func (p *Parser) parseStatement() ast.Statement {
 	case p.Token.Kind == "SELECT" || p.Token.Kind == "@" || p.Token.Kind == "WITH" || p.Token.Kind == "(":
 		return p.parseQueryStatement()
 	case p.Token.Kind == "CREATE" || p.Token.IsKeywordLike("ALTER") || p.Token.IsKeywordLike("DROP") ||
-		p.Token.IsKeywordLike("RENAME") || p.Token.IsKeywordLike("GRANT") || p.Token.IsKeywordLike("REVOKE"):
+		p.Token.IsKeywordLike("ANALYZE") || p.Token.IsKeywordLike("RENAME") ||
+		p.Token.IsKeywordLike("GRANT") || p.Token.IsKeywordLike("REVOKE"):
 		return p.parseDDL()
 	case p.Token.IsKeywordLike("INSERT") || p.Token.IsKeywordLike("DELETE") || p.Token.IsKeywordLike("UPDATE"):
 		return p.parseDML()
@@ -2296,6 +2297,8 @@ func (p *Parser) lookaheadSimpleType() bool {
 func (p *Parser) parseDDL() ast.DDL {
 	pos := p.Token.Pos
 	switch {
+	case p.Token.IsKeywordLike("ANALYZE"):
+		return p.parseAnalyze(pos)
 	case p.Token.Kind == "CREATE":
 		p.nextToken()
 		switch {
@@ -2379,6 +2382,11 @@ func (p *Parser) parseDDL() ast.DDL {
 	}
 
 	panic(p.errorfAtToken(&p.Token, "expected pseudo keyword: ALTER, DROP, but: %s", p.Token.AsString))
+}
+
+func (p *Parser) parseAnalyze(pos token.Pos) *ast.Analyze {
+	p.expectKeywordLike("ANALYZE")
+	return &ast.Analyze{Analyze: pos}
 }
 
 func (p *Parser) parseCreateSchema(pos token.Pos) *ast.CreateSchema {
