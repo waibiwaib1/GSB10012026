@@ -243,11 +243,11 @@ OpenPubkey has a number of different types of PK Tokens. A full list includes:
 
 | PK Token Type                 | OP Support               | Identity type |
 | -------------                 |--------------            | ------------- |
-| Nonce-Commitment              | Google, Azure, Okta      | Human         |
-| GQ Signed Nonce-Commitment     | Google, Azure, Okta      | Human         |
+| Nonce-Commitment              | Google, Azure, GitLab, Okta      | Human         |
+| GQ Signed Nonce-Commitment     | Google, Azure, GitLab, Okta      | Human         |
 | GQ Signed Audience-Commitment | GitHub, GCP              | Machine       |
 | GQ-Commitment                      | GitLab-CI                | Machine       |
-| ZKP PK Tokens           | Google, Azure, Okta, Github, Gitlab-CI | Human+Machine|
+| ZKP PK Tokens           | Google, Azure, GitLab, Okta, Github, Gitlab-CI | Human+Machine|
 
 ### Nonce-Commitment PK Token - Google Example
 

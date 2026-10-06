@@ -18,7 +18,7 @@ package providers
 
 import (
 	"context"
-	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/lestrrat-go/jwx/v2/jws"
@@ -27,33 +27,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestGitlabSimpleRequest(t *testing.T) {
-
+func TestGitlabUserSimpleRequest(t *testing.T) {
 	issuer := gitlabIssuer
 	providerOverride, err := mocks.NewMockProviderBackend(issuer, 2)
 	require.NoError(t, err)
 
-	op := &GitlabCiOp{
+	op := &GitlabOp{
 		issuer:                    gitlabIssuer,
+		clientID:                  "test-client-id",
 		publicKeyFinder:           providerOverride.PublicKeyFinder,
 		requestTokensOverrideFunc: providerOverride.RequestTokensOverrideFunc,
 	}
 
-	aud := AudPrefixForGQCommitment
 	cic := GenCIC(t)
-
 	expSigningKey, expKeyID, expRecord := providerOverride.RandomSigningKey()
+
 	idTokenTemplate := mocks.IDTokenTemplate{
-		CommitFunc:  mocks.NoClaimCommit,
+		CommitFunc:  mocks.AddNonceCommit,
 		Issuer:      issuer,
 		Nonce:       "empty",
 		NoNonce:     false,
-		Aud:         aud,
+		Aud:         "test-client-id",
 		KeyID:       expKeyID,
 		NoKeyID:     false,
 		Alg:         expRecord.Alg,
 		NoAlg:       false,
-		ExtraClaims: map[string]any{"sha": "c7d5b5ff9b2130a53526dcc44a1f69ef0e50d003"},
+		ExtraClaims: map[string]any{"extraClaim": "extraClaimValue"},
 		SigningKey:  expSigningKey,
 	}
 	providerOverride.SetIDTokenTemplate(&idTokenTemplate)
@@ -66,15 +65,26 @@ func TestGitlabSimpleRequest(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, cicHash)
 
-	headerB64, _, _, err := jws.SplitCompact(idToken)
+	_, payloadB64, _, err := jws.SplitCompact(idToken)
 	require.NoError(t, err)
-	headerJson, err := util.Base64DecodeForJWT(headerB64)
+	payload, err := util.Base64DecodeForJWT(payloadB64)
 	require.NoError(t, err)
-	headers := jws.NewHeaders()
-	err = json.Unmarshal(headerJson, &headers)
-	require.NoError(t, err)
-	cicHash2, ok := headers.Get("cic")
-	require.True(t, ok, "cic not found in GQ ID Token")
+	require.Contains(t, string(payload), string(cicHash))
 
-	require.Equal(t, string(cicHash), cicHash2, "cic hash in jwt header should match cic supplied")
+	require.Equal(t, "mock-refresh-token", string(tokens.RefreshToken))
+	require.Equal(t, "mock-access-token", string(tokens.AccessToken))
+
+	require.NoError(t, op.VerifyIDToken(context.Background(), idToken, cic))
+}
+
+func TestGitlabUserDefaultOptions(t *testing.T) {
+	opts := GetDefaultGitlabOpOptions()
+	require.Equal(t, gitlabIssuer, opts.Issuer)
+	require.NotEmpty(t, opts.ClientID)
+	require.Contains(t, strings.Join(opts.Scopes, " "), "openid")
+	require.NotEmpty(t, opts.RedirectURIs)
+
+	op := NewGitlabOpWithOptions(opts)
+	require.Equal(t, gitlabIssuer, op.Issuer())
+	require.Equal(t, opts.ClientID, op.ClientID())
 }
