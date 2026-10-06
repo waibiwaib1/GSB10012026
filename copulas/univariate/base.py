@@ -1,3 +1,6 @@
+import pickle
+
+
 class Univariate(object):
     """ Abstract class for representing univariate distributions """
 
@@ -23,3 +26,25 @@ class Univariate(object):
     def sample(self):
         """ returns new data point based on model """
         raise NotImplementedError
+
+    def save(self, filename):
+        """Save the internal state of a distribution in the specified file.
+
+        Args:
+            filename: 'str', path to the file where the distribution will be serialized.
+        """
+        with open(filename, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(cls, filename):
+        """Load a distribution previously saved with the save method.
+
+        Args:
+            filename: 'str', path to the file containing the serialized distribution.
+
+        Returns:
+            The loaded distribution instance, with its internal state restored.
+        """
+        with open(filename, 'rb') as f:
+            return pickle.load(f)

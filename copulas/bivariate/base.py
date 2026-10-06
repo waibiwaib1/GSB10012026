@@ -1,3 +1,4 @@
+import pickle
 from enum import Enum
 
 import numpy as np
@@ -39,6 +40,9 @@ class Bivariate(object):
         if not isinstance(copula_type, CopulaTypes):
             if (isinstance(copula_type, str) and copula_type.upper() in CopulaTypes.__members__):
                 copula_type = CopulaTypes[copula_type.upper()]
+            elif cls is not Bivariate:
+                # Allow instantiating subclasses directly (e.g. when unpickling)
+                return super(Bivariate, cls).__new__(cls)
             else:
                 raise ValueError('Invalid copula type {}'.format(copula_type))
 
@@ -82,6 +86,28 @@ class Bivariate(object):
     def set_params(self, **kwargs):
         for key, value in kwargs.items():
             setattr(self, key, value)
+
+    def save(self, filename):
+        """Save the internal state of a copula in the specified file.
+
+        Args:
+            filename: 'str', path to the file where the copula will be serialized.
+        """
+        with open(filename, 'wb') as f:
+            pickle.dump(self, f)
+
+    @classmethod
+    def load(cls, filename):
+        """Load a copula previously saved with the save method.
+
+        Args:
+            filename: 'str', path to the file containing the serialized copula.
+
+        Returns:
+            The loaded copula instance, with its internal state restored.
+        """
+        with open(filename, 'rb') as f:
+            return pickle.load(f)
 
     def infer(self, values):
         """Takes in subset of values and predicts the rest."""
