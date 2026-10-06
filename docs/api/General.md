@@ -115,3 +115,112 @@ await user.save();
 // {"id": 1}
 // will be saved to the database (notice the `name` property is undefined and did not use the `default` property)
 ```
+
+## dynamoose.logger
+
+The `dynamoose.logger` object is used to manage logging within Dynamoose. Logging providers are used to output log events, and multiple providers can be active at the same time. The only built in log provider is `console`, but you can pass in any custom log provider.
+
+By default no log providers are active, so no logs will be outputted.
+
+### dynamoose.logger.providers.set(provider)
+
+This function takes in a provider or an array of providers and sets the active log providers (overwriting all existing providers).
+
+```js
+dynamoose.logger.providers.set(console); // `console` is the only built in log provider
+dynamoose.logger.providers.set([console, new FSDynamooseLogger({"logPath": "./logs"})]); // log to multiple providers
+
+dynamoose.logger.providers.set({
+	"id": "consoleLogger", // custom id used to reference the provider later, defaults to a random uuidv4
+	"provider": console,
+	"filter": {
+		"level": "debug+", // an array of levels, or a level suffixed with `+` (same or more verbose) or `-` (same or less verbose)
+		"category": "aws:dynamodb:*:request" // wildcard (`*` = one section, `**` = unlimited sections) category filter
+	}
+});
+```
+
+Passing `undefined`, `null`, or an empty array will clear all providers.
+
+### dynamoose.logger.providers.clear()
+
+This function clears all active log providers so no logs will be outputted.
+
+```js
+dynamoose.logger.providers.clear();
+```
+
+### dynamoose.logger.providers.add(provider)
+
+This function appends a provider or array of providers to the active log providers.
+
+```js
+dynamoose.logger.providers.add(console);
+```
+
+### dynamoose.logger.providers.delete(id)
+
+This function deletes a provider (or array of ids) from the active log providers by its `id`.
+
+```js
+dynamoose.logger.providers.delete("consoleLogger");
+```
+
+### dynamoose.logger.providers.list()
+
+This function returns an array of the active log providers.
+
+```js
+dynamoose.logger.providers.list();
+```
+
+### dynamoose.logger.pause()
+
+This function pauses all logs from being outputted to log providers.
+
+```js
+dynamoose.logger.pause();
+```
+
+### dynamoose.logger.resume()
+
+This function resumes outputting logs to log providers.
+
+```js
+dynamoose.logger.resume();
+```
+
+### dynamoose.logger.status()
+
+This function returns a string of either `"active"` or `"paused"` representing the current status of the logger.
+
+### Custom Log Providers
+
+A custom log provider is a class (or object) with a `log` method. The provider can either receive JSON objects (default) or strings by setting `type` to `"string"`. The `log` method can be a standard or `async` function.
+
+```js
+class FSDynamooseLogger {
+	constructor(settings = {}) {
+		this.settings = settings;
+		this.type = "json"; // can be `json` (default) or `string`
+	}
+
+	log(msg) {
+		// additional filtering can be done here based on `msg`
+		return fs.writeFile(path.join(this.settings.logPath, `${msg.id}.json`), JSON.stringify(msg), "utf8");
+	}
+}
+```
+
+JSON log events have the following structure:
+
+```js
+{
+	"id": "", // uuidv4 of the log
+	"message": "", // string based message of the log
+	"level": "", // one of: "fatal", "error", "warn", "info", "debug", "trace"
+	"category": "aws:dynamodb:putItem:request", // `:` separated category string
+	"metadata": {}, // custom object with metadata about the log
+	"timestamp": new Date() // date instance of when the log was created
+}
+```
