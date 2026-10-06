@@ -86,6 +86,9 @@ func TestMsgCreateChain(t *testing.T) {
 	// coordAddrs[4] is not funded
 	initCreationFeeAndFundCoordAccounts(t, tk.LaunchKeeper, tk.BankKeeper, sdkCtx, chainCreationFee, 1, coordAddrs[:4]...)
 
+	msgInvalidMetadataLen := sample.MsgCreateChain(r, coordAddrs[0], "", false, campMap[coordAddrs[0]])
+	msgInvalidMetadataLen.Metadata = sample.Metadata(r, int(campaigntypes.DefaultMaxMetadataLength+1))
+
 	for _, tc := range []struct {
 		name          string
 		msg           types.MsgCreateChain
@@ -121,6 +124,11 @@ func TestMsgCreateChain(t *testing.T) {
 			name: "should prevent creating a chain with invalid campaign id",
 			msg:  sample.MsgCreateChain(r, coordAddrs[0], "", true, 1000),
 			err:  types.ErrCreateChainFail,
+		},
+		{
+			name: "should prevent creating a chain with metadata too large",
+			msg:  msgInvalidMetadataLen,
+			err:  types.ErrInvalidMetadataLength,
 		},
 		{
 			name: "should prevent creating a chain with invalid coordinator address",

@@ -19,7 +19,15 @@ func (k msgServer) CreateChain(goCtx context.Context, msg *types.MsgCreateChain)
 		return nil, err
 	}
 
-	// TODO check metadata len
+	// Check if the metadata length is valid
+	maxMetadataLength := k.campaignKeeper.MaxMetadataLength(ctx)
+	if uint64(len(msg.Metadata)) > maxMetadataLength {
+		return nil, sdkerrors.Wrapf(types.ErrInvalidMetadataLength,
+			"metadata length %d is greater than maximum %d",
+			len(msg.Metadata),
+			maxMetadataLength,
+		)
+	}
 
 	id, err := k.CreateNewChain(
 		ctx,

@@ -98,7 +98,7 @@ func CampaignParams(r *rand.Rand) campaign.Params {
 	// assign random small amount of staking denom
 	campaignCreationFee := sdk.NewCoins(sdk.NewInt64Coin(sdk.DefaultBondDenom, r.Int63n(100)+1))
 
-	return campaign.NewParams(minTotalSupply, maxTotalSupply, campaignCreationFee)
+	return campaign.NewParams(minTotalSupply, maxTotalSupply, campaignCreationFee, campaign.DefaultMaxMetadataLength)
 }
 
 // CampaignGenesisState returns a sample genesis state for the campaign module

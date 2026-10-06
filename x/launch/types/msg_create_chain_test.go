@@ -7,7 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	spntypes "github.com/tendermint/spn/pkg/types"
 	"github.com/tendermint/spn/testutil/sample"
 	"github.com/tendermint/spn/x/launch/types"
 )
@@ -25,9 +24,6 @@ func TestMsgCreateChain_ValidateBasic(t *testing.T) {
 
 	invalidGenesisChainID := sample.MsgCreateChain(r, sample.Address(r), "", false, 0)
 	invalidGenesisChainID.GenesisChainID = "invalid"
-
-	msgInvalidMetadataLen := sample.MsgCreateChain(r, sample.Address(r), "foo.com", false, 0)
-	msgInvalidMetadataLen.Metadata = sample.Bytes(r, spntypes.MaxMetadataLength+1)
 
 	msgInvalidCoins := sample.MsgCreateChain(r, sample.Address(r), "foo.com", false, 0)
 	msgInvalidCoins.AccountBalance = sdk.Coins{sdk.Coin{Denom: "invalid", Amount: sdk.NewInt(-1)}}
@@ -65,11 +61,6 @@ func TestMsgCreateChain_ValidateBasic(t *testing.T) {
 		{
 			desc:  "should prevent validate message with invalid genesis chain ID",
 			msg:   invalidGenesisChainID,
-			valid: false,
-		},
-		{
-			desc:  "should prevent validate message with invalid metadata length",
-			msg:   msgInvalidMetadataLen,
 			valid: false,
 		},
 		{

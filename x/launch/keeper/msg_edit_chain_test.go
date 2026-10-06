@@ -76,6 +76,15 @@ func TestMsgEditChain(t *testing.T) {
 	err = tk.CampaignKeeper.AddChainToCampaign(sdkCtx, campaignDuplicateChain, launchID2)
 	require.NoError(t, err)
 
+	msgInvalidMetadataLen := sample.MsgEditChain(r,
+		coordAddress,
+		launchID,
+		false,
+		0,
+		false,
+	)
+	msgInvalidMetadataLen.Metadata = sample.Metadata(r, int(campaigntypes.DefaultMaxMetadataLength+1))
+
 	for _, tc := range []struct {
 		name string
 		msg  types.MsgEditChain
@@ -177,6 +186,11 @@ func TestMsgEditChain(t *testing.T) {
 				false,
 			),
 			err: types.ErrAddChainToCampaign,
+		},
+		{
+			name: "should prevent editing chain with metadata too large",
+			msg:  msgInvalidMetadataLen,
+			err:  types.ErrInvalidMetadataLength,
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

@@ -101,6 +101,16 @@ func TestMsgUpdateCampaignName(t *testing.T) {
 			},
 			err: profiletypes.ErrCoordInvalid,
 		},
+		{
+			name: "should fail with metadata too large",
+			msg: types.MsgEditCampaign{
+				Coordinator: coordAddr,
+				CampaignID:  campaign.CampaignID,
+				Name:        sample.CampaignName(r),
+				Metadata:    sample.Metadata(r, int(types.DefaultMaxMetadataLength+1)),
+			},
+			err: types.ErrInvalidMetadataLength,
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			previousCampaign, found := tk.CampaignKeeper.GetCampaign(sdkCtx, tc.msg.CampaignID)

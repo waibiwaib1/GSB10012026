@@ -37,6 +37,14 @@ func (k msgServer) EditCampaign(goCtx context.Context, msg *types.MsgEditCampaig
 	}
 
 	if len(msg.Metadata) > 0 {
+		// Check if the metadata length is valid
+		if uint64(len(msg.Metadata)) > k.MaxMetadataLength(ctx) {
+			return nil, sdkerrors.Wrapf(types.ErrInvalidMetadataLength,
+				"metadata length %d is greater than maximum %d",
+				len(msg.Metadata),
+				k.MaxMetadataLength(ctx),
+			)
+		}
 		campaign.Metadata = msg.Metadata
 	}
 

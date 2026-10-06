@@ -7,8 +7,6 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	spntypes "github.com/tendermint/spn/pkg/types"
-
 	"github.com/tendermint/spn/testutil/sample"
 	"github.com/tendermint/spn/x/campaign/types"
 )
@@ -65,16 +63,6 @@ func TestMsgEditCampaign_ValidateBasic(t *testing.T) {
 				Metadata:    sample.Metadata(r, 20),
 			},
 			err: profile.ErrInvalidCoordAddress,
-		},
-		{
-			name: "should prevent validation of msg with invalid metadata length",
-			msg: types.MsgEditCampaign{
-				CampaignID:  0,
-				Coordinator: sample.Address(r),
-				Name:        sample.CampaignName(r),
-				Metadata:    sample.Metadata(r, spntypes.MaxMetadataLength+1),
-			},
-			err: types.ErrInvalidMetadataLength,
 		},
 		{
 			name: "should prevent validation of msg with no fields modified",

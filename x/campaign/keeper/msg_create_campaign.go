@@ -30,6 +30,15 @@ func (k msgServer) CreateCampaign(goCtx context.Context, msg *types.MsgCreateCam
 		return nil, sdkerrors.Wrap(types.ErrInvalidTotalSupply, err.Error())
 	}
 
+	// Check if the metadata length is valid
+	if uint64(len(msg.Metadata)) > k.MaxMetadataLength(ctx) {
+		return nil, sdkerrors.Wrapf(types.ErrInvalidMetadataLength,
+			"metadata length %d is greater than maximum %d",
+			len(msg.Metadata),
+			k.MaxMetadataLength(ctx),
+		)
+	}
+
 	// Deduct campaign creation fee if set
 	creationFee := k.CampaignCreationFee(ctx)
 	if !creationFee.Empty() {

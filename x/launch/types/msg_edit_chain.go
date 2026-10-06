@@ -6,7 +6,6 @@ import (
 
 	profile "github.com/tendermint/spn/x/profile/types"
 
-	spntypes "github.com/tendermint/spn/pkg/types"
 )
 
 const TypeMsgEditChain = "edit_chain"
@@ -58,12 +57,6 @@ func (msg *MsgEditChain) ValidateBasic() error {
 
 	if len(msg.Metadata) == 0 && !msg.SetCampaignID {
 		return sdkerrors.Wrap(ErrCannotUpdateChain, "no value to edit")
-	}
-
-	// TODO parameterize
-	if len(msg.Metadata) > spntypes.MaxMetadataLength {
-		return sdkerrors.Wrapf(ErrInvalidMetadataLength, "data length %d is greater than maximum %d",
-			len(msg.Metadata), spntypes.MaxMetadataLength)
 	}
 
 	return nil

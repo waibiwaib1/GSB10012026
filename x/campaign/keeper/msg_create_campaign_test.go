@@ -117,6 +117,16 @@ func TestMsgCreateCampaign(t *testing.T) {
 			err: types.ErrInvalidTotalSupply,
 		},
 		{
+			name: "should fail with metadata too large",
+			msg: types.MsgCreateCampaign{
+				CampaignName: sample.CampaignName(r),
+				Coordinator:  coordAddrs[0],
+				TotalSupply:  sample.TotalSupply(r),
+				Metadata:     sample.Metadata(r, int(types.DefaultMaxMetadataLength+1)),
+			},
+			err: types.ErrInvalidMetadataLength,
+		},
+		{
 			name: "should fail for insufficient balance to cover creation fee",
 			msg: types.MsgCreateCampaign{
 				CampaignName: sample.CampaignName(r),
