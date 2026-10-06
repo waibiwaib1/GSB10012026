@@ -1,7 +1,7 @@
 from typing import Any, Union, Optional, NamedTuple
 from sqlalchemy import inspect
 from sqlalchemy.orm import DeclarativeMeta
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import DeclarativeBase, aliased
 from sqlalchemy.sql import ColumnElement
 from sqlalchemy.sql.schema import Column
 from sqlalchemy.sql.elements import Label
@@ -30,7 +30,7 @@ def _extract_matching_columns_from_schema(
     Returns:
         A list of ORM column objects from the model that correspond to the field names defined in the schema.
     """
-    column_list = list(model.__table__.columns)
+    column_list = list(inspect(model).selectable.columns)
     if schema is not None:
         if isinstance(schema, list):
             schema_fields = schema
@@ -87,6 +87,40 @@ def _extract_matching_columns_from_column_names(
             column_list.append(getattr(model, column_name))
 
     return column_list
+
+
+def _auto_alias_joins(joins: list[JoinConfig]) -> list[JoinConfig]:
+    """
+    Assigns aliases to join configurations that reference the same model more than once,
+    adapting their join conditions to the aliased model. This prevents SQL errors caused
+    by the same table name appearing multiple times in a query.
+
+    Args:
+        joins: The list of JoinConfig instances to process.
+
+    Returns:
+        A list of JoinConfig instances where duplicated models are replaced by aliases.
+    """
+    model_counts: dict[Any, int] = {}
+    for join in joins:
+        model_counts[join.model] = model_counts.get(join.model, 0) + 1
+
+    seen_counts: dict[Any, int] = {}
+    aliased_joins = []
+    for join in joins:
+        if model_counts[join.model] > 1:
+            index = seen_counts.get(join.model, 0)
+            seen_counts[join.model] = index + 1
+            alias = aliased(
+                join.model, name=f"{join.model.__tablename__}_{index}"
+            )
+            join_on = join.join_on
+            if join_on is not None:
+                join_on = inspect(alias)._adapter.traverse(join_on)
+            join = join._replace(model=alias, join_on=join_on)
+        aliased_joins.append(join)
+
+    return aliased_joins
 
 
 def _auto_detect_join_condition(

@@ -15,6 +15,7 @@ from sqlalchemy.sql.selectable import Select
 from .helper import (
     _extract_matching_columns_from_schema,
     _auto_detect_join_condition,
+    _auto_alias_joins,
     _add_column_with_prefix,
     JoinConfig,
 )
@@ -689,6 +690,8 @@ class FastCRUD(
                 )
             )
 
+        join_definitions = _auto_alias_joins(join_definitions)
+
         for join in join_definitions:
             join_select = _extract_matching_columns_from_schema(
                 join.model, join.schema_to_select
@@ -900,6 +903,8 @@ class FastCRUD(
         elif joins_config:
             joins.extend(joins_config)
 
+        joins = _auto_alias_joins(joins)
+
         primary_select = _extract_matching_columns_from_schema(
             model=self.model, schema=schema_to_select
         )
@@ -911,7 +916,7 @@ class FastCRUD(
                     join.model, join.schema_to_select
                 )
             else:
-                join_select = inspect(join.model).c
+                join_select = inspect(join.model).selectable.columns
 
             if join.join_prefix:
                 join_select = [
