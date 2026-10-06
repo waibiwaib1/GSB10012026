@@ -45,6 +45,20 @@ describe('class name format - scss', function () {
     });
   });
 
+  it('[convention: pascalcase]', function (done) {
+    lint.test(file, {
+      'class-name-format': [
+        1,
+        {
+          'convention': 'pascalcase'
+        }
+      ]
+    }, function (data) {
+      lint.assert.equal(35, data.warningCount);
+      done();
+    });
+  });
+
   it('[convention: snakecase]', function (done) {
     lint.test(file, {
       'class-name-format': [
@@ -158,6 +172,20 @@ describe('class name format - sass', function () {
       ]
     }, function (data) {
       lint.assert.equal(34, data.warningCount);
+      done();
+    });
+  });
+
+  it('[convention: pascalcase]', function (done) {
+    lint.test(file, {
+      'class-name-format': [
+        1,
+        {
+          'convention': 'pascalcase'
+        }
+      ]
+    }, function (data) {
+      lint.assert.equal(35, data.warningCount);
       done();
     });
   });

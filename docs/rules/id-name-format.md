@@ -5,7 +5,7 @@ Rule `id-name-format` will enforce a convention for ids.
 ## Options
 
 * `allow-leading-underscore`: `true`/`false` (defaults to `true`)
-* `convention`: `'hyphenatedlowercase'` (default), `camelcase`, `snakecase`,
+* `convention`: `'hyphenatedlowercase'` (default), `camelcase`, `pascalcase`, `snakecase`,
 or a Regular Expression that the id name must match (e.g. `^[_A-Z]+$`)
 * `convention-explanation`: Custom explanation to display to the user if an id doesn't adhere to the convention
 * `ignore`: Array of names to ignore
