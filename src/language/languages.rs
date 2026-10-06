@@ -96,6 +96,32 @@ impl Languages {
     pub fn new() -> Self {
         Languages::default()
     }
+
+    /// Returns a summary of the total counts of all the languages.
+    ///
+    /// ```no_run
+    /// # use tokei::*;
+    /// let mut languages = Languages::new();
+    /// languages.get_statistics(&["src"], &[], &Config::default());
+    ///
+    /// let total = languages.total();
+    /// ```
+    pub fn total(&self) -> Language {
+        let mut total = Language::new();
+
+        for (language_type, language) in self {
+            let summary = language.summarise();
+            total.blanks += summary.blanks;
+            total.code += summary.code;
+            total.comments += summary.comments;
+            total.inaccurate |= summary.inaccurate;
+            total
+                .children
+                .insert(*language_type, summary.reports.clone());
+        }
+
+        total
+    }
 }
 
 impl IntoIterator for Languages {

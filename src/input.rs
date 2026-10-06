@@ -1,8 +1,17 @@
 use std::{collections::BTreeMap, error::Error, str::FromStr};
 
+use serde::{Deserialize, Serialize};
 use tokei::{Language, LanguageType, Languages};
 
 type LanguageMap = BTreeMap<LanguageType, Language>;
+
+#[derive(Deserialize, Serialize, Debug)]
+struct Output {
+    #[serde(flatten)]
+    languages: LanguageMap,
+    #[serde(rename = "Total")]
+    totals: Language,
+}
 
 macro_rules! supported_formats {
     ($(
@@ -62,8 +71,8 @@ macro_rules! supported_formats {
                 if input.is_empty() {
                     return None
                 }
-                if let Ok(result) = serde_json::from_str(input) {
-                    return Some(result)
+                if let Ok(Output { languages, .. }) = serde_json::from_str(input) {
+                    return Some(languages)
                 }
 
                 $(
@@ -72,8 +81,8 @@ macro_rules! supported_formats {
                     {
                         let parse = &{ $parse_kode };
 
-                        if let Ok(result) = parse(input) {
-                            return Some(result)
+                        if let Ok(Output { languages, .. }) = parse(input) {
+                            return Some(languages)
                         }
                     }
                 )+
@@ -83,12 +92,17 @@ macro_rules! supported_formats {
             }
 
             pub fn print(&self, languages: &Languages) -> Result<String, Box<dyn Error>> {
+                let output = Output {
+                    languages: (*languages).to_owned(),
+                    totals: languages.total(),
+                };
+
                 match *self {
-                    Format::Json => Ok(serde_json::to_string(languages)?),
+                    Format::Json => Ok(serde_json::to_string(&output)?),
                     $(
                         #[cfg(feature = $feature)] Format::$variant => {
                             let print= &{ $print_kode };
-                            Ok(print(languages)?)
+                            Ok(print(&output)?)
                         }
                     ),+
                 }
