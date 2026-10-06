@@ -286,8 +286,11 @@ public class AmqpJsonMessageConverter implements MessageConverter<String, byte[]
 
 	@Override
 	public Collection<Message> toMessages(KafkaConsumerRecords<String, byte[]> records) {
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
-
+	@Override
+	public List<KafkaProducerRecord<String, byte[]>> toKafkaRecords(String kafkaTopic, Collection<Message> messages) {
+		throw new UnsupportedOperationException();
+	}
 }

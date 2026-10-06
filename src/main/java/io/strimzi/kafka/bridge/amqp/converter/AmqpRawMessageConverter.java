@@ -29,6 +29,7 @@ import org.apache.qpid.proton.message.Message;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -100,7 +101,11 @@ public class AmqpRawMessageConverter implements MessageConverter<String, byte[],
 
 	@Override
 	public Collection<Message> toMessages(KafkaConsumerRecords<String, byte[]> records) {
-		return null;
+		throw new UnsupportedOperationException();
 	}
 
+	@Override
+	public List<KafkaProducerRecord<String, byte[]>> toKafkaRecords(String kafkaTopic, Collection<Message> messages) {
+		throw new UnsupportedOperationException();
+	}
 }
