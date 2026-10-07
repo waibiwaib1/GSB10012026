@@ -1294,13 +1294,15 @@ def _pivot_longer_extractions(
             )
 
         if mapping.isna().any(axis=None):
+            unmatched_columns = df.columns[
+                mapping.isna().any(axis=1)
+            ].tolist()
             raise ValueError(
-                """
-                The regular expression in ``names_pattern``
-                did not return all matches.
-                Kindly provide a regular expression that
-                captures all patterns.
-                """
+                "The regular expression in `names_pattern` did not match "
+                "all columns. The following column(s) did not match: "
+                f"{unmatched_columns}. Provide them to `index`, exclude them "
+                "by selecting `column_names`, or provide a regular "
+                "expression that captures all patterns."
             )
 
         if len(names_to) != len(mapping.columns):

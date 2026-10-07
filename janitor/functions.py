@@ -5781,6 +5781,9 @@ def pivot_longer(
         ``names_to = ("name1", "name2", "name3")``, then ``names_pattern``
         should be ("regex1", "regex2", "regex3"), with "name1" pairing
         "regex1", "name2" pairing "regex2", and "name3" pairing "regex3".
+        Every column being unpivoted must match the regular expression(s);
+        columns that should remain identifiers should be passed to ``index``,
+        or the matching columns should be passed to ``column_names``.
         `names_pattern` does not work with MultiIndex columns.
     :param values_to: Name of new column as a string that will contain what
         were previously the values of the columns in `column_names`.

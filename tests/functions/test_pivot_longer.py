@@ -555,6 +555,24 @@ def test_empty_mapping_any(test_df):
         )
 
 
+def test_names_pattern_unmatched_column_message():
+    """Identify columns that do not match `names_pattern`."""
+    df = pd.DataFrame(
+        {
+            "Petal.Width": [1],
+            "Sepal.Width": [2],
+            "Petal.Length": [3],
+            "Species": "setosa",
+            "Sepal.Length": [4],
+        }
+    )
+
+    with pytest.raises(ValueError, match="Species"):
+        df.pivot_longer(
+            names_pattern=r"(.*)[.](.*)", names_to=["part", "dim"]
+        )
+
+
 def test_len_mapping_gt_len_names_to(test_df):
     """
     Raise error if `names_pattern` is a regex,
