@@ -4,6 +4,7 @@ use std::ops::Range;
 use crate::diagnostic::{Diagnostic, LabelStyle};
 use crate::files::{Files, Location};
 use crate::term::renderer::{Locus, MultiLabel, Renderer, SingleLabel};
+use crate::term::Config;
 
 /// Count the number of decimal digits in `n`.
 fn count_digits(mut n: usize) -> usize {
@@ -18,14 +19,18 @@ fn count_digits(mut n: usize) -> usize {
 /// Output a richly formatted diagnostic, with source code previews.
 pub struct RichDiagnostic<'diagnostic, FileId> {
     diagnostic: &'diagnostic Diagnostic<FileId>,
+    config: &'diagnostic Config,
 }
 
 impl<'diagnostic, FileId> RichDiagnostic<'diagnostic, FileId>
 where
     FileId: Copy + PartialEq,
 {
-    pub fn new(diagnostic: &'diagnostic Diagnostic<FileId>) -> RichDiagnostic<'diagnostic, FileId> {
-        RichDiagnostic { diagnostic }
+    pub fn new(
+        diagnostic: &'diagnostic Diagnostic<FileId>,
+        config: &'diagnostic Config,
+    ) -> RichDiagnostic<'diagnostic, FileId> {
+        RichDiagnostic { diagnostic, config }
     }
 
     pub fn render<'files>(
@@ -59,6 +64,7 @@ where
                     number: line_number,
                     single_labels: vec![],
                     multi_labels: vec![],
+                    must_render: false,
                 })
             }
         }
@@ -69,6 +75,7 @@ where
             // TODO: How do we reuse these allocations?
             single_labels: Vec<SingleLabel<'diagnostic>>,
             multi_labels: Vec<(usize, LabelStyle, MultiLabel<'diagnostic>)>,
+            must_render: bool,
         }
 
         // TODO: Make this data structure external, to allow for allocation reuse
@@ -135,6 +142,7 @@ where
                     start_line_range,
                     start_line_number,
                 );
+                line.must_render = true;
 
                 // Ensure that the single line labels are lexicographically
                 // sorted by the range of source code that they cover.
@@ -178,8 +186,14 @@ where
                 let label_start = label.range.start - start_line_range.start;
                 let prefix_source = &source[start_line_range.start..label.range.start];
 
-                labeled_file
-                    .get_or_insert_line(start_line_index, start_line_range, start_line_number)
+                let start_line = labeled_file.get_or_insert_line(
+                    start_line_index,
+                    start_line_range,
+                    start_line_number,
+                );
+
+                start_line.must_render = true;
+                start_line
                     .multi_labels
                     // TODO: Do this in the `Renderer`?
                     .push(match prefix_source.trim() {
@@ -207,17 +221,19 @@ where
                 // 6 │ │     0 _ => "Fizz"
                 // 7 │ │     _ 0 => "Buzz"
                 // ```
-                // TODO(#125): If start line and end line are too far apart, add a source break.
                 for line_index in (start_line_index + 1)..end_line_index {
                     let line_range = files.line_range(label.file_id, line_index).unwrap();
                     let line_number = files.line_number(label.file_id, line_index).unwrap();
 
                     outer_padding = std::cmp::max(outer_padding, count_digits(line_number));
 
-                    labeled_file
-                        .get_or_insert_line(line_index, line_range, line_number)
-                        .multi_labels
+                    let line = labeled_file.get_or_insert_line(line_index, line_range, line_number);
+
+                    line.multi_labels
                         .push((label_index, label.style, MultiLabel::Left));
+                    line.must_render |= line_index - start_line_index
+                        <= self.config.start_context_lines
+                        || end_line_index - line_index <= self.config.end_context_lines;
                 }
 
                 // Last labeled line
@@ -228,14 +244,18 @@ where
                 // ```
                 let label_end = label.range.end - end_line_range.start;
 
-                labeled_file
-                    .get_or_insert_line(end_line_index, end_line_range, end_line_number)
-                    .multi_labels
-                    .push((
-                        label_index,
-                        label.style,
-                        MultiLabel::Bottom(..label_end, &label.message),
-                    ));
+                let end_line = labeled_file.get_or_insert_line(
+                    end_line_index,
+                    end_line_range,
+                    end_line_number,
+                );
+
+                end_line.must_render = true;
+                end_line.multi_labels.push((
+                    label_index,
+                    label.style,
+                    MultiLabel::Bottom(..label_end, &label.message),
+                ));
             }
         }
 
@@ -286,10 +306,13 @@ where
                 )?;
             }
 
-            let mut lines = labeled_file.lines.into_iter().peekable();
-            let current_labels = Vec::new();
+            let mut lines = labeled_file
+                .lines
+                .iter()
+                .filter(|(_, line)| line.must_render)
+                .peekable();
 
-            while let Some((line_index, line)) = lines.next() {
+            while let Some((&line_index, line)) = lines.next() {
                 renderer.render_snippet_source(
                     outer_padding,
                     line.number,
@@ -302,7 +325,7 @@ where
 
                 // Check to see if we need to render any intermediate stuff
                 // before rendering the next line.
-                if let Some((next_line_index, _)) = lines.peek() {
+                if let Some((next_line_index, next_line)) = lines.peek() {
                     match next_line_index.checked_sub(line_index) {
                         // Consecutive lines
                         Some(1) => {}
@@ -310,6 +333,10 @@ where
                         Some(2) => {
                             // Write a source line
                             let file_id = labeled_file.file_id;
+                            let multi_labels = labeled_file
+                                .lines
+                                .get(&(line_index + 1))
+                                .map_or(&[][..], |line| &line.multi_labels[..]);
                             renderer.render_snippet_source(
                                 outer_padding,
                                 files.line_number(file_id, line_index + 1).unwrap(),
@@ -317,7 +344,7 @@ where
                                 self.diagnostic.severity,
                                 &[],
                                 labeled_file.num_multi_labels,
-                                &current_labels,
+                                multi_labels,
                             )?;
                         }
                         // More than one line between the current line and the next line.
@@ -331,7 +358,7 @@ where
                                 outer_padding,
                                 self.diagnostic.severity,
                                 labeled_file.num_multi_labels,
-                                &current_labels,
+                                &next_line.multi_labels,
                             )?;
                         }
                     }
@@ -350,7 +377,7 @@ where
                     outer_padding,
                     self.diagnostic.severity,
                     labeled_file.num_multi_labels,
-                    &current_labels,
+                    &[],
                 )?;
             }
         }

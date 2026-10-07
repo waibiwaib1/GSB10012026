@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+-   Added configurable context limits for long multiline labels. Lines outside
+    of the context around label endpoints are now collapsed with a source break.
+
 ## [0.9.5] - 2020-06-24
 
 ### Changed

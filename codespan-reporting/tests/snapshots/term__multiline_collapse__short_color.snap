@@ -1,0 +1,7 @@
+---
+source: codespan-reporting/tests/term.rs
+expression: TEST_DATA.emit_color(& config)
+
+---
+multiline_collapse.rs:1:1: {fg:Red bold bright}error{bold bright}: multiline labels are collapsed{/}
+

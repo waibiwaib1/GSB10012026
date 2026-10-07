@@ -1,0 +1,18 @@
+---
+source: codespan-reporting/tests/term.rs
+expression: TEST_DATA.emit_no_color(& config)
+
+---
+error: multiline labels are collapsed
+   ┌─ multiline_collapse.rs:1:1
+   │  
+ 1 │ ╭ line one
+ 2 │ │ line two
+ 3 │ │ line three
+ 4 │ │ line four
+   · │
+ 9 │ │ line nine
+10 │ │ line ten
+   │ ╰────────^ this spans many lines
+
+

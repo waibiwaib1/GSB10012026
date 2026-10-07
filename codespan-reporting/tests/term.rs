@@ -592,6 +592,47 @@ mod multiline_overlapping {
     test_emit!(short_no_color);
 }
 
+mod multiline_collapse {
+    use super::*;
+
+    lazy_static::lazy_static! {
+        static ref TEST_DATA: TestData<'static, SimpleFile<&'static str, String>> = {
+            let source = (
+                "line one",
+                [
+                    "line two",
+                    "line three",
+                    "line four",
+                    "line five",
+                    "line six",
+                    "line seven",
+                    "line eight",
+                    "line nine",
+                    "line ten",
+                ].join("\n"),
+            );
+            let source = format!("{}\n{}", source.0, source.1);
+            let range = 0..source.len();
+            let files = SimpleFile::new("multiline_collapse.rs", source);
+
+            let diagnostics = vec![
+                Diagnostic::error()
+                    .with_message("multiline labels are collapsed")
+                    .with_labels(vec![
+                        Label::primary((), range).with_message("this spans many lines"),
+                    ]),
+            ];
+
+            TestData { files, diagnostics }
+        };
+    }
+
+    test_emit!(rich_color);
+    test_emit!(short_color);
+    test_emit!(rich_no_color);
+    test_emit!(short_no_color);
+}
+
 mod tabbed {
     use super::*;
 

@@ -13,6 +13,12 @@ pub struct Config {
     /// Column width of tabs.
     /// Defaults to: `4`.
     pub tab_width: usize,
+    /// The minimum number of lines to show after the start of a multiline label.
+    /// Defaults to: `3`.
+    pub start_context_lines: usize,
+    /// The minimum number of lines to show before the end of a multiline label.
+    /// Defaults to: `1`.
+    pub end_context_lines: usize,
     /// Styles to use when rendering the diagnostic.
     pub styles: Styles,
     /// Characters to use when rendering the diagnostic.
@@ -24,6 +30,8 @@ impl Default for Config {
         Config {
             display_style: DisplayStyle::Rich,
             tab_width: 4,
+            start_context_lines: 3,
+            end_context_lines: 1,
             styles: Styles::default(),
             chars: Chars::default(),
         }
