@@ -29,7 +29,10 @@ import (
 	"k8c.io/kubermatic/v2/pkg/handler/test"
 	"k8c.io/kubermatic/v2/pkg/handler/test/hack"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestCreateClusterEndpoint(t *testing.T) {
@@ -137,6 +140,109 @@ func TestCreateClusterEndpoint(t *testing.T) {
 
 			test.CompareWithResult(t, res, expectedResponse)
 		})
+	}
+}
+
+func TestDeleteClusterEndpoint(t *testing.T) {
+	t.Parallel()
+	testcases := []struct {
+		Name                   string
+		ExpectedResponse       string
+		HTTPStatus             int
+		ProjectToSync          string
+		ClusterToSync          string
+		ExistingProject        *kubermaticv1.Project
+		ExistingAPIUser        *apiv1.User
+		ExistingKubermaticObjs []runtime.Object
+	}{
+		{
+			Name:             "scenario 1: project owner can delete an external cluster",
+			ExpectedResponse: `{}`,
+			HTTPStatus:       http.StatusOK,
+			ProjectToSync:    test.GenDefaultProject().Name,
+			ClusterToSync:    "external-cluster-id",
+			ExistingKubermaticObjs: test.GenDefaultKubermaticObjects(
+				genExternalCluster("external-cluster-id", test.GenDefaultProject().Name),
+			),
+			ExistingAPIUser: test.GenDefaultAPIUser(),
+		},
+		{
+			Name:             "scenario 2: user that doesn't belong to the project cannot delete an external cluster",
+			ExpectedResponse: `{"error":{"code":403,"message":"forbidden: \"john@acme.com\" doesn't belong to the given project = my-first-project-ID"}}`,
+			HTTPStatus:       http.StatusForbidden,
+			ProjectToSync:    test.GenDefaultProject().Name,
+			ClusterToSync:    "external-cluster-id",
+			ExistingKubermaticObjs: test.GenDefaultKubermaticObjects(
+				test.GenUser("", "John", "john@acme.com"),
+				genExternalCluster("external-cluster-id", test.GenDefaultProject().Name),
+			),
+			ExistingAPIUser: func() *apiv1.User {
+				defaultUser := test.GenDefaultAPIUser()
+				defaultUser.Email = "john@acme.com"
+				return defaultUser
+			}(),
+		},
+		{
+			Name:             "scenario 3: admin can delete an external cluster",
+			ExpectedResponse: `{}`,
+			HTTPStatus:       http.StatusOK,
+			ProjectToSync:    test.GenDefaultProject().Name,
+			ClusterToSync:    "external-cluster-id",
+			ExistingKubermaticObjs: test.GenDefaultKubermaticObjects(
+				genUser("John", "john@acme.com", true),
+				genExternalCluster("external-cluster-id", test.GenDefaultProject().Name),
+			),
+			ExistingAPIUser: test.GenAPIUser("John", "john@acme.com"),
+		},
+		{
+			Name:                   "scenario 4: deleting a missing external cluster returns not found",
+			ExpectedResponse:       `{"error":{"code":404,"message":"externalclusters.kubermatic.k8s.io \"missing-cluster-id\" not found"}}`,
+			HTTPStatus:             http.StatusNotFound,
+			ProjectToSync:          test.GenDefaultProject().Name,
+			ClusterToSync:          "missing-cluster-id",
+			ExistingKubermaticObjs: test.GenDefaultKubermaticObjects(),
+			ExistingAPIUser:        test.GenDefaultAPIUser(),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v2/projects/%s/kubernetes/clusters/%s", tc.ProjectToSync, tc.ClusterToSync), nil)
+			res := httptest.NewRecorder()
+
+			ep, clients, err := test.CreateTestEndpointAndGetClients(*tc.ExistingAPIUser, nil, []runtime.Object{}, []runtime.Object{}, tc.ExistingKubermaticObjs, test.GenDefaultVersions(), nil, hack.NewTestRouting)
+			if err != nil {
+				t.Fatalf("failed to create test endpoint due to %v", err)
+			}
+
+			ep.ServeHTTP(res, req)
+
+			if res.Code != tc.HTTPStatus {
+				t.Fatalf("Expected HTTP status code %d, got %d: %s", tc.HTTPStatus, res.Code, res.Body.String())
+			}
+			test.CompareWithResult(t, res, tc.ExpectedResponse)
+
+			cluster := &kubermaticv1.ExternalCluster{}
+			err = clients.FakeClient.Get(req.Context(), client.ObjectKey{Name: tc.ClusterToSync}, cluster)
+			if tc.HTTPStatus == http.StatusOK {
+				if err == nil || !kerrors.IsNotFound(err) {
+					t.Fatalf("expected cluster to be deleted, got: %v", err)
+				}
+			} else if err != nil {
+				if !kerrors.IsNotFound(err) {
+					t.Fatalf("expected cluster to remain: %v", err)
+				}
+			}
+		})
+	}
+}
+
+func genExternalCluster(name, projectID string) *kubermaticv1.ExternalCluster {
+	return &kubermaticv1.ExternalCluster{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:   name,
+			Labels: map[string]string{kubermaticv1.ProjectIDLabelKey: projectID},
+		},
 	}
 }
 

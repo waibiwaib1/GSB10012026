@@ -24,6 +24,7 @@ import (
 	"net/http"
 
 	"github.com/go-kit/kit/endpoint"
+	"github.com/gorilla/mux"
 
 	apiv1 "k8c.io/kubermatic/v2/pkg/api/v1"
 	kubermaticapiv1 "k8c.io/kubermatic/v2/pkg/crd/kubermatic/v1"
@@ -79,6 +80,26 @@ func CreateEndpoint(userInfoGetter provider.UserInfoGetter, projectProvider prov
 	}
 }
 
+func DeleteEndpoint(userInfoGetter provider.UserInfoGetter, projectProvider provider.ProjectProvider, privilegedProjectProvider provider.PrivilegedProjectProvider, clusterProvider provider.ExternalClusterProvider, privilegedClusterProvider provider.PrivilegedExternalClusterProvider) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (interface{}, error) {
+		req := request.(deleteClusterReq)
+		if err := req.Validate(); err != nil {
+			return nil, errors.NewBadRequest(err.Error())
+		}
+
+		project, err := common.GetProject(ctx, userInfoGetter, projectProvider, privilegedProjectProvider, req.ProjectID, &provider.ProjectGetOptions{IncludeUninitialized: false})
+		if err != nil {
+			return nil, common.KubernetesErrorToHTTPError(err)
+		}
+
+		if err := deleteCluster(ctx, userInfoGetter, clusterProvider, privilegedClusterProvider, project, req.ClusterID); err != nil {
+			return nil, common.KubernetesErrorToHTTPError(err)
+		}
+
+		return nil, nil
+	}
+}
+
 // createClusterReq defines HTTP request for createExternalCluster
 // swagger:parameters createExternalCluster
 type createClusterReq struct {
@@ -90,6 +111,15 @@ type createClusterReq struct {
 		// Kubeconfig Base64 encoded kubeconfig
 		Kubeconfig string `json:"kubeconfig"`
 	}
+}
+
+// deleteClusterReq defines HTTP request for deleteExternalCluster
+// swagger:parameters deleteExternalCluster
+type deleteClusterReq struct {
+	common.ProjectReq
+	// in: path
+	// required: true
+	ClusterID string `json:"cluster_id"`
 }
 
 func DecodeCreateReq(c context.Context, r *http.Request) (interface{}, error) {
@@ -108,10 +138,38 @@ func DecodeCreateReq(c context.Context, r *http.Request) (interface{}, error) {
 	return req, nil
 }
 
+func DecodeDeleteReq(c context.Context, r *http.Request) (interface{}, error) {
+	var req deleteClusterReq
+
+	projectReq, err := common.DecodeProjectRequest(c, r)
+	if err != nil {
+		return nil, err
+	}
+	req.ProjectReq = projectReq.(common.ProjectReq)
+
+	clusterID := mux.Vars(r)["cluster_id"]
+	if clusterID == "" {
+		return nil, fmt.Errorf("'cluster_id' parameter is required but was not provided")
+	}
+	req.ClusterID = clusterID
+
+	return req, nil
+}
+
 // Validate validates CreateEndpoint request
 func (req createClusterReq) Validate() error {
 	if len(req.ProjectID) == 0 {
 		return fmt.Errorf("the project ID cannot be empty")
+	}
+	return nil
+}
+
+func (req deleteClusterReq) Validate() error {
+	if len(req.ProjectID) == 0 {
+		return fmt.Errorf("the project ID cannot be empty")
+	}
+	if len(req.ClusterID) == 0 {
+		return fmt.Errorf("the cluster ID cannot be empty")
 	}
 	return nil
 }
@@ -138,6 +196,21 @@ func createNewCluster(ctx context.Context, userInfoGetter provider.UserInfoGette
 		return nil, err
 	}
 	return clusterProvider.New(userInfo, project, cluster)
+}
+
+func deleteCluster(ctx context.Context, userInfoGetter provider.UserInfoGetter, clusterProvider provider.ExternalClusterProvider, privilegedClusterProvider provider.PrivilegedExternalClusterProvider, project *kubermaticapiv1.Project, clusterID string) error {
+	adminUserInfo, err := userInfoGetter(ctx, "")
+	if err != nil {
+		return err
+	}
+	if adminUserInfo.IsAdmin {
+		return privilegedClusterProvider.DeleteUnsecured(project, clusterID)
+	}
+	userInfo, err := userInfoGetter(ctx, project.Name)
+	if err != nil {
+		return err
+	}
+	return clusterProvider.Delete(userInfo, project, clusterID)
 }
 
 func convertClusterToAPI(internalCluster *kubermaticapiv1.ExternalCluster) *apiv1.Cluster {

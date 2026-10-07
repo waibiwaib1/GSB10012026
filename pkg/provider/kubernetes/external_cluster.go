@@ -30,6 +30,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	kerrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/clientcmd"
 	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
@@ -66,6 +67,38 @@ func (p *ExternalClusterProvider) New(userInfo *provider.UserInfo, project *kube
 	return cluster, nil
 }
 
+// Get returns the given external cluster for the given project
+func (p *ExternalClusterProvider) Get(userInfo *provider.UserInfo, project *kubermaticapiv1.Project, clusterName string) (*kubermaticapiv1.ExternalCluster, error) {
+	masterImpersonatedClient, err := createImpersonationClientWrapperFromUserInfo(userInfo, p.createMasterImpersonatedClient)
+	if err != nil {
+		return nil, err
+	}
+
+	cluster := &kubermaticapiv1.ExternalCluster{}
+	if err := masterImpersonatedClient.Get(context.Background(), ctrlruntimeclient.ObjectKey{Name: clusterName}, cluster); err != nil {
+		return nil, err
+	}
+	if cluster.Labels[kubermaticapiv1.ProjectIDLabelKey] != project.Name {
+		return nil, kerrors.NewNotFound(schema.GroupResource{}, clusterName)
+	}
+
+	return cluster, nil
+}
+
+// Delete deletes the given external cluster
+func (p *ExternalClusterProvider) Delete(userInfo *provider.UserInfo, project *kubermaticapiv1.Project, clusterName string) error {
+	if _, err := p.Get(userInfo, project, clusterName); err != nil {
+		return err
+	}
+
+	masterImpersonatedClient, err := createImpersonationClientWrapperFromUserInfo(userInfo, p.createMasterImpersonatedClient)
+	if err != nil {
+		return err
+	}
+
+	return deleteExternalCluster(context.Background(), masterImpersonatedClient, clusterName)
+}
+
 // NewUnsecured creates a brand new external cluster in the system with the given name
 //
 // Note that this function:
@@ -76,6 +109,38 @@ func (p *ExternalClusterProvider) NewUnsecured(project *kubermaticapiv1.Project,
 		return nil, err
 	}
 	return cluster, nil
+}
+
+// GetUnsecured returns the given external cluster for the given project
+//
+// Note that this function:
+// is unsafe in a sense that it uses privileged account to get the resource
+func (p *ExternalClusterProvider) GetUnsecured(project *kubermaticapiv1.Project, clusterName string) (*kubermaticapiv1.ExternalCluster, error) {
+	cluster := &kubermaticapiv1.ExternalCluster{}
+	if err := p.clientPrivileged.Get(context.Background(), types.NamespacedName{Name: clusterName}, cluster); err != nil {
+		return nil, err
+	}
+	if cluster.Labels[kubermaticapiv1.ProjectIDLabelKey] != project.Name {
+		return nil, kerrors.NewNotFound(schema.GroupResource{}, clusterName)
+	}
+
+	return cluster, nil
+}
+
+// DeleteUnsecured deletes the given external cluster
+//
+// Note that this function:
+// is unsafe in a sense that it uses privileged account to delete the resource
+func (p *ExternalClusterProvider) DeleteUnsecured(project *kubermaticapiv1.Project, clusterName string) error {
+	if _, err := p.GetUnsecured(project, clusterName); err != nil {
+		return err
+	}
+	return deleteExternalCluster(context.Background(), p.clientPrivileged, clusterName)
+}
+
+func deleteExternalCluster(ctx context.Context, client ctrlruntimeclient.Client, clusterName string) error {
+	policy := metav1.DeletePropagationBackground
+	return client.Delete(ctx, &kubermaticapiv1.ExternalCluster{ObjectMeta: metav1.ObjectMeta{Name: clusterName}}, &ctrlruntimeclient.DeleteOptions{PropagationPolicy: &policy})
 }
 
 func addProjectReference(project *kubermaticapiv1.Project, cluster *kubermaticapiv1.ExternalCluster) {
