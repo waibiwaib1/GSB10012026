@@ -2,6 +2,7 @@ package autolink
 
 import (
 	"github.com/MakeNowJust/heredoc"
+	cmdCreate "github.com/cli/cli/v2/pkg/cmd/repo/autolink/create"
 	cmdList "github.com/cli/cli/v2/pkg/cmd/repo/autolink/list"
 	"github.com/cli/cli/v2/pkg/cmdutil"
 	"github.com/spf13/cobra"
@@ -23,6 +24,7 @@ func NewCmdAutolink(f *cmdutil.Factory) *cobra.Command {
 	}
 	cmdutil.EnableRepoOverride(cmd, f)
 
+	cmd.AddCommand(cmdCreate.NewCmdCreate(f, nil))
 	cmd.AddCommand(cmdList.NewCmdList(f, nil))
 
 	return cmd
