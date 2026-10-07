@@ -359,9 +359,10 @@ fn test_invoke_dpe_get_profile_cmd() {
         data_size: cmd_hdr_buf.len() as u32,
     };
 
+    // Send a truncated request with the extraneous zero bytes removed.
     let checksum = caliptra_common::checksum::calc_checksum(
         u32::from(CommandId::INVOKE_DPE),
-        &cmd.as_bytes()[4..],
+        &cmd.as_bytes_partial()[4..],
     );
 
     let cmd = InvokeDpeReq {
@@ -370,7 +371,7 @@ fn test_invoke_dpe_get_profile_cmd() {
     };
 
     let resp = model
-        .mailbox_execute(u32::from(CommandId::INVOKE_DPE), cmd.as_bytes())
+        .mailbox_execute(u32::from(CommandId::INVOKE_DPE), cmd.as_bytes_partial())
         .unwrap()
         .expect("We should have received a response");
 

@@ -432,6 +432,11 @@ pub struct InvokeDpeReq {
 
 impl InvokeDpeReq {
     pub const DATA_MAX_SIZE: usize = 512;
+
+    pub fn as_bytes_partial(&self) -> &[u8] {
+        let unused_byte_count = Self::DATA_MAX_SIZE.saturating_sub(self.data_size as usize);
+        &self.as_bytes()[..size_of::<Self>() - unused_byte_count]
+    }
 }
 
 impl Default for InvokeDpeReq {
