@@ -459,6 +459,50 @@ describe('helpers', function () {
   });
 
   //////////////////////////////
+  // isPascalCase
+  //////////////////////////////
+
+  it('isPascalCase - [\'TEST\' - false]', function (done) {
+
+    var result = helpers.isPascalCase('TEST');
+
+    assert.equal(false, result);
+    done();
+  });
+
+  it('isPascalCase - [\'test\' - false]', function (done) {
+
+    var result = helpers.isPascalCase('test');
+
+    assert.equal(false, result);
+    done();
+  });
+
+  it('isPascalCase - [Test - true]', function (done) {
+
+    var result = helpers.isPascalCase('Test');
+
+    assert.equal(true, result);
+    done();
+  });
+
+  it('isPascalCase - [\'123\' - false]', function (done) {
+
+    var result = helpers.isPascalCase('123');
+
+    assert.equal(false, result);
+    done();
+  });
+
+  it('isPascalCase - [\'PascalCase\' - true]', function (done) {
+
+    var result = helpers.isPascalCase('PascalCase');
+
+    assert.equal(true, result);
+    done();
+  });
+
+  //////////////////////////////
   // isHyphenatedLowercase
   //////////////////////////////
 

@@ -45,6 +45,20 @@ describe('id name format - scss', function () {
     });
   });
 
+  it('[convention: pascalcase]', function (done) {
+    lint.test(file, {
+      'id-name-format': [
+        1,
+        {
+          'convention': 'pascalcase'
+        }
+      ]
+    }, function (data) {
+      lint.assert.equal(20, data.warningCount);
+      done();
+    });
+  });
+
   it('[convention: snakecase]', function (done) {
     lint.test(file, {
       'id-name-format': [
@@ -119,7 +133,6 @@ describe('id name format - sass', function () {
       done();
     });
   });
-
   it('[convention: camelcase]', function (done) {
     lint.test(file, {
       'id-name-format': [
@@ -133,6 +146,21 @@ describe('id name format - sass', function () {
       done();
     });
   });
+
+  it('[convention: pascalcase]', function (done) {
+    lint.test(file, {
+      'id-name-format': [
+        1,
+        {
+          'convention': 'pascalcase'
+        }
+      ]
+    }, function (data) {
+      lint.assert.equal(20, data.warningCount);
+      done();
+    });
+  });
+
 
   it('[convention: snakecase]', function (done) {
     lint.test(file, {
