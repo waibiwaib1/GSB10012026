@@ -40,8 +40,26 @@ export abstract class BaseTransformer {
       }
     });
 
+    // drop all sparse indexes that can not be resolved due to missing
+    // values, such indexes should not be written to the table
+    const schemaToParse: DynamoEntitySchema = {
+      ...metadata.schema,
+      indexes: Object.entries(metadata.schema.indexes ?? {}).reduce(
+        (acc, [indexName, index]) => {
+          if (
+            !index.isSparse ||
+            this.canResolveIndexInterpolations(index, entity)
+          ) {
+            acc[indexName] = index;
+          }
+          return acc;
+        },
+        {} as DynamoEntityIndexesSchema
+      ),
+    };
+
     const parsedSchema: DynamoEntitySchema = this.recursiveParseEntity(
-      metadata.schema,
+      schemaToParse,
       entity
     );
 
@@ -141,6 +159,14 @@ export abstract class BaseTransformer {
             return acc;
           }
 
+          // when index is sparse and can not be resolved from given attributes, skip it
+          if (
+            currIndex.isSparse &&
+            !this.canResolveIndexInterpolations(currIndex, attributes)
+          ) {
+            return acc;
+          }
+
           // check if attribute we are looking to update is referenced by any index
           Object.keys(interpolationsForCurrIndex).forEach(interpolationKey => {
             const currentInterpolation =
@@ -211,12 +237,34 @@ export abstract class BaseTransformer {
       const currentValue = schema[key];
       if (isObject(currentValue)) {
         acc[key] = this.recursiveParseEntity(currentValue, entity);
-      } else {
+      } else if (typeof currentValue === 'string') {
         acc[key] = parseKey(currentValue, entity);
+      } else {
+        acc[key] = currentValue;
       }
       return acc;
     }, {} as any);
 
     return parsedSchema;
+  }
+
+  /**
+   * Returns true when all variables referenced by index interpolations
+   * can be resolved from given entity
+   * @param index Index schema to check interpolations for
+   * @param entity Entity to resolve interpolation variables against
+   */
+  private canResolveIndexInterpolations<Entity>(
+    index: DynamoEntityIndexesSchema[string],
+    entity: Entity
+  ) {
+    const interpolations = index._interpolations ?? {};
+    return Object.values(interpolations)
+      .flat()
+      .every(
+        variable =>
+          (entity as any)[variable] !== undefined &&
+          (entity as any)[variable] !== null
+      );
   }
 }

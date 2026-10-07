@@ -61,6 +61,9 @@ Declare an entity to be registered in TypeDORM domain
 
   // Additional indexes to add to entity
   // @optional
+  // Each index also accepts an optional `isSparse` flag; when set to true
+  // and any value referenced by the index key can not be resolved, the
+  // index key attributes are not written to the table (sparse index)
   indexes
 })
 ```

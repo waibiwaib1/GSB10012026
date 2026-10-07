@@ -147,6 +147,9 @@ export class EntityMetadata extends BaseMetadata {
             [tableIndexSignature.sortKey]: sortKeyInterpolations,
           },
         };
+        if (currentIndex.isSparse) {
+          acc[key].isSparse = currentIndex.isSparse;
+        }
         return acc;
       } else {
         if (currentIndex.type !== INDEX_TYPE.GSI) {
@@ -169,6 +172,9 @@ export class EntityMetadata extends BaseMetadata {
             [tableIndexSignature.sortKey]: sortKeyInterpolations,
           },
         };
+        if (currentIndex.isSparse) {
+          acc[key].isSparse = currentIndex.isSparse;
+        }
         return acc;
       }
     }, {} as any);

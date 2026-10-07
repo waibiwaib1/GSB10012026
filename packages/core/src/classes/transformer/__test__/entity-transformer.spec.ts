@@ -2,13 +2,14 @@ import {UserAutoGenerateAttributes} from '../../../../__mocks__/user-auto-genera
 import {Attribute, Entity, INDEX_TYPE, Table} from '@typedorm/common';
 import {Organisation} from '../../../../__mocks__/organisation';
 import {User} from '../../../../__mocks__/user';
+import {UserSparseIndex} from '../../../../__mocks__/user-sparse-index';
 import {createTestConnection, resetTestConnection} from '@typedorm/testing';
 import {EntityTransformer} from '../entity-transformer';
 
 let transformer: EntityTransformer;
 beforeEach(() => {
   const connection = createTestConnection({
-    entities: [User, Organisation, UserAutoGenerateAttributes],
+    entities: [User, Organisation, UserAutoGenerateAttributes, UserSparseIndex],
   });
   transformer = new EntityTransformer(connection);
 });
@@ -93,6 +94,45 @@ test('transforms simple model to dynamo entity', () => {
     id: '111',
     name: 'Test User',
     status: 'inactive',
+  });
+});
+
+/**
+ * @group sparse indexes
+ */
+test('transforms model with sparse index and includes it when all values are present', () => {
+  const user = new UserSparseIndex();
+  user.id = '111';
+  user.name = 'Test User';
+  user.status = 'active';
+  user.pubId = 'pub-1';
+
+  const response = transformer.toDynamoEntity(user);
+  expect(response).toEqual({
+    PK: 'USER#111',
+    SK: 'USER#111',
+    GSI2PK: 'USER#STATUS#active',
+    GSI2SK: 'USER#PUB_ID#pub-1',
+    id: '111',
+    name: 'Test User',
+    status: 'active',
+    pubId: 'pub-1',
+  });
+});
+
+test('transforms model with sparse index and skips it when a referenced value is missing', () => {
+  const user = new UserSparseIndex();
+  user.id = '111';
+  user.name = 'Test User';
+  user.status = 'active';
+
+  const response = transformer.toDynamoEntity(user);
+  expect(response).toEqual({
+    PK: 'USER#111',
+    SK: 'USER#111',
+    id: '111',
+    name: 'Test User',
+    status: 'active',
   });
 });
 
