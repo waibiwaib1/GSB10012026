@@ -13,6 +13,7 @@ use crate::tree_store::{Page, PageNumber, PageTrackerPolicy};
 use crate::{CacheStats, StorageBackend};
 use crate::{DatabaseError, Result, StorageError};
 use std::cmp::{max, min};
+use std::collections::BTreeMap;
 #[cfg(debug_assertions)]
 use std::collections::HashMap;
 #[cfg(debug_assertions)]
@@ -89,6 +90,19 @@ pub(crate) struct TransactionalMemory {
     // Pages allocated since the last commit
     // TODO: maybe this should be moved to WriteTransaction?
     allocated_since_commit: Mutex<PageNumberHashSet>,
+    // Pages allocated since the last durable commit. These are not referenced by the durable
+    // on-disk state, so freeing them in-memory is safe, even though non-durable commits write
+    // dirty pages to the file
+    unpersisted: Mutex<PageNumberHashSet>,
+    // Pages freed by non-durable commits, keyed by the transaction that freed them. These are
+    // kept in memory, rather than being stored in DATA_FREED_TABLE, so that Durability::None
+    // commits don't have to mutate the system tree. A subsequent Durability::None commit frees
+    // them, once no read transaction can reference them, and the next durable commit writes any
+    // remaining records to DATA_FREED_TABLE
+    unpersisted_data_freed: Mutex<BTreeMap<TransactionId, Vec<PageNumber>>>,
+    // Same as unpersisted_data_freed, but for pages freed from the system tree, which would
+    // otherwise be stored in SYSTEM_FREED_TABLE
+    unpersisted_system_freed: Mutex<BTreeMap<TransactionId, Vec<PageNumber>>>,
     // True if the allocator state was corrupted when the file was opened
     // TODO: maybe we can remove this flag now that CheckedBackend exists?
     needs_recovery: AtomicBool,
@@ -245,6 +259,9 @@ impl TransactionalMemory {
 
         Ok(Self {
             allocated_since_commit: Mutex::new(Default::default()),
+            unpersisted: Mutex::new(Default::default()),
+            unpersisted_data_freed: Mutex::new(Default::default()),
+            unpersisted_system_freed: Mutex::new(Default::default()),
             needs_recovery: AtomicBool::new(needs_recovery),
             storage,
             state: Mutex::new(state),
@@ -278,6 +295,12 @@ impl TransactionalMemory {
 
     pub(crate) fn clear_cache_and_reload(&mut self) -> Result<bool, DatabaseError> {
         assert!(self.allocated_since_commit.lock().unwrap().is_empty());
+
+        // The in-memory state of non-durable commits is discarded, since the header is reloaded
+        // from the file, which reflects only the last durable commit
+        self.unpersisted.lock().unwrap().clear();
+        self.unpersisted_data_freed.lock().unwrap().clear();
+        self.unpersisted_system_freed.lock().unwrap().clear();
 
         self.storage.flush(false)?;
         self.storage.invalidate_cache_all();
@@ -564,6 +587,8 @@ impl TransactionalMemory {
             }
         }
         self.allocated_since_commit.lock().unwrap().clear();
+        // All previously allocated pages are now persisted
+        self.unpersisted.lock().unwrap().clear();
 
         let mut state = self.state.lock().unwrap();
         assert_eq!(
@@ -629,6 +654,7 @@ impl TransactionalMemory {
         let mut state = self.state.lock().unwrap();
         let mut guard = self.allocated_since_commit.lock().unwrap();
         for page_number in guard.iter() {
+            self.unpersisted.lock().unwrap().remove(page_number);
             let region_index = page_number.region;
             state
                 .get_region_tracker_mut()
@@ -785,6 +811,7 @@ impl TransactionalMemory {
             assert!(!self.open_dirty_pages.lock().unwrap().contains(&page));
         }
         allocated.remove(page);
+        self.unpersisted.lock().unwrap().remove(&page);
         let mut state = self.state.lock().unwrap();
         let region_index = page.region;
         // Free in the regional allocator
@@ -821,6 +848,119 @@ impl TransactionalMemory {
         } else {
             false
         }
+    }
+
+    // Frees the page if no durable commit has occurred since it was allocated. Returns true, if
+    // the page was freed
+    pub(crate) fn free_if_unpersisted(
+        &self,
+        page: PageNumber,
+        allocated: &mut PageTrackerPolicy,
+    ) -> bool {
+        if self.unpersisted.lock().unwrap().remove(&page) {
+            self.free_helper(page, allocated);
+            true
+        } else {
+            false
+        }
+    }
+
+    // Records pages freed by a non-durable commit. See unpersisted_data_freed
+    fn record_unpersisted_freed(
+        records: &Mutex<BTreeMap<TransactionId, Vec<PageNumber>>>,
+        transaction_id: TransactionId,
+        pages: Vec<PageNumber>,
+    ) {
+        if pages.is_empty() {
+            return;
+        }
+        records
+            .lock()
+            .unwrap()
+            .entry(transaction_id)
+            .or_default()
+            .extend(pages);
+    }
+
+    pub(crate) fn record_unpersisted_data_freed(
+        &self,
+        transaction_id: TransactionId,
+        pages: Vec<PageNumber>,
+    ) {
+        Self::record_unpersisted_freed(&self.unpersisted_data_freed, transaction_id, pages);
+    }
+
+    pub(crate) fn record_unpersisted_system_freed(
+        &self,
+        transaction_id: TransactionId,
+        pages: Vec<PageNumber>,
+    ) {
+        Self::record_unpersisted_freed(&self.unpersisted_system_freed, transaction_id, pages);
+    }
+
+    // Takes all the in-memory freed-page records, so that they can be written to the freed table
+    fn take_unpersisted_freed(
+        records: &Mutex<BTreeMap<TransactionId, Vec<PageNumber>>>,
+    ) -> Vec<(TransactionId, Vec<PageNumber>)> {
+        std::mem::take(&mut *records.lock().unwrap())
+            .into_iter()
+            .collect()
+    }
+
+    pub(crate) fn take_unpersisted_data_freed(&self) -> Vec<(TransactionId, Vec<PageNumber>)> {
+        Self::take_unpersisted_freed(&self.unpersisted_data_freed)
+    }
+
+    pub(crate) fn take_unpersisted_system_freed(&self) -> Vec<(TransactionId, Vec<PageNumber>)> {
+        Self::take_unpersisted_freed(&self.unpersisted_system_freed)
+    }
+
+    // Discards the in-memory freed-page records of transactions after the given one.
+    // Used when restoring a savepoint, since the commits that produced them are rolled back
+    pub(crate) fn drop_unpersisted_data_freed_after(&self, transaction_id: TransactionId) {
+        self.unpersisted_data_freed
+            .lock()
+            .unwrap()
+            .retain(|id, _| *id <= transaction_id);
+    }
+
+    // Frees pages freed by non-durable transactions before free_until, if they are unpersisted.
+    // Pages that are part of the durable state are kept in their records, so that the next
+    // durable commit writes them to the freed table
+    fn process_unpersisted_freed(
+        &self,
+        records: &Mutex<BTreeMap<TransactionId, Vec<PageNumber>>>,
+        free_until: TransactionId,
+    ) {
+        // The records are copied out before freeing, because free_if_unpersisted() locks other
+        // state. Only the committing write transaction mutates these records, so nothing can
+        // add to a transaction's record in between
+        let snapshot: Vec<(TransactionId, Vec<PageNumber>)> = records
+            .lock()
+            .unwrap()
+            .range(..free_until)
+            .map(|(id, pages)| (*id, pages.clone()))
+            .collect();
+        for (transaction_id, pages) in snapshot {
+            let kept: Vec<PageNumber> = pages
+                .into_iter()
+                .filter(|page| !self.free_if_unpersisted(*page, &mut PageTrackerPolicy::Ignore))
+                .collect();
+            let mut records = records.lock().unwrap();
+            if kept.is_empty() {
+                records.remove(&transaction_id);
+            } else {
+                records.insert(transaction_id, kept);
+            }
+        }
+    }
+
+    pub(crate) fn process_unpersisted_data_freed(&self, free_until: TransactionId) {
+        self.process_unpersisted_freed(&self.unpersisted_data_freed, free_until);
+    }
+
+    pub(crate) fn process_unpersisted_system_freed(&self, free_until: TransactionId) {
+        self.process_unpersisted_freed(&self.unpersisted_system_freed, free_until);
     }
 
     // Page has not been committed
@@ -866,6 +1006,7 @@ impl TransactionalMemory {
                 .lock()
                 .unwrap()
                 .insert(page_number);
+            self.unpersisted.lock().unwrap().insert(page_number);
         }
 
         let address_range = page_number.address_range(

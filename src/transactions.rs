@@ -357,8 +357,8 @@ pub enum Durability {
     /// Commits with this durability level will not be persisted to disk unless followed by a
     /// commit with a higher durability level.
     ///
-    /// Note: Pages are only freed during commits with higher durability levels. Exclusively using
-    /// this durability level will result in rapid growth of the database file.
+    /// Note: Pages are only freed during commits with higher durability levels, or by a
+    /// subsequent commit at this durability level once no read transaction can reference them.
     None,
     /// Commits with this durability level have been queued for persitance to disk, and should be
     /// persistent some time after [`WriteTransaction::commit`] returns.
@@ -770,6 +770,9 @@ pub struct WriteTransaction {
     durability: InternalDurability,
     two_phase_commit: bool,
     quick_repair: bool,
+    // Set by a savepoint restore, to discard the in-memory freed-page records of the non-durable
+    // commits it rolled back. Kept transaction-local, so that an abort leaves them in place
+    restored_transaction: Option<TransactionId>,
     // Persistent savepoints created during this transaction
     created_persistent_savepoints: Mutex<HashSet<SavepointId>>,
     deleted_persistent_savepoints: Mutex<Vec<(SavepointId, TransactionId)>>,
@@ -802,6 +805,7 @@ impl WriteTransaction {
             durability: InternalDurability::Immediate,
             two_phase_commit: false,
             quick_repair: false,
+            restored_transaction: None,
             created_persistent_savepoints: Mutex::new(Default::default()),
             deleted_persistent_savepoints: Mutex::new(vec![]),
         })
@@ -1162,6 +1166,10 @@ impl WriteTransaction {
             }
         }
 
+        // The commits after the savepoint are rolled back, so their in-memory freed-page records
+        // must be discarded when this transaction commits
+        self.restored_transaction = Some(savepoint.get_transaction_id());
+
         Ok(())
     }
 
@@ -1379,10 +1387,26 @@ impl WriteTransaction {
             self.two_phase_commit = true;
         }
 
+        // The rolled-back commits' pages are queued for freeing by restore_savepoint(), so their
+        // deferred records must not also be written out by a durable commit
+        if let Some(transaction_id) = self.restored_transaction {
+            self.mem.drop_unpersisted_data_freed_after(transaction_id);
+        }
+
         let (user_root, allocated_pages, data_freed) =
             self.tables.lock().unwrap().table_tree.flush_and_close()?;
 
-        self.store_data_freed_pages(data_freed)?;
+        // A non-durable commit keeps its freed-page records in memory, rather than writing them
+        // to DATA_FREED_TABLE, which would mutate the system tree on every commit. A future
+        // commit frees them, once no read transaction can reference them, and durable_commit()
+        // writes out any that remain
+        match self.durability {
+            InternalDurability::None => {
+                self.mem
+                    .record_unpersisted_data_freed(self.transaction_id, data_freed);
+            }
+            _ => self.store_data_freed_pages(data_freed)?,
+        }
         self.store_allocated_pages(allocated_pages.into_iter().collect())?;
 
         #[cfg(feature = "logging")]
@@ -1429,7 +1453,15 @@ impl WriteTransaction {
         Ok(())
     }
 
-    fn store_data_freed_pages(&self, mut freed_pages: Vec<PageNumber>) -> Result {
+    fn store_data_freed_pages(&self, freed_pages: Vec<PageNumber>) -> Result {
+        self.store_data_freed_pages_for(self.transaction_id, freed_pages)
+    }
+
+    fn store_data_freed_pages_for(
+        &self,
+        transaction_id: TransactionId,
+        mut freed_pages: Vec<PageNumber>,
+    ) -> Result {
         let mut system_tables = self.system_tables.lock().unwrap();
         let mut freed_table = system_tables.open_system_table(self, DATA_FREED_TABLE)?;
         let mut pagination_counter = 0;
@@ -1437,7 +1469,45 @@ impl WriteTransaction {
             let chunk_size = 400;
             let buffer_size = PageList::required_bytes(chunk_size);
             let key = TransactionIdWithPagination {
-                transaction_id: self.transaction_id.raw_id(),
+                transaction_id: transaction_id.raw_id(),
+                pagination_id: pagination_counter,
+            };
+            let mut access_guard =
+                freed_table.insert_reserve(&key, buffer_size.try_into().unwrap())?;
+
+            let len = freed_pages.len();
+            access_guard.as_mut().clear();
+            for page in freed_pages.drain(len - min(len, chunk_size)..) {
+                // Make sure that the page is currently allocated
+                debug_assert!(
+                    self.mem.is_allocated(page),
+                    "Page is not allocated: {page:?}"
+                );
+                debug_assert!(!self.mem.uncommitted(page), "Page is uncommitted: {page:?}");
+                access_guard.as_mut().push_back(page);
+            }
+
+            pagination_counter += 1;
+        }
+
+        Ok(())
+    }
+
+    // Stores pages freed by an earlier non-durable commit into SYSTEM_FREED_TABLE, under that
+    // commit's transaction id
+    fn store_system_freed_pages_for(
+        &self,
+        transaction_id: TransactionId,
+        mut freed_pages: Vec<PageNumber>,
+    ) -> Result {
+        let mut system_tables = self.system_tables.lock().unwrap();
+        let mut freed_table = system_tables.open_system_table(self, SYSTEM_FREED_TABLE)?;
+        let mut pagination_counter = 0;
+        while !freed_pages.is_empty() {
+            let chunk_size = 200;
+            let buffer_size = PageList::required_bytes(chunk_size);
+            let key = TransactionIdWithPagination {
+                transaction_id: transaction_id.raw_id(),
                 pagination_id: pagination_counter,
             };
             let mut access_guard =
@@ -1549,6 +1619,15 @@ impl WriteTransaction {
         user_root: Option<BtreeHeader>,
         eventual: bool,
     ) -> Result {
+        // Write out the freed-page records that earlier non-durable commits kept in memory, so
+        // that they are durable from here on like any other record in DATA_FREED_TABLE
+        for (transaction_id, pages) in self.mem.take_unpersisted_data_freed() {
+            self.store_data_freed_pages_for(transaction_id, pages)?;
+        }
+        for (transaction_id, pages) in self.mem.take_unpersisted_system_freed() {
+            self.store_system_freed_pages_for(transaction_id, pages)?;
+        }
+
         let free_until_transaction = self
             .transaction_tracker
             .oldest_live_read_transaction()
@@ -1624,17 +1703,29 @@ impl WriteTransaction {
 
     // Commit without a durability guarantee
     pub(crate) fn non_durable_commit(&mut self, user_root: Option<BtreeHeader>) -> Result {
+        // Free pages that were freed by previous non-durable commits, which no live read
+        // transaction can still reference, and which are not part of the durable state. These
+        // were never written to DATA_FREED_TABLE, so they are freed directly here
+        let free_until_transaction = self
+            .transaction_tracker
+            .oldest_live_user_read_transaction()
+            .map_or(self.transaction_id, |x| x.next());
+        self.mem
+            .process_unpersisted_data_freed(free_until_transaction);
+        self.mem
+            .process_unpersisted_system_freed(free_until_transaction);
+
         let system_root = {
             let mut system_tables = self.system_tables.lock().unwrap();
             let system_freed_pages = system_tables.system_freed_pages();
             system_tables.table_tree.flush_table_root_updates()?;
-            // Store all freed pages for a future commit(), since we can't free pages during a
-            // non-durable commit (it's non-durable, so could be rolled back anytime in the future)
-            self.store_system_freed_pages(
-                &mut system_tables.table_tree,
-                system_freed_pages,
-                &mut 0,
-            )?;
+            // Keep the freed pages in memory, rather than storing them in SYSTEM_FREED_TABLE,
+            // which would mutate the system tree on every commit. A future commit frees them,
+            // once no read transaction can reference them, and durable_commit() writes out any
+            // that remain
+            let pages = std::mem::take(&mut *system_freed_pages.lock().unwrap());
+            self.mem
+                .record_unpersisted_system_freed(self.transaction_id, pages);
 
             system_tables
                 .table_tree

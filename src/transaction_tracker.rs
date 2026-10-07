@@ -258,4 +258,23 @@ impl TransactionTracker {
             .next()
             .copied()
     }
+
+    // Oldest live read transaction, excluding the read references held by pending non-durable
+    // commits on their parents. Those references exist only to prevent the freed tables from
+    // being processed for unpersisted transactions, and must not prevent in-memory freeing of
+    // pages freed by non-durable commits
+    pub(crate) fn oldest_live_user_read_transaction(&self) -> Option<TransactionId> {
+        let state = self.state.lock().unwrap();
+        for (id, count) in &state.live_read_transactions {
+            let pending_count = state
+                .pending_non_durable_commits
+                .iter()
+                .filter(|x| x.parent() == Some(*id))
+                .count() as u64;
+            if *count > pending_count {
+                return Some(*id);
+            }
+        }
+        None
+    }
 }

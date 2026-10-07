@@ -787,6 +787,67 @@ fn regression12() {
 }
 
 #[test]
+fn non_durable_page_freeing() {
+    let tmpfile = create_tempfile();
+
+    let db = Database::create(tmpfile.path()).unwrap();
+
+    let table_def: TableDefinition<u64, &[u8]> = TableDefinition::new("x");
+
+    let tx = db.begin_write().unwrap();
+    {
+        let mut t = tx.open_table(table_def).unwrap();
+        t.insert(&0, &[0u8; 4096].as_slice()).unwrap();
+    }
+    tx.commit().unwrap();
+
+    let initial_file_size = tmpfile.as_file().metadata().unwrap().len();
+
+    // Pages freed by a Durability::None transaction must be reusable by subsequent
+    // Durability::None transactions, so the file size stays bounded
+    for i in 0..64 {
+        let mut tx = db.begin_write().unwrap();
+        tx.set_durability(Durability::None).unwrap();
+        {
+            let mut t = tx.open_table(table_def).unwrap();
+            t.insert(&1, vec![i as u8; 4096].as_slice()).unwrap();
+        }
+        tx.commit().unwrap();
+
+        let mut tx = db.begin_write().unwrap();
+        tx.set_durability(Durability::None).unwrap();
+        {
+            let mut t = tx.open_table(table_def).unwrap();
+            t.remove(&1).unwrap();
+        }
+        tx.commit().unwrap();
+    }
+
+    let file_size = tmpfile.as_file().metadata().unwrap().len();
+    assert!(file_size < 2 * initial_file_size);
+
+    // A durable commit must persist the freed-page records held in memory
+    let tx = db.begin_write().unwrap();
+    tx.commit().unwrap();
+
+    let tx = db.begin_write().unwrap();
+    {
+        let t = tx.open_table(table_def).unwrap();
+        assert_eq!(t.get(&0).unwrap().unwrap().value(), &[0u8; 4096]);
+    }
+    tx.commit().unwrap();
+    drop(db);
+
+    let db = Database::open(tmpfile.path()).unwrap();
+    let tx = db.begin_write().unwrap();
+    {
+        let t = tx.open_table(table_def).unwrap();
+        assert_eq!(t.get(&0).unwrap().unwrap().value(), &[0u8; 4096]);
+    }
+    tx.commit().unwrap();
+}
+
+#[test]
 fn regression13() {
     let tmpfile = create_tempfile();
 
