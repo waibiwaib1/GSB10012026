@@ -1294,12 +1294,16 @@ def _pivot_longer_extractions(
             )
 
         if mapping.isna().any(axis=None):
+            no_match = df.columns[mapping.isna().any(axis=1)]
             raise ValueError(
-                """
+                f"""
                 The regular expression in ``names_pattern``
                 did not return all matches.
+                The column labels {[*no_match]} could not be matched
+                by the regular expression.
                 Kindly provide a regular expression that
-                captures all patterns.
+                captures all patterns, or exclude these columns
+                with the ``column_names`` or ``index`` arguments.
                 """
             )
 
@@ -1333,12 +1337,16 @@ def _pivot_longer_extractions(
         mapping = pd.Index(mapping, name=".value")
 
         if np.any(mapping.isna()):
+            no_match = df.columns[mapping.isna()]
             raise ValueError(
-                """
+                f"""
                 The regular expressions in ``names_pattern``
                 did not return all matches.
-                Kindly provide a regular expression that
-                captures all patterns.
+                The column labels {[*no_match]} could not be matched
+                by any of the regular expressions.
+                Kindly provide regular expressions that
+                capture all patterns, or exclude these columns
+                with the ``column_names`` or ``index`` arguments.
                 """
             )
 

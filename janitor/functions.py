@@ -5818,6 +5818,8 @@ def pivot_longer(
         `index` or `column_names` is not a list of tuples.
     :raises ValueError: if the dataframe contains MultiIndex columns, and
         either `names_sep` or `names_pattern` is provided.
+    :raises ValueError: if `names_sep` or `names_pattern` fails to match
+        any of the column labels.
 
     .. # noqa: DAR402
     """
