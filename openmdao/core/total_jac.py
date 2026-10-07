@@ -362,16 +362,45 @@ class _TotalJacInfo(object):
         if model._var_allprocs_discrete['output']:
             # discrete_outs at the model level are absolute names
             discrete_outs = set(model._var_allprocs_discrete['output'])
-            piter = self.relevance.iter_seed_pair_relevance
-            for seed, rseed, rels in piter([m['source'] for m in self.input_meta['fwd'].values()],
-                                           [m['source'] for m in self.input_meta['rev'].values()],
-                                           outputs=True):
-                inter = discrete_outs.intersection(rels)
-                if inter:
-                    inp = seed if self.mode == 'fwd' else rseed
-                    kind = 'of' if self.mode == 'rev' else 'with respect to'
-                    raise RuntimeError("Total derivative %s '%s' depends upon "
-                                       "discrete output variables %s." % (kind, inp, sorted(inter)))
+            fwd_seeds = [m['source'] for m in self.input_meta['fwd'].values()]
+            rev_seeds = [m['source'] for m in self.input_meta['rev'].values()]
+
+            if fwd_seeds and rev_seeds:
+                relevance = self.relevance
+                # A discrete output is relevant to a fwd/rev seed pair iff it is relevant
+                # to the fwd seed and to the rev seed individually, so we can use the
+                # precomputed single seed relevance arrays to quickly determine if any
+                # discrete output is relevant to any seed pair.  Only if one is found do
+                # we need to do the more expensive per-seed-pair check below in order to
+                # determine the exact seeds involved for the error message.
+                var2idx = relevance._var2idx
+                single = relevance._single_seed2relvars
+                found = False
+                for name in discrete_outs:
+                    if name in var2idx:
+                        idx = var2idx[name]
+                        for seed in fwd_seeds:
+                            if single['fwd'][seed][idx]:
+                                for rseed in rev_seeds:
+                                    if single['rev'][rseed][idx]:
+                                        found = True
+                                        break
+                                break
+                    if found:
+                        break
+
+                if not found:
+                    return
+
+                piter = relevance.iter_seed_pair_relevance
+                for seed, rseed, rels in piter(fwd_seeds, rev_seeds, outputs=True):
+                    inter = discrete_outs.intersection(rels)
+                    if inter:
+                        inp = seed if self.mode == 'fwd' else rseed
+                        kind = 'of' if self.mode == 'rev' else 'with respect to'
+                        raise RuntimeError("Total derivative %s '%s' depends upon "
+                                           "discrete output variables %s." %
+                                           (kind, inp, sorted(inter)))
 
     @property
     def msginfo(self):
