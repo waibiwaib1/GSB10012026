@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+-   Long multiline spans can now be collapsed, omitting intermediate lines from
+    the rendered output. The number of context lines shown around the start and
+    end of a multiline label can be configured using
+    `Config::start_context_lines` (defaults to `3`) and
+    `Config::end_context_lines` (defaults to `1`). Omitted lines are replaced
+    with a source break:
+    ```
+    2 │       1
+      │ ╭─────^
+    3 │ │     + 1
+    4 │ │     + 1
+      · │
+    9 │ │     + 1
+    10 │ │     + 1
+      │ ╰───────^ expected (), found integer
+    ```
+
 ## [0.9.5] - 2020-06-24
 
 ### Changed
