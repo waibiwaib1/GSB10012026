@@ -1,3 +1,4 @@
+import json
 from enum import Enum
 
 import numpy as np
@@ -76,12 +77,33 @@ class Bivariate(object):
         self.tau = stats.kendalltau(self.U, self.V)[0]
         self.theta = self.tau_to_theta()
 
-    def get_params(self):
-        return {'tau': self.tau, 'theta': self.theta}
+    def to_dict(self):
+        """Return a `dict` with the parameters to replicate this object.
 
-    def set_params(self, **kwargs):
-        for key, value in kwargs.items():
-            setattr(self, key, value)
+        Returns:
+            dict: Parameters of the copula.
+        """
+        return {
+            'copula_type': self.copula_type.name,
+            'theta': self.theta,
+            'tau': self.tau
+        }
+
+    @classmethod
+    def from_dict(cls, copula_dict):
+        """Create a new instance from the given parameters.
+
+        Args:
+            copula_dict: `dict` with the parameters to replicate the copula,
+                like the output of `Bivariate.to_dict`.
+
+        Returns:
+            Bivariate: Instance of the copula defined on the parameters.
+        """
+        instance = cls(copula_dict['copula_type'])
+        instance.theta = copula_dict['theta']
+        instance.tau = copula_dict['tau']
+        return instance
 
     def infer(self, values):
         """Takes in subset of values and predicts the rest."""
@@ -199,3 +221,28 @@ class Bivariate(object):
                 R.append(right / (1 - z_right[k])**2)
 
         return z_left, L, z_right, R
+
+    def save(self, filename):
+        """Save the internal state of the copula in the specified file as JSON.
+
+        Args:
+            filename: `str` path to the file in which the copula will be saved.
+        """
+        content = self.to_dict()
+        with open(filename, 'w') as file_handle:
+            json.dump(content, file_handle)
+
+    @classmethod
+    def load(cls, copula_path):
+        """Create a new instance from a JSON file.
+
+        Args:
+            copula_path: `str` path to the file from which the copula will be loaded.
+
+        Returns:
+            Bivariate: Instance of the copula stored in the given file.
+        """
+        with open(copula_path) as file_handle:
+            copula_dict = json.load(file_handle)
+
+        return cls.from_dict(copula_dict)

@@ -167,3 +167,42 @@ class TestGaussianUnivariate(TestCase):
         assert len(result) == 1000000
         assert abs(np.mean(result) - copula.mean) < 10E-3
         assert abs(np.std(result) - copula.std) < 10E-3
+
+    def test_to_dict(self):
+        """to_dict returns the defining parameters of the distribution."""
+        copula = GaussianUnivariate()
+        column = [0, 1, 2, 3, 4, 5]
+        copula.fit(column)
+
+        result = copula.to_dict()
+
+        assert result == {
+            'mean': 2.5,
+            'std': 1.707825127659933
+        }
+
+    def test_from_dict(self):
+        """from_dict sets the dictionary values as instance attributes."""
+        parameters = {
+            'mean': 2.5,
+            'std': 1.707825127659933
+        }
+
+        copula = GaussianUnivariate.from_dict(parameters)
+
+        assert copula.mean == 2.5
+        assert copula.std == 1.707825127659933
+        copula.sample(10)
+
+    def test_save_load(self):
+        """A distribution can be saved to a file and loaded back."""
+        import tempfile
+
+        copula = GaussianUnivariate()
+        copula.fit([0, 1, 2, 3, 4, 5])
+
+        with tempfile.NamedTemporaryFile(suffix='.json') as temp_file:
+            copula.save(temp_file.name)
+            loaded = GaussianUnivariate.load(temp_file.name)
+
+        assert loaded.to_dict() == copula.to_dict()

@@ -9,6 +9,7 @@ import numpy as np
 import scipy
 
 from copulas.univariate.kde import KDEUnivariate
+from tests import compare_nested_dicts
 
 
 class TestKDEUnivariate(TestCase):
@@ -83,3 +84,71 @@ class TestKDEUnivariate(TestCase):
 
         with self.assertRaises(ValueError):
             self.kde.get_ppf(2)
+
+    def test_from_dict(self):
+        """from_dict rebuilds the underlying gaussian_kde model."""
+        parameters = {
+            'd': 1,
+            'n': 10,
+            'dataset': [[
+                0.4967141530112327,
+                -0.13826430117118466,
+                0.6476885381006925,
+                1.5230298564080254,
+                -0.23415337472333597,
+                -0.23413695694918055,
+                1.5792128155073915,
+                0.7674347291529088,
+                -0.4694743859349521,
+                0.5425600435859647
+            ]],
+            'covariance': [[0.2081069604419522]],
+            'factor': 0.6309573444801932,
+            'inv_cov': [[4.805221304834407]]
+        }
+
+        distribution = KDEUnivariate.from_dict(parameters)
+
+        assert distribution.model.d == 1
+        assert distribution.model.n == 10
+        assert distribution.model.covariance == np.array([[0.2081069604419522]])
+        assert distribution.model.factor == 0.6309573444801932
+        assert distribution.model.inv_cov == np.array([[4.805221304834407]])
+        assert (distribution.model.dataset == np.array(parameters['dataset'])).all()
+
+    def test_to_dict(self):
+        """to_dict returns the defining parameters of the KDE."""
+        distribution = KDEUnivariate()
+        column = np.array([[0.4967141530112327, -0.13826430117118466,
+                            0.6476885381006925, 1.5230298564080254,
+                            -0.23415337472333597, -0.23413695694918055,
+                            1.5792128155073915, 0.7674347291529088,
+                            -0.4694743859349521, 0.5425600435859647]])
+        distribution.fit(column)
+
+        result = distribution.to_dict()
+
+        expected_result = {
+            'd': 1,
+            'n': 10,
+            'dataset': column.tolist(),
+            'covariance': [[0.20810696044195218]],
+            'factor': 0.6309573444801932,
+            'inv_cov': [[4.805221304834407]],
+            'log_det': result.get('log_det')
+        }
+        compare_nested_dicts(result, expected_result)
+
+    def test_save_load(self):
+        """A KDE can be saved to a file and loaded back."""
+        import tempfile
+
+        distribution = KDEUnivariate()
+        np.random.seed(42)
+        distribution.fit(np.random.normal(0, 1, 100))
+
+        with tempfile.NamedTemporaryFile(suffix='.json') as temp_file:
+            distribution.save(temp_file.name)
+            loaded = KDEUnivariate.load(temp_file.name)
+
+        compare_nested_dicts(loaded.to_dict(), distribution.to_dict())

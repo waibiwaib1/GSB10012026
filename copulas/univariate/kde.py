@@ -1,3 +1,4 @@
+import numpy as np
 import scipy
 
 from copulas.univariate.base import Univariate
@@ -81,3 +82,36 @@ class KDEUnivariate(Univariate):
             samples: a list of datapoints sampled from the model
         """
         return self.model.resample(num_samples)
+
+    def to_dict(self):
+        """Return a `dict` with the parameters needed to replicate this KDE."""
+        result = {
+            'd': self.model.d,
+            'n': self.model.n,
+            'dataset': self.model.dataset.tolist(),
+            'covariance': self.model.covariance.tolist(),
+            'factor': self.model.factor,
+            'inv_cov': self.model.inv_cov.tolist()
+        }
+        if hasattr(self.model, 'log_det'):
+            result['log_det'] = self.model.log_det
+
+        return result
+
+    @classmethod
+    def from_dict(cls, copula_dict):
+        """Create a new instance and rebuild its KDE model from the given `dict`."""
+        instance = cls()
+        instance.model = scipy.stats.gaussian_kde(copula_dict['dataset'])
+
+        for key in ['dataset', 'covariance', 'inv_cov']:
+            copula_dict[key] = np.array(copula_dict[key])
+
+        attributes = ['d', 'n', 'dataset', 'covariance', 'factor', 'inv_cov']
+        for name in attributes:
+            setattr(instance.model, name, copula_dict[name])
+
+        if 'log_det' in copula_dict:
+            instance.model.log_det = copula_dict['log_det']
+
+        return instance

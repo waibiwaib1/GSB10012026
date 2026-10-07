@@ -63,3 +63,18 @@ class GaussianUnivariate(Univariate):
     def sample(self, num_samples=1):
         """ returns new data point based on model """
         return np.random.normal(self.mean, self.std, num_samples)
+
+    def to_dict(self):
+        """Return a `dict` with the parameters needed to replicate this distribution."""
+        return {
+            'mean': self.mean,
+            'std': self.std
+        }
+
+    @classmethod
+    def from_dict(cls, copula_dict):
+        """Create a new instance and set its attributes from the given `dict`."""
+        instance = cls()
+        instance.mean = copula_dict['mean']
+        instance.std = copula_dict['std']
+        return instance
