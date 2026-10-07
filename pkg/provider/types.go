@@ -715,6 +715,8 @@ type AdmissionPluginsProvider interface {
 // ExternalClusterProvider declares the set of methods for interacting with external cluster
 type ExternalClusterProvider interface {
 	New(userInfo *UserInfo, project *kubermaticv1.Project, cluster *kubermaticv1.ExternalCluster) (*kubermaticv1.ExternalCluster, error)
+	Get(userInfo *UserInfo, clusterName string) (*kubermaticv1.ExternalCluster, error)
+	Delete(userInfo *UserInfo, clusterName string) error
 
 	GenerateClient(cfg *clientcmdapi.Config) (*ctrlruntimeclient.Client, error)
 
@@ -728,4 +730,6 @@ type PrivilegedExternalClusterProvider interface {
 	// Note that this function:
 	// is unsafe in a sense that it uses privileged account to create the resources
 	NewUnsecured(project *kubermaticv1.Project, cluster *kubermaticv1.ExternalCluster) (*kubermaticv1.ExternalCluster, error)
+	GetUnsecured(project *kubermaticv1.Project, clusterName string) (*kubermaticv1.ExternalCluster, error)
+	DeleteUnsecured(cluster *kubermaticv1.ExternalCluster) error
 }

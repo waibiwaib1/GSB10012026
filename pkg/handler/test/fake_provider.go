@@ -140,3 +140,11 @@ func (p *FakeExternalClusterProvider) CreateOrUpdateKubeconfigSecretForCluster(c
 func (p *FakeExternalClusterProvider) New(userInfo *provider.UserInfo, project *kubermaticapiv1.Project, cluster *kubermaticapiv1.ExternalCluster) (*kubermaticapiv1.ExternalCluster, error) {
 	return p.Provider.New(userInfo, project, cluster)
 }
+
+func (p *FakeExternalClusterProvider) Get(userInfo *provider.UserInfo, clusterName string) (*kubermaticapiv1.ExternalCluster, error) {
+	return p.Provider.Get(userInfo, clusterName)
+}
+
+func (p *FakeExternalClusterProvider) Delete(userInfo *provider.UserInfo, clusterName string) error {
+	return p.Provider.Delete(userInfo, clusterName)
+}

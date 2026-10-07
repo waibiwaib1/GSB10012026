@@ -29,7 +29,10 @@ import (
 	"k8c.io/kubermatic/v2/pkg/handler/test"
 	"k8c.io/kubermatic/v2/pkg/handler/test/hack"
 
+	kerrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	ctrlruntimeclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func TestCreateClusterEndpoint(t *testing.T) {
@@ -144,4 +147,109 @@ func genUser(name, email string, isAdmin bool) *kubermaticv1.User {
 	user := test.GenUser("", name, email)
 	user.Spec.IsAdmin = isAdmin
 	return user
+}
+
+func TestDeleteClusterEndpoint(t *testing.T) {
+	t.Parallel()
+
+	testcases := []struct {
+		Name                   string
+		ProjectToSync          string
+		ClusterToDelete        string
+		ExistingProject        *kubermaticv1.Project
+		ExistingAPIUser        *apiv1.User
+		ExistingKubermaticObjs []runtime.Object
+		HTTPStatus             int
+		ExpectedResponse       string
+	}{
+		{
+			Name:             "scenario 1: cluster is deleted",
+			ProjectToSync:    test.GenDefaultProject().Name,
+			ClusterToDelete:  "external-cluster-id",
+			HTTPStatus:       http.StatusOK,
+			ExpectedResponse: `{}`,
+			ExistingKubermaticObjs: test.GenDefaultKubermaticObjects(
+				&kubermaticv1.ExternalCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "external-cluster-id",
+						Labels: map[string]string{
+							kubermaticv1.ProjectIDLabelKey: test.GenDefaultProject().Name,
+						},
+					},
+				},
+			),
+			ExistingAPIUser: test.GenDefaultAPIUser(),
+		},
+		{
+			Name:             "scenario 2: user that does not belong to the project cannot delete cluster",
+			ProjectToSync:    test.GenDefaultProject().Name,
+			ClusterToDelete:  "external-cluster-id",
+			HTTPStatus:       http.StatusForbidden,
+			ExpectedResponse: `{"error":{"code":403,"message":"forbidden: \"john@acme.com\" doesn't belong to the given project = my-first-project-ID"}}`,
+			ExistingKubermaticObjs: test.GenDefaultKubermaticObjects(
+				test.GenUser("", "John", "john@acme.com"),
+				&kubermaticv1.ExternalCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "external-cluster-id",
+						Labels: map[string]string{
+							kubermaticv1.ProjectIDLabelKey: test.GenDefaultProject().Name,
+						},
+					},
+				},
+			),
+			ExistingAPIUser: func() *apiv1.User {
+				defaultUser := test.GenDefaultAPIUser()
+				defaultUser.Email = "john@acme.com"
+				return defaultUser
+			}(),
+		},
+		{
+			Name:             "scenario 3: admin can delete cluster",
+			ProjectToSync:    test.GenDefaultProject().Name,
+			ClusterToDelete:  "external-cluster-id",
+			HTTPStatus:       http.StatusOK,
+			ExpectedResponse: `{}`,
+			ExistingKubermaticObjs: test.GenDefaultKubermaticObjects(
+				genUser("John", "john@acme.com", true),
+				&kubermaticv1.ExternalCluster{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "external-cluster-id",
+						Labels: map[string]string{
+							kubermaticv1.ProjectIDLabelKey: test.GenDefaultProject().Name,
+						},
+					},
+				},
+			),
+			ExistingAPIUser: test.GenAPIUser("John", "john@acme.com"),
+		},
+	}
+
+	for _, tc := range testcases {
+		t.Run(tc.Name, func(t *testing.T) {
+			req := httptest.NewRequest("DELETE", fmt.Sprintf("/api/v2/projects/%s/kubernetes/clusters/%s", tc.ProjectToSync, tc.ClusterToDelete), strings.NewReader(""))
+			res := httptest.NewRecorder()
+
+			ep, clients, err := test.CreateTestEndpointAndGetClients(*tc.ExistingAPIUser, nil, []runtime.Object{}, []runtime.Object{}, tc.ExistingKubermaticObjs, test.GenDefaultVersions(), nil, hack.NewTestRouting)
+			if err != nil {
+				t.Fatalf("failed to create test endpoint due to %v", err)
+			}
+
+			ep.ServeHTTP(res, req)
+
+			if res.Code != tc.HTTPStatus {
+				t.Fatalf("Expected HTTP status code %d, got %d: %s", tc.HTTPStatus, res.Code, res.Body.String())
+			}
+			test.CompareWithResult(t, res, tc.ExpectedResponse)
+
+			cluster := &kubermaticv1.ExternalCluster{}
+			err = clients.FakeClient.Get(req.Context(), ctrlruntimeclient.ObjectKey{Name: tc.ClusterToDelete}, cluster)
+			if tc.HTTPStatus == http.StatusOK {
+				if !kerrors.IsNotFound(err) {
+					t.Fatalf("expected cluster to be deleted, got error %v", err)
+				}
+			} else if err != nil {
+				t.Fatalf("expected cluster to remain, got error %v", err)
+			}
+		})
+	}
 }
