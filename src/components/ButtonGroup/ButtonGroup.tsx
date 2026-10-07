@@ -1,28 +1,68 @@
 import React, { useRef, forwardRef, useCallback, useMemo, useEffect, useState } from "react";
-import PropTypes from "prop-types";
 import cx from "classnames";
 import Button from "../../components/Button/Button";
+import { ButtonType, Size } from "../../components/Button/ButtonConstants";
 import usePrevious from "../../hooks/usePrevious";
 import useMergeRefs from "../../hooks/useMergeRefs";
 import { backwardCompatibilityForProperties } from "../../helpers/backwardCompatibilityForProperties";
 import { baseClassName } from "./ButtonGroupConstants";
 import { ButtonWrapper } from "./ButtonWrapper";
+import VibeComponentProps from "../../types/VibeComponentProps";
+import VibeComponent from "../../types/VibeComponent";
+import { SIZES, DialogPositions } from "../../constants/sizes";
 import "./ButtonGroup.scss";
 
-const ButtonGroup = forwardRef(
+export type ButtonGroupValue = string | number;
+
+export interface ButtonGroupOption {
+  value: ButtonGroupValue;
+  text: string;
+  subText?: string;
+  disabled?: boolean;
+  icon?: string | React.FunctionComponent | null;
+  leftIcon?: string | React.FunctionComponent | null;
+  ariaLabel?: string;
+  tooltipContent?: string;
+}
+
+interface ButtonGroupProps extends VibeComponentProps {
+  /**
+   * Backward compatibility for props naming - please use className instead
+   * @deprecated
+   */
+  componentClassName?: string;
+  value?: ButtonGroupValue;
+  onSelect?: (value: ButtonGroupValue, name: string) => void;
+  name?: string;
+  disabled?: boolean;
+  options: Array<ButtonGroupOption>;
+  size?: Size;
+  kind?: ButtonType;
+  groupAriaLabel?: string;
+  tooltipPosition?: typeof DialogPositions[keyof typeof DialogPositions];
+  tooltipHideDelay?: number;
+  tooltipShowDelay?: number;
+  tooltipContainerSelector?: string;
+  tooltipMoveBy?: { main?: number; secondary?: number };
+}
+
+const ButtonGroup: VibeComponent<ButtonGroupProps> & {
+  sizes?: typeof SIZES;
+  kinds?: typeof ButtonType;
+} = forwardRef(
   (
     {
       className,
       // Backward compatibility for props naming
       componentClassName,
       options,
-      name,
-      disabled,
-      value,
+      name = "",
+      disabled = false,
+      value = "",
       onSelect,
-      size,
-      kind,
-      groupAriaLabel,
+      size = SIZES.SMALL,
+      kind = ButtonType.SECONDARY,
+      groupAriaLabel = "",
       tooltipPosition,
       tooltipHideDelay,
       tooltipShowDelay,
@@ -38,7 +78,7 @@ const ButtonGroup = forwardRef(
     const mergedRef = useMergeRefs({ refs: [ref, inputRef] });
 
     const onClick = useCallback(
-      option => {
+      (option: ButtonGroupOption) => {
         const isDisabled = disabled || option.disabled;
         if (!isDisabled) {
           setValueState(option.value);
@@ -128,39 +168,9 @@ const ButtonGroup = forwardRef(
   }
 );
 
-ButtonGroup.sizes = Button.sizes;
-ButtonGroup.kinds = Button.kinds;
-
-ButtonGroup.propTypes = {
-  className: PropTypes.string,
-  value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
-  onSelect: PropTypes.func,
-  name: PropTypes.string,
-  disabled: PropTypes.bool,
-  size: PropTypes.oneOf([ButtonGroup.sizes.SMALL, ButtonGroup.sizes.MEDIUM, ButtonGroup.sizes.LARGE]),
-  kind: PropTypes.oneOf([ButtonGroup.kinds.SECONDARY, ButtonGroup.kinds.TERTIARY]),
-  groupAriaLabel: PropTypes.string,
-  tooltipPosition: PropTypes.string,
-  tooltipHideDelay: PropTypes.number,
-  tooltipShowDelay: PropTypes.number,
-  tooltipContainerSelector: PropTypes.string,
-  tooltipMoveBy: PropTypes.object
-};
-
-ButtonGroup.defaultProps = {
-  className: undefined,
-  value: "",
-  name: "",
-  disabled: false,
-  size: ButtonGroup.sizes.SMALL,
-  kind: ButtonGroup.kinds.SECONDARY,
-  groupAriaLabel: "",
-  tooltipContainerSelector: undefined,
-  tooltipPosition: undefined,
-  tooltipHideDelay: undefined,
-  tooltipShowDelay: undefined,
-  tooltipMoveBy: undefined,
-  onSelect: undefined
-};
+Object.assign(ButtonGroup, {
+  sizes: Button.sizes,
+  kinds: Button.kinds
+});
 
 export default ButtonGroup;
