@@ -1,5 +1,10 @@
 # Release Notes
 
+## Unreleased
+
+### New Features
+- support generic encode/decode between hessian pojo bytes and `map[string]interface{}` via `Encoder.EncodeMap`, `Decoder.DecodeMap` and the `GenericMap` type.
+
 ## v1.10.3
 
 ### New Features
@@ -166,4 +171,3 @@
 - fix tag parse error in decType. [#120](https://github.com/apache/dubbo-go-hessian2/pull/120)
 - fix dubbo version. [#130](https://github.com/apache/dubbo-go-hessian2/pull/130)
 - fix emoji encode error. [#131](https://github.com/apache/dubbo-go-hessian2/pull/131)
-

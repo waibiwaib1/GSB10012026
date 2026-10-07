@@ -150,6 +150,9 @@ func (e *Encoder) Encode(v interface{}) error {
 	case map[interface{}]interface{}:
 		return e.encUntypedMap(val)
 
+	case GenericMap:
+		return e.encGenericMap(val)
+
 	case POJOEnum:
 		if p, ok := v.(POJOEnum); ok {
 			return e.encObject(p)
