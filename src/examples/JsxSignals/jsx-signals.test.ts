@@ -49,4 +49,29 @@ describe("JSX Signals suite", () => {
     await clickToggleButton.click();
     expect(screen.getByText("Elm 4")).not.toBeNull();
   });
+
+  it("swaps elements and fragments", async () => {
+    const changeToFragment = screen.getByRole("button", {
+      name: /change 4/i,
+    });
+    const changeToElement = screen.getByRole("button", {
+      name: /change 5/i,
+    });
+    expect(screen.getByText("Not Changed")).not.toBeNull();
+
+    await changeToFragment.click();
+    expect(screen.getByText("Fragment Part 1")).not.toBeNull();
+    expect(screen.getByText("Fragment Part 2")).not.toBeNull();
+    expect(screen.queryByText("Not Changed")).toBeNull();
+
+    await changeToElement.click();
+    expect(screen.getByText("Changed Back To Element")).not.toBeNull();
+    expect(screen.queryByText("Fragment Part 1")).toBeNull();
+    expect(screen.queryByText("Fragment Part 2")).toBeNull();
+
+    await changeToFragment.click();
+    expect(screen.getByText("Fragment Part 1")).not.toBeNull();
+    expect(screen.getByText("Fragment Part 2")).not.toBeNull();
+    expect(screen.queryByText("Changed Back To Element")).toBeNull();
+  });
 });

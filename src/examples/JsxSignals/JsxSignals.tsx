@@ -21,6 +21,16 @@ export function Page() {
     }
   };
 
+  let $elmRef4: any = <p>Not Changed</p>;
+  const change4 = () =>
+    ($elmRef4 = (
+      <>
+        <p>Fragment Part 1</p>
+        <p>Fragment Part 2</p>
+      </>
+    ));
+  const change5 = () => ($elmRef4 = <p>Changed Back To Element</p>);
+
   return (
     <>
       <h1>JSX Signals</h1>
@@ -34,6 +44,11 @@ export function Page() {
       <hr />
       {$elmRef3}
       <button onClick={change3}>Change 3</button>
+
+      <hr />
+      {$elmRef4}
+      <button onClick={change4}>Change 4</button>
+      <button onClick={change5}>Change 5</button>
     </>
   );
 }

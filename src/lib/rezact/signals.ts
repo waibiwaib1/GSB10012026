@@ -133,13 +133,7 @@ export class Signal<T> {
 
     if (newVal === val && !isArray(newVal)) return;
 
-    if (
-      val instanceof Element &&
-      newVal instanceof Element &&
-      val !== newVal &&
-      val.parentNode
-    )
-      val.replaceWith(newVal);
+    replaceDOMValue(val, newVal);
 
     if (this.value instanceof Text) {
       (this.value.textContent as T) = newVal;
@@ -180,6 +174,32 @@ export class Signal<T> {
   }
 }
 
+function getDOMNodes(val: any): ChildNode[] {
+  if (isArray(val)) return val.filter((node) => node instanceof Node);
+  return val instanceof Node ? [val as ChildNode] : [];
+}
+
+function isDOMFragment(val: any): boolean {
+  return isArray(val) && getDOMNodes(val).length > 0;
+}
+
+function replaceDOMValue(oldVal: any, newVal: any) {
+  if (oldVal === newVal) return;
+  const oldNodes = getDOMNodes(oldVal);
+  if (oldNodes.length === 0) return;
+  const parent = oldNodes[0].parentNode;
+  if (!parent) return;
+  const newNodes = getDOMNodes(newVal);
+  if (newNodes.length === 0) return;
+  if (oldNodes.length === 1 && newNodes.length === 1) {
+    oldNodes[0].replaceWith(newNodes[0]);
+    return;
+  }
+  const anchor = oldNodes[0];
+  for (const node of newNodes) parent.insertBefore(node, anchor);
+  for (const node of oldNodes) node.remove();
+}
+
 export const computeSub = (obj) => obj.newState.set(obj.func(obj.deps));
 
 export let effect = _effect;
@@ -206,7 +226,7 @@ function handleStateTypes(parent: any, child: any) {
   const val = child.get();
   if (textTypes[typeof val]) {
     handleTextNode(parent, child);
-  } else if (val instanceof Node && !child.computed) {
+  } else if ((val instanceof Node || isDOMFragment(val)) && !child.computed) {
     appendChild(parent, val);
   } else if (child.computed) {
     const placeholder = createElement("span");
