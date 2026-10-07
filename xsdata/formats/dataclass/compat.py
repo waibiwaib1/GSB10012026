@@ -56,7 +56,7 @@ class ClassType(abc.ABC):
         """Return the models fields in the correct mro ordering."""
 
     @abc.abstractmethod
-    def default_value(self, field: Any) -> Any:
+    def default_value(self, field: Any, default: Any = None) -> Any:
         """Return the default value or factory of the given model field."""
 
     @abc.abstractmethod
@@ -127,7 +127,7 @@ class Dataclasses(ClassType):
     def get_fields(self, obj: Any) -> Tuple[Any, ...]:
         return fields(obj)
 
-    def default_value(self, field: Field) -> Any:
+    def default_value(self, field: Field, default: Any = None) -> Any:
         # Ignore type because of https://github.com/python/mypy/issues/6910
         if field.default_factory is not MISSING:  # type: ignore
             return field.default_factory  # type: ignore
@@ -135,7 +135,7 @@ class Dataclasses(ClassType):
         if field.default is not MISSING:
             return field.default
 
-        return None
+        return default
 
     def default_choice_value(self, choice: Dict) -> Any:
         factory = choice.get("default_factory")

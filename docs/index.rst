@@ -22,6 +22,7 @@
     models
     xml
     json
+    pycode
     wsdl
     examples
     data-types

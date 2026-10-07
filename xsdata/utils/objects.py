@@ -1,4 +1,6 @@
+import math
 from typing import Any
+from xml.etree.ElementTree import QName
 
 
 def update(obj: Any, **kwargs: Any):
@@ -15,3 +17,14 @@ def attrsetter(obj: Any, attr: str, value: Any):
         obj = getattr(obj, name)
 
     setattr(obj, last, value)
+
+
+def literal_value(value: Any) -> str:
+    """Return a python literal expression for the given value."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return f'float("{value}")'
+
+    if isinstance(value, QName):
+        return f'QName("{value.text}")'
+
+    return repr(value)
