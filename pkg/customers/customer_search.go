@@ -53,6 +53,7 @@ type SearchParams struct {
 	Email        string
 	Status       string
 	Type         string
+	CustomerIDs  []string
 	Skip         int64
 	Count        int64
 }
@@ -131,6 +132,12 @@ func buildSearchQuery(params SearchParams) (string, []interface{}) {
 	if params.Type != "" {
 		query += " and type like ?"
 		args = append(args, "%"+params.Type)
+	}
+	if len(params.CustomerIDs) > 0 {
+		query += fmt.Sprintf(" and customer_id in (?%s)", strings.Repeat(",?", len(params.CustomerIDs)-1))
+		for _, customerID := range params.CustomerIDs {
+			args = append(args, customerID)
+		}
 	}
 	query += " order by created_at desc limit ?"
 	args = append(args, fmt.Sprintf("%d", params.Count))

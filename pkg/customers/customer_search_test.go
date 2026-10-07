@@ -154,6 +154,81 @@ func TestCustomerSearch__query(t *testing.T) {
 	if len(args) != 4 {
 		t.Errorf("unexpected args: %#v", args)
 	}
+
+	// Customer ID search
+	query, args = buildSearchQuery(
+		SearchParams{
+			Organization: "foo",
+			CustomerIDs:  []string{"customer1", "customer2"},
+		},
+	)
+	if query != "select customer_id from customers where deleted_at is null and organization = ? and customer_id in (?,?) order by created_at desc limit ?;" {
+		t.Errorf("unexpected query: %q", query)
+	}
+	if err := prepare(sqliteDB.DB, query); err != nil {
+		t.Errorf("sqlite: %v", err)
+	}
+	if err := prepare(mysqlDB.DB, query); err != nil {
+		t.Errorf("mysql: %v", err)
+	}
+	if len(args) != 4 {
+		t.Errorf("unexpected args: %#v", args)
+	}
+}
+
+func TestCustomerSearchByCustomerIDs(t *testing.T) {
+	repo := createTestCustomerRepository(t)
+	defer repo.close()
+
+	first, _, _ := (customerRequest{
+		FirstName: "Jane",
+		LastName:  "Doe",
+		Email:     "jane@example.com",
+	}).asCustomer(testCustomerSSNStorage(t))
+	if err := repo.CreateCustomer(first, "organization"); err != nil {
+		t.Fatal(err)
+	}
+
+	second, _, _ := (customerRequest{
+		FirstName: "John",
+		LastName:  "Doe",
+		Email:     "john@example.com",
+	}).asCustomer(testCustomerSSNStorage(t))
+	if err := repo.CreateCustomer(second, "organization"); err != nil {
+		t.Fatal(err)
+	}
+
+	customers, err := repo.searchCustomers(SearchParams{
+		Organization: "organization",
+		CustomerIDs:  []string{first.CustomerID, "unknown"},
+		Count:        20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(customers) != 1 || customers[0].CustomerID != first.CustomerID {
+		t.Errorf("unexpected customers: %#v", customers)
+	}
+
+	customers, err = repo.searchCustomers(SearchParams{
+		Organization: "organization",
+		CustomerIDs:  []string{first.CustomerID, second.CustomerID},
+		Count:        20,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(customers) != 2 {
+		t.Fatalf("unexpected customers: %#v", customers)
+	}
+
+	found := make(map[string]bool)
+	for _, customer := range customers {
+		found[customer.CustomerID] = true
+	}
+	if !found[first.CustomerID] || !found[second.CustomerID] {
+		t.Errorf("unexpected customers: %#v", customers)
+	}
 }
 
 func TestCustomerSearchEmpty(t *testing.T) {
