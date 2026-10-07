@@ -241,7 +241,7 @@ class SchemaAggregator
                         if (
                             $first_argument_of_nullable instanceof PhpParser\Node\Arg
                             && $first_argument_of_nullable->value instanceof PhpParser\Node\Expr\ConstFetch
-                            && $first_argument_of_nullable->value->name->parts === ['false']
+                            && strtolower($first_argument_of_nullable->value->name->toString()) === 'false'
                         ) {
                             $nullable = false;
                         }

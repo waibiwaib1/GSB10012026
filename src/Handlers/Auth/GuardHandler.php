@@ -17,6 +17,7 @@ use Psalm\Type;
 
 use function in_array;
 use function is_string;
+use function strtolower;
 
 /**
  * Handles cases (only non-static method calls):
@@ -111,7 +112,11 @@ final class GuardHandler implements MethodReturnTypeProviderInterface
 
             // auth() or auth('guard') call
             if ($previous_call instanceof FuncCall) {
-                if ($previous_call->name instanceof Name && $previous_call->name->parts[0] === 'auth') {
+                if (
+                    $previous_call->name instanceof Name
+                    && $previous_call->name->isUnqualified()
+                    && strtolower($previous_call->name->toString()) === 'auth'
+                ) {
                     $call_contains_guard_name = $previous_call; // exit from while loop
                 }
             }

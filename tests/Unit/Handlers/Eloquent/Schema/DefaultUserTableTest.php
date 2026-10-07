@@ -39,6 +39,7 @@ final class DefaultUserTableTest extends AbstractSchemaAggregatorTestCase
         $this->assertSchemaHasTableAndNotNullableColumnOfType('users.email', 'string', $schemaAggregator);
         $this->assertSchemaHasTableAndNotNullableColumnOfType('users.password', 'string', $schemaAggregator);
         $this->assertSchemaHasTableAndNotNullableColumnOfType('users.password', 'string', $schemaAggregator);
+        $this->assertSchemaHasTableAndNotNullableColumnOfType('users.is_active', 'bool', $schemaAggregator);
         $this->assertSchemaHasTableAndNotNullableColumnOfType('users.remember_token', 'string', $schemaAggregator);
         $this->assertSchemaHasTableAndNullableColumnOfType('users.email_verified_at', 'string', $schemaAggregator);
         $this->assertSchemaHasTableAndNullableColumnOfType('users.created_at', 'string', $schemaAggregator);
