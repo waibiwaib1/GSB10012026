@@ -25,6 +25,7 @@ pub(crate) struct TemplateInput<'a> {
     pub(crate) source: &'a Source,
     pub(crate) source_span: Option<Span>,
     pub(crate) block: Option<&'a str>,
+    pub(crate) generate_block_methods: bool,
     pub(crate) print: Print,
     pub(crate) escaper: &'a str,
     pub(crate) path: Arc<Path>,
@@ -44,6 +45,7 @@ impl TemplateInput<'_> {
         let TemplateArgs {
             source: (source, source_span),
             block,
+            generate_block_methods,
             print,
             escaping,
             ext,
@@ -134,6 +136,7 @@ impl TemplateInput<'_> {
             source,
             source_span: *source_span,
             block: block.as_deref(),
+            generate_block_methods: *generate_block_methods,
             print: *print,
             escaper,
             path,
@@ -347,6 +350,7 @@ impl AnyTemplateArgs {
 pub(crate) struct TemplateArgs {
     pub(crate) source: (Source, Option<Span>),
     block: Option<String>,
+    generate_block_methods: bool,
     print: Print,
     escaping: Option<String>,
     ext: Option<String>,
@@ -396,6 +400,10 @@ impl TemplateArgs {
                 }
             },
             block: args.block.map(|value| value.value()),
+            generate_block_methods: args
+                .generate_block_methods
+                .map(|value| value.value())
+                .unwrap_or_default(),
             print: args.print.unwrap_or_default(),
             escaping: args.escape.map(|value| value.value()),
             ext: args.ext.as_ref().map(|value| value.value()),
@@ -413,6 +421,7 @@ impl TemplateArgs {
         Self {
             source: (Source::Source("".into()), None),
             block: None,
+            generate_block_methods: false,
             print: Print::default(),
             escaping: None,
             ext: Some("txt".to_string()),
@@ -685,6 +694,7 @@ pub(crate) struct PartialTemplateArgs {
     pub(crate) template: Ident,
     pub(crate) source: Option<PartialTemplateArgsSource>,
     pub(crate) block: Option<LitStr>,
+    pub(crate) generate_block_methods: Option<LitBool>,
     pub(crate) print: Option<Print>,
     pub(crate) escape: Option<LitStr>,
     pub(crate) ext: Option<LitStr>,
@@ -745,6 +755,7 @@ const _: () = {
             template: Ident::new("template", Span::call_site()),
             source: None,
             block: None,
+            generate_block_methods: None,
             print: None,
             escape: None,
             ext: None,
@@ -831,6 +842,9 @@ const _: () = {
                     }
                 } else if ident == "block" {
                     set_strlit_pair(ident, value, &mut this.block)?;
+                } else if ident == "generate_block_methods" {
+                    ensure_only_once(ident, &mut this.generate_block_methods)?;
+                    this.generate_block_methods = Some(get_boollit(ident, value)?);
                 } else if ident == "print" {
                     set_parseable_string(ident, value, &mut this.print)?;
                 } else if ident == "escape" {

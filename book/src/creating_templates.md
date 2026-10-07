@@ -92,6 +92,27 @@ recognized:
   struct HelloTemplate<'a> { ... }
   ```
 
+* `generate_block_methods` (e.g. `generate_block_methods = true`): generates
+  inherent methods to render each block of the template individually.
+  For every `{% block block_name %}` (including inherited blocks), the
+  following methods are added to the struct:
+  `render_block_block_name()` (renders into a new `String`),
+  `render_block_block_name_with_values()`,
+  `render_block_block_name_into()` and
+  `render_block_block_name_into_with_values()` (render into a `fmt::Write`
+  writer). This is useful e.g. with [HTMX](https://htmx.org), where a
+  response may contain either the full page or a single block, depending
+  on the request.
+  ```rust
+  #[derive(Template)]
+  #[template(path = "hello.html", generate_block_methods = true)]
+  struct HelloTemplate<'a> { ... }
+
+  let hello = HelloTemplate { ... };
+  let full_page = hello.render().unwrap();
+  let only_block = hello.render_block_hello().unwrap();
+  ```
+
 * `escape` (e.g. `escape = "none"`): override the template's extension used for
   the purpose of determining the escaper for this template. See the section
   on configuring custom escapers for more information.

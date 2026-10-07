@@ -100,6 +100,18 @@ use rustc_hash::FxBuildHasher;
 /// the generated code (`code`) or `all` for both.
 /// The requested data will be printed to stdout at compile time.
 ///
+/// ### generate_block_methods
+///
+/// E.g. `generate_block_methods = true`
+///
+/// Generate inherent methods to render each block of the template individually.
+/// For every `{% block block_name %}` (including inherited blocks), the methods
+/// `render_block_block_name()`, `render_block_block_name_with_values()`,
+/// `render_block_block_name_into()` and `render_block_block_name_into_with_values()`
+/// are added to the struct. This is useful e.g. with [HTMX](https://htmx.org), where
+/// a response may contain either the full page or a single block, depending on the
+/// request.
+///
 /// ### escape
 ///
 /// E.g. `escape = "none"`

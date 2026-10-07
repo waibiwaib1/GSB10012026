@@ -17,7 +17,7 @@ use rustc_hash::FxBuildHasher;
 use crate::heritage::{Context, Heritage};
 use crate::html::write_escaped_str;
 use crate::input::{Source, TemplateInput};
-use crate::integration::{Buffer, impl_everything, write_header};
+use crate::integration::{Buffer, impl_everything, write_header, write_inherent_header};
 use crate::{CompileError, FileInfo};
 
 pub(crate) fn template_to_string(
@@ -45,8 +45,44 @@ pub(crate) fn template_to_string(
 
     if tmpl_kind == TmplKind::Struct {
         impl_everything(input.ast, buf);
+        if input.generate_block_methods {
+            impl_block_methods(buf, input, contexts, heritage)?;
+        }
     }
     Ok(size_hint)
+}
+
+/// Generate inherent `render_block_*()` methods for every block of the template.
+fn impl_block_methods<'a, 'h>(
+    buf: &mut Buffer,
+    input: &TemplateInput<'a>,
+    contexts: &HashMap<&'a Arc<Path>, Context<'a>, FxBuildHasher>,
+    heritage: Option<&'h Heritage<'a, 'h>>,
+) -> Result<(), CompileError> {
+    let Some(heritage) = heritage else {
+        return Ok(());
+    };
+    let mut block_names = heritage.blocks.keys().copied().collect::<Vec<_>>();
+    block_names.sort_unstable();
+    if block_names.is_empty() {
+        return Ok(());
+    }
+
+    write_inherent_header(input.ast, buf);
+    for block_name in block_names {
+        let mut generator = Generator::new(
+            input,
+            contexts,
+            Some(heritage),
+            MapChain::default(),
+            true,
+            0,
+        );
+        generator.render_only_block = Some(block_name);
+        generator.impl_block_method(buf, block_name)?;
+    }
+    buf.write('}');
+    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -75,6 +111,8 @@ struct Generator<'a, 'h> {
     skip_ws: Whitespace,
     /// If currently in a block, this will contain the name of a potential parent block
     super_block: Option<(&'a str, usize)>,
+    /// If set, only the block with this name is rendered, everything else is discarded
+    render_only_block: Option<&'a str>,
     /// Buffer for writable
     buf_writable: WritableBuffer<'a>,
     /// Used in blocks to check if we are inside a filter block.
@@ -100,6 +138,7 @@ impl<'a, 'h> Generator<'a, 'h> {
             next_ws: None,
             skip_ws: Whitespace::Preserve,
             super_block: None,
+            render_only_block: input.block,
             buf_writable: WritableBuffer {
                 discard: buf_writable_discard,
                 ..Default::default()
@@ -171,6 +210,79 @@ impl<'a, 'h> Generator<'a, 'h> {
 
         buf.write('}');
         Ok(size_hint)
+    }
+
+    // Implement an inherent method that renders a single block of the template.
+    fn impl_block_method(
+        mut self,
+        buf: &mut Buffer,
+        block_name: &'a str,
+    ) -> Result<(), CompileError> {
+        let ctx = &self.contexts[&self.input.path];
+
+        buf.write(format_args!(
+            "\
+            /// Renders the block `{block_name}` of the template to the given `writer` fmt buffer \
+                with provided [`Values`][rinja::Values].\n\
+            pub fn render_block_{block_name}_into_with_values<RinjaW>(\
+                &self,\
+                __rinja_writer: &mut RinjaW,\
+                __rinja_values: &dyn rinja::Values\
+            ) -> rinja::Result<()>\
+            where \
+                RinjaW: rinja::helpers::core::fmt::Write + ?rinja::helpers::core::marker::Sized\
+            {{\
+                #[allow(unused_imports)]\
+                use rinja::{{\
+                    filters::{{AutoEscape as _, WriteWritable as _}},\
+                    helpers::{{ResultConverter as _, core::fmt::Write as _}},\
+                }};",
+        ));
+
+        let size_hint = self.impl_template_inner(ctx, buf)?;
+
+        buf.write("rinja::Result::Ok(()) }");
+
+        buf.write(format_args!(
+            "\
+            /// Renders the block `{block_name}` of the template to the given `writer` fmt buffer.\n\
+            #[inline]\
+            pub fn render_block_{block_name}_into<RinjaW>(\
+                &self,\
+                __rinja_writer: &mut RinjaW\
+            ) -> rinja::Result<()>\
+            where \
+                RinjaW: rinja::helpers::core::fmt::Write + ?rinja::helpers::core::marker::Sized\
+            {{\
+                self.render_block_{block_name}_into_with_values(__rinja_writer, rinja::NO_VALUES)\
+            }}",
+        ));
+
+        #[cfg(feature = "alloc")]
+        buf.write(format_args!(
+            "\
+            /// Renders the block `{block_name}` of the template into a new `String`.\n\
+            #[inline]\
+            pub fn render_block_{block_name}(\
+                &self\
+            ) -> rinja::Result<rinja::helpers::alloc::string::String> {{\
+                self.render_block_{block_name}_with_values(rinja::NO_VALUES)\
+            }}\
+            /// Renders the block `{block_name}` of the template into a new `String` with provided \
+                [`Values`][rinja::Values].\n\
+            #[inline]\
+            pub fn render_block_{block_name}_with_values(\
+                &self,\
+                __rinja_values: &dyn rinja::Values\
+            ) -> rinja::Result<rinja::helpers::alloc::string::String> {{\
+                let mut buf = rinja::helpers::alloc::string::String::new();\
+                let _ = buf.try_reserve({size_hint}usize);\
+                self.render_block_{block_name}_into_with_values(&mut buf, __rinja_values)?;\
+                rinja::Result::Ok(buf)\
+            }}",
+        ));
+        let _ = size_hint;
+        Ok(())
     }
 
     fn is_var_defined(&self, var_name: &str) -> bool {

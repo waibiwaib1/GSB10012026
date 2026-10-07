@@ -31,6 +31,18 @@ pub(crate) fn write_header(ast: &DeriveInput, buf: &mut Buffer, target: impl Dis
     ));
 }
 
+/// Writes header for an inherent `impl` block for the given item
+pub(crate) fn write_inherent_header(ast: &DeriveInput, buf: &mut Buffer) {
+    let (impl_generics, orig_ty_generics, where_clause) = ast.generics.split_for_impl();
+
+    let ident = &ast.ident;
+    buf.write(format_args!(
+        "impl {} {} {{",
+        quote!(#impl_generics),
+        quote!(#ident #orig_ty_generics #where_clause),
+    ));
+}
+
 /// Implement `Display` for the given item.
 fn impl_display(ast: &DeriveInput, buf: &mut Buffer) {
     let ident = &ast.ident;
@@ -281,6 +293,7 @@ pub(crate) fn build_template_enum(
         // not inherited: template, meta_docs, block, print
         if let Some(enum_args) = &mut enum_args {
             set_default(&mut var_args, enum_args, |v| &mut v.source);
+            set_default(&mut var_args, enum_args, |v| &mut v.generate_block_methods);
             set_default(&mut var_args, enum_args, |v| &mut v.escape);
             set_default(&mut var_args, enum_args, |v| &mut v.ext);
             set_default(&mut var_args, enum_args, |v| &mut v.syntax);

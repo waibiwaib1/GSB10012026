@@ -1013,7 +1013,7 @@ impl<'a> Generator<'a, '_> {
 
         self.write_buf_writable(ctx, buf)?;
 
-        let block_fragment_write = self.input.block == name && self.buf_writable.discard;
+        let block_fragment_write = self.render_only_block == name && self.buf_writable.discard;
         // Allow writing to the buffer if we're in the block fragment
         if block_fragment_write {
             self.buf_writable.discard = false;
