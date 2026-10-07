@@ -2,7 +2,7 @@ import { formatSearchQueryString } from './helpers';
 import {
   CheckSuiteAttributes,
   CheckSuiteStatus,
-  DiscussionStateSearchResultEdge,
+  DiscussionStateSearchResultNode,
   DiscussionStateType,
   GraphQLSearch,
   IssueStateType,
@@ -81,7 +81,7 @@ export async function getDiscussionState(
   notification: Notification,
   token: string,
 ): Promise<DiscussionStateType> {
-  const response: GraphQLSearch<DiscussionStateSearchResultEdge> =
+  const response: GraphQLSearch<DiscussionStateSearchResultNode> =
     await apiRequestAuth(`https://api.github.com/graphql`, 'POST', token, {
       query: `{
           search(query:"${formatSearchQueryString(
@@ -89,38 +89,34 @@ export async function getDiscussionState(
             notification.subject.title,
             notification.updated_at,
           )}", type: DISCUSSION, first: 10) {
-            edges {
-              node {
-                ... on Discussion {
-                  viewerSubscription
-                  title
-                  stateReason  
-                  isAnswered
-                }
+            nodes {
+              ... on Discussion {
+                viewerSubscription
+                title
+                stateReason  
+                isAnswered
               }
             }
           }
         }`,
     });
 
-  let edges =
-    response?.data?.data?.search?.edges?.filter(
-      (edge) => edge.node.title === notification.subject.title,
+  let nodes =
+    response?.data?.data?.search?.nodes?.filter(
+      (node) => node.title === notification.subject.title,
     ) || [];
 
-  if (edges.length > 1) {
-    edges = edges.filter(
-      (edge) => edge.node.viewerSubscription === 'SUBSCRIBED',
-    );
+  if (nodes.length > 1) {
+    nodes = nodes.filter((node) => node.viewerSubscription === 'SUBSCRIBED');
   }
 
-  if (edges[0]) {
-    if (edges[0].node.isAnswered) {
+  if (nodes[0]) {
+    if (nodes[0].isAnswered) {
       return 'ANSWERED';
     }
 
-    if (edges[0].node.stateReason) {
-      return edges[0].node.stateReason;
+    if (nodes[0].stateReason) {
+      return nodes[0].stateReason;
     }
   }
 
