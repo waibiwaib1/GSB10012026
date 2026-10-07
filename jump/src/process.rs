@@ -63,8 +63,8 @@ impl EnvVars {
                     removals.insert(name.to_owned());
                 }
                 EnvVar::RemoveMatching(regex) => {
-                    for (name, _) in env::vars() {
-                        if regex.is_match(name.as_str()) {
+                    for (name, _) in env::vars_os() {
+                        if regex.is_match(name.to_string_lossy().as_ref()) {
                             removals.insert(name.into());
                         }
                     }
