@@ -29,6 +29,11 @@ public class App {
             return;
         }
 
+        if (args.getNominatimUpdateInit() != null) {
+            startNominatimUpdateInit(args);
+            return;
+        }
+
         boolean shutdownES = false;
         final Server esServer = new Server(args.getDataDirectory()).start(args.getCluster(), args.getTransportAddresses());
         try {
@@ -124,6 +129,11 @@ public class App {
         nominatimConnector.readEntireDatabase(args.getCountryCodes());
 
         log.info("imported data from nominatim to photon with languages: " + String.join(",", dbProperties.getLanguages()));
+    }
+
+    private static void startNominatimUpdateInit(CommandLineArgs args) {
+        NominatimUpdater nominatimUpdater = new NominatimUpdater(args.getHost(), args.getPort(), args.getDatabase(), args.getUser(), args.getPassword());
+        nominatimUpdater.initUpdates(args.getNominatimUpdateInit());
     }
 
     /**

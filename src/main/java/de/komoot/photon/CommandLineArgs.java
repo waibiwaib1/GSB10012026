@@ -23,6 +23,9 @@ public class CommandLineArgs {
     @Parameter(names = "-nominatim-import", description = "import nominatim database into photon (this will delete previous index)")
     private boolean nominatimImport = false;
 
+    @Parameter(names = "-nominatim-update-init-for", description = "set up tracking of updates in the Nominatim database for the given user and exit")
+    private String nominatimUpdateInit = null;
+
     @Parameter(names = "-nominatim-update", description = "fetch updates from nominatim database into photon and exit (this updates the index only without offering an API)")
     private boolean nominatimUpdate = false;
 
@@ -59,8 +62,8 @@ public class CommandLineArgs {
     @Parameter(names = "-user", description = "postgres user (default nominatim)")
     private String user = "nominatim";
 
-    @Parameter(names = "-password", description = "postgres password (default '')")
-    private String password = "";
+    @Parameter(names = "-password", description = "postgres password")
+    private String password = null;
 
     @Parameter(names = "-data-dir", description = "data directory (default '.')")
     private String dataDirectory = new File(".").getAbsolutePath();
@@ -95,4 +98,3 @@ public class CommandLineArgs {
         return getLanguages(true);
     }
 }
-

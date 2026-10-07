@@ -8,7 +8,7 @@ CREATE TABLE placex (
   rank_address SMALLINT,
   rank_search SMALLINT,
   partition SMALLINT,
-  indexed_status SMALLINT,
+  indexed_status SMALLINT DEFAULT 0,
   osm_id int8 NOT NULL,
   osm_type char(1) NOT NULL,
   class text NOT NULL,
@@ -43,7 +43,7 @@ CREATE TABLE location_property_osmline (
     startnumber INTEGER,
     endnumber INTEGER,
     partition SMALLINT,
-    indexed_status SMALLINT,
+    indexed_status SMALLINT DEFAULT 0,
     linegeo GEOMETRY,
     interpolationtype TEXT,
     address JSON,
@@ -63,3 +63,10 @@ CREATE TABLE country_name (
 
 INSERT INTO country_name
     VALUES ('de', JSON '{"name" : "Deutschland", "name:en" : "Germany"}', 'de', 2);
+
+CREATE TABLE photon_updates (
+    rel TEXT,
+    place_id BIGINT,
+    operation TEXT,
+    indexed_date TIMESTAMP
+);

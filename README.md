@@ -80,6 +80,9 @@ Discover more of photon's feature with its usage `java -jar photon-*.jar -h`. Th
 
 -nominatim-import     Import nominatim database into photon (this will delete previous index)
 
+-nominatim-update-init-for
+                      Set up update tracking in the Nominatim database for the given user and exit
+
 -nominatim-update     Fetch updates from nominatim database into photon and exit (this updates the index only
                       without offering an API)
 
@@ -142,24 +145,50 @@ The import of worldwide data set will take some hours/days, SSD/NVME disks are r
 
 #### Updating from OSM via Nominatim
 
-In order to update nominatim from OSM and then photon from nominatim, you must start photon with the nominatim database credentials on the command line:
+To update an existing Photon database from Nominatim, first prepare the
+Nominatim database with the appropriate triggers:
 
 ```bash
-java -jar photon-*.jar -host localhost -port 5432 -database nominatim -user nominatim -password ...
+java -jar photon-*.jar -database nominatim -user nominatim -password ... -nominatim-update-init-for update_user
 ```
 
-A nominatim setup is also a requirement to have continuous updates. To keep nominatim in sync with the latest OSM changes and to update photon with nominatim afterwards run:
+This command must be run with a database user that has permission to create
+tables, functions and triggers. `update_user` is the PostgreSQL user used by
+Photon updates; it needs read access to the database and is granted access to
+Photon's update queue.
+
+Now run Nominatim updates with its usual indexing enabled, as described in the
+[Nominatim documentation](https://nominatim.org/release-docs/latest/admin/Update/).
+After Nominatim indexing has finished, update Photon:
 
 ```bash
-export NOMINATIM_DIR=/home/nominatim/...
-./continuously_update_from_nominatim.sh
+java -jar photon-*.jar -database nominatim -user nominatim -password ... -nominatim-update
 ```
 
-If you have updated nominatim with another method, photon can be updated by making a HTTP GET request to `/nominatim-update`, e.g. with this command:
+You can also run Photon with the update API enabled:
+
+```bash
+java -jar photon-*.jar -enable-update-api -database nominatim -user nominatim -password ...
+```
+
+Then trigger an update with:
 
 ```bash
 curl http://localhost:2322/nominatim-update
 ```
+
+For continuous updates, customize the database and JAR settings and run:
+
+```bash
+export NOMINATIM_DIR=/srv/nominatim/...
+export PHOTON_JAR=photon.jar
+export PHOTON_DB_NAME=nominatim
+export PHOTON_DB_USER=nominatim
+export PHOTON_DB_PASSWORD=...
+./continuously_update_from_nominatim.sh
+```
+
+For Nominatim older than 3.7, read the compatibility comments in the script.
 
 ### Search API
 

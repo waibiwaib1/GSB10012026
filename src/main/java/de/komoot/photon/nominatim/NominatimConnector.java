@@ -150,7 +150,9 @@ public class NominatimConnector {
 
         dataSource.setUrl(String.format("jdbc:postgres_jts://%s:%d/%s", host, port, database));
         dataSource.setUsername(username);
-        dataSource.setPassword(password);
+        if (password != null) {
+            dataSource.setPassword(password);
+        }
         dataSource.setDriverClassName(JtsWrapper.class.getCanonicalName());
         dataSource.setDefaultAutoCommit(autocommit);
         return dataSource;
@@ -172,18 +174,22 @@ public class NominatimConnector {
     }
 
     public List<PhotonDoc> getByPlaceId(long placeId) {
-        NominatimResult result = template.queryForObject(SELECT_COLS_PLACEX + " FROM placex WHERE place_id = ?",
-                                                         placeRowMapper, placeId);
-        assert(result != null);
-        return result.getDocsWithHousenumber();
+        List<NominatimResult> result = template.query(SELECT_COLS_PLACEX + " FROM placex WHERE place_id = ? and indexed_status = 0",
+                                                      placeRowMapper, placeId);
+        if (result.isEmpty())
+            return null;
+
+        return result.get(0).getDocsWithHousenumber();
     }
 
     public List<PhotonDoc> getInterpolationsByPlaceId(long placeId) {
-        NominatimResult result = template.queryForObject(selectOsmlineSql
-                                                          + " FROM location_property_osmline WHERE place_id = ?",
-                                                          osmlineRowMapper, placeId);
-        assert(result != null);
-        return result.getDocsWithHousenumber();
+        List<NominatimResult> result = template.query(selectOsmlineSql
+                                                       + " FROM location_property_osmline WHERE place_id = ? and indexed_status = 0",
+                                                       osmlineRowMapper, placeId);
+        if (result.isEmpty())
+            return null;
+
+        return result.get(0).getDocsWithHousenumber();
     }
 
     private long parentPlaceId = -1;
@@ -312,5 +318,9 @@ public class NominatimConnector {
                 doc.getContext().add(address.getName());
             }
         }
+    }
+
+    public DBDataAdapter getDataAdaptor() {
+        return dbutils;
     }
 }
