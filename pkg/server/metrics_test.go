@@ -20,9 +20,11 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc/peer"
 )
@@ -32,19 +34,51 @@ func TestStartMetrics(t *testing.T) {
 		"0.0.0.0:9999",
 		&mockLogger{},
 		func() float64 { return 0 },
-		func() float64 { return 0 },
-		func() float64 { return 0 })
+		&ImmuServer{})
 	defer server.Close()
 
 	assert.IsType(t, &http.Server{}, server)
 
 }
 
+func TestDBMetricsCollector(t *testing.T) {
+	collector := newDBMetricsCollector(func() []DBMetrics {
+		return []DBMetrics{{
+			Name:     "defaultdb",
+			Size:     42,
+			NEntries: 7,
+		}}
+	})
+
+	ch := make(chan prometheus.Metric, 2)
+	collector.Collect(ch)
+	assert.Len(t, ch, 2)
+}
+
+func TestScrapePerDBMetrics(t *testing.T) {
+	collector := newDBMetricsCollector(func() []DBMetrics {
+		return []DBMetrics{
+			{Name: "defaultdb", Size: 10, NEntries: 2},
+			{Name: "mydb", Size: 20, NEntries: 3},
+		}
+	})
+
+	expected := `
+# HELP immudb_db_size_bytes Database size in bytes.
+# TYPE immudb_db_size_bytes gauge
+immudb_db_size_bytes{db="defaultdb"} 10
+immudb_db_size_bytes{db="mydb"} 20
+# HELP immudb_number_of_stored_entries Number of transactions stored in each database.
+# TYPE immudb_number_of_stored_entries counter
+immudb_number_of_stored_entries{db="defaultdb"} 2
+immudb_number_of_stored_entries{db="mydb"} 3
+`
+	assert.NoError(t, testutil.CollectAndCompare(collector, strings.NewReader(expected),
+		"immudb_db_size_bytes", "immudb_number_of_stored_entries"))
+}
+
 func TestMetricsCollection_UpdateClientMetrics(t *testing.T) {
 	mc := MetricsCollection{
-		RecordsCounter: prometheus.NewCounterFunc(prometheus.CounterOpts{}, func() float64 {
-			return 0
-		}),
 		UptimeCounter: prometheus.NewCounterFunc(prometheus.CounterOpts{}, func() float64 {
 			return 0
 		}),

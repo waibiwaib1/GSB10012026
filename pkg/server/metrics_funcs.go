@@ -20,29 +20,46 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/codenotary/immudb/pkg/database"
 )
 
-func (s *ImmuServer) metricFuncDefaultDBRecordsCounter() float64 {
-	ic, err := s.dbList.GetByIndex(DefaultDbIndex).CurrentState()
+func (s *ImmuServer) metricFuncServerUptimeCounter() float64 {
+	return time.Since(startedAt).Hours()
+}
+
+// DBMetrics returns the size on disk and the number of stored transactions
+// for each database opened by the server.
+func (s *ImmuServer) DBMetrics() []DBMetrics {
+	result := make([]DBMetrics, 0, s.dbList.Length())
+	for i := 0; i < s.dbList.Length(); i++ {
+		db := s.dbList.GetByIndex(int64(i))
+		opts := db.GetOptions()
+		result = append(result, DBMetrics{
+			Name:     opts.GetDbName(),
+			Size:     s.metricFuncDBSize(opts.GetDbRootPath(), opts.GetDbName()),
+			NEntries: s.metricFuncDBRecordsCounter(db),
+		})
+	}
+	return result
+}
+
+func (s *ImmuServer) metricFuncDBRecordsCounter(db database.DB) float64 {
+	ic, err := db.CurrentState()
 	if err != nil {
 		return 0
 	}
 	return float64(ic.GetTxId())
 }
 
-func (s *ImmuServer) metricFuncServerUptimeCounter() float64 {
-	return time.Since(startedAt).Hours()
-}
-
-func (s *ImmuServer) metricFuncDefaultDBSize() float64 {
-	var defaultDBDirSizeBytes int64 = 0
+func (s *ImmuServer) metricFuncDBSize(rootPath, dbName string) float64 {
+	var dbDirSizeBytes int64 = 0
 	readSize := func(path string, file os.FileInfo, err error) error {
-		if !file.IsDir() {
-			defaultDBDirSizeBytes += file.Size()
+		if err == nil && !file.IsDir() {
+			dbDirSizeBytes += file.Size()
 		}
 		return nil
 	}
-	defaultDBPath := filepath.Join(s.Options.Dir, s.Options.defaultDbName)
-	filepath.Walk(defaultDBPath, readSize)
-	return float64(defaultDBDirSizeBytes)
+	filepath.Walk(filepath.Join(rootPath, dbName), readSize)
+	return float64(dbDirSizeBytes)
 }

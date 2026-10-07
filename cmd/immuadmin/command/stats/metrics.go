@@ -155,20 +155,20 @@ func (ms *metrics) withClients(metricsFamilies *map[string]*dto.MetricFamily) {
 
 func (ms *metrics) withDBInfo(metricsFamilies *map[string]*dto.MetricFamily) {
 
-	ms.db.name = "data/defaultdb"
+	defaultDBName := "defaultdb"
+	ms.db.name = "data/" + defaultDBName
 
 	// DB size
 	dbSizeMetricsFams := (*metricsFamilies)["immudb_db_size_bytes"]
-	if dbSizeMetricsFams != nil && len(dbSizeMetricsFams.GetMetric()) > 0 {
-		ms.db.totalBytes =
-			uint64(dbSizeMetricsFams.GetMetric()[0].GetCounter().GetValue())
+	if m := metricByDBLabel(dbSizeMetricsFams, defaultDBName); m != nil {
+		ms.db.name = "data/" + dbLabelValue(m, defaultDBName)
+		ms.db.totalBytes = uint64(m.GetGauge().GetValue())
 	}
 
 	// Number of entries
 	nbEntriesMetricsFams := (*metricsFamilies)["immudb_number_of_stored_entries"]
-	if nbEntriesMetricsFams != nil && len(nbEntriesMetricsFams.GetMetric()) > 0 {
-		ms.db.nbEntries =
-			uint64(nbEntriesMetricsFams.GetMetric()[0].GetCounter().GetValue())
+	if m := metricByDBLabel(nbEntriesMetricsFams, defaultDBName); m != nil {
+		ms.db.nbEntries = uint64(m.GetCounter().GetValue())
 	}
 
 	// Uptime hours
@@ -177,6 +177,32 @@ func (ms *metrics) withDBInfo(metricsFamilies *map[string]*dto.MetricFamily) {
 		ms.db.uptimeHours = upHoursMetricsFams.GetMetric()[0].GetCounter().GetValue()
 	}
 
+}
+
+// metricByDBLabel returns the metric carrying the given db label value. If no
+// metric matches, the first metric of the family is returned as a fallback.
+func metricByDBLabel(family *dto.MetricFamily, db string) *dto.Metric {
+	if family == nil || len(family.GetMetric()) == 0 {
+		return nil
+	}
+	for _, m := range family.GetMetric() {
+		for _, labelPair := range m.GetLabel() {
+			if labelPair.GetName() == "db" && labelPair.GetValue() == db {
+				return m
+			}
+		}
+	}
+	return family.GetMetric()[0]
+}
+
+// dbLabelValue returns the value of the db label, falling back to fallback.
+func dbLabelValue(m *dto.Metric, fallback string) string {
+	for _, labelPair := range m.GetLabel() {
+		if labelPair.GetName() == "db" {
+			return labelPair.GetValue()
+		}
+	}
+	return fallback
 }
 
 func (ms *metrics) withDuration(metricsFamilies *map[string]*dto.MetricFamily) {

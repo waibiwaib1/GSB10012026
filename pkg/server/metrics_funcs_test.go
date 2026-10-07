@@ -30,6 +30,7 @@ type dbMock struct {
 	database.DB
 
 	currentStateF func() (*schema.ImmutableState, error)
+	options       *database.DbOptions
 }
 
 func (dbm dbMock) CurrentState() (*schema.ImmutableState, error) {
@@ -39,13 +40,20 @@ func (dbm dbMock) CurrentState() (*schema.ImmutableState, error) {
 	return &schema.ImmutableState{TxId: 99}, nil
 }
 
-func TestMetricFuncDefaultDBRecordsCounter(t *testing.T) {
+func (dbm dbMock) GetOptions() *database.DbOptions {
+	if dbm.options != nil {
+		return dbm.options
+	}
+	return database.DefaultOption().WithDbName("defaultdb")
+}
+
+func TestMetricFuncDBRecordsCounter(t *testing.T) {
 	s := ImmuServer{
 		dbList: &databaseList{
 			databases: []database.DB{dbMock{}},
 		},
 	}
-	nbRecords := s.metricFuncDefaultDBRecordsCounter()
+	nbRecords := s.metricFuncDBRecordsCounter(s.dbList.GetByIndex(0))
 	require.Equal(t, 99, int(nbRecords))
 }
 
@@ -54,7 +62,7 @@ func TestMetricFuncServerUptimeCounter(t *testing.T) {
 	s.metricFuncServerUptimeCounter()
 }
 
-func TestMetricFuncDefaultDBSize(t *testing.T) {
+func TestMetricFuncDBSize(t *testing.T) {
 	s := ImmuServer{
 		Options: &Options{
 			Dir:           ".",
@@ -65,8 +73,30 @@ func TestMetricFuncDefaultDBSize(t *testing.T) {
 	defaultDBPath := filepath.Join(s.Options.Dir, s.Options.defaultDbName)
 	require.NoError(t, os.MkdirAll(defaultDBPath, 0777))
 	defer os.RemoveAll(defaultDBPath)
-	_, err := os.Create(filepath.Join(defaultDBPath, "some-db-file"))
+	f, err := os.Create(filepath.Join(defaultDBPath, "some-db-file"))
 	require.NoError(t, err)
+	_, err = f.WriteString("some-db-content")
+	require.NoError(t, err)
+	require.NoError(t, f.Close())
 
-	s.metricFuncDefaultDBSize()
+	size := s.metricFuncDBSize(".", s.Options.defaultDbName)
+	require.Greater(t, size, float64(0))
+}
+
+func TestDBMetrics(t *testing.T) {
+	s := ImmuServer{
+		Options: DefaultOptions(),
+		dbList: &databaseList{
+			databases: []database.DB{
+				dbMock{options: database.DefaultOption().WithDbName("defaultdb")},
+				dbMock{options: database.DefaultOption().WithDbName("mydb")},
+			},
+		},
+	}
+
+	dbMetrics := s.DBMetrics()
+	require.Len(t, dbMetrics, 2)
+	require.Equal(t, "defaultdb", dbMetrics[0].Name)
+	require.Equal(t, "mydb", dbMetrics[1].Name)
+	require.Equal(t, float64(99), dbMetrics[0].NEntries)
 }

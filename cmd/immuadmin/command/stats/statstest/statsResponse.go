@@ -1748,9 +1748,14 @@ grpc_server_started_total{grpc_method="UseDatabase",grpc_service="immudb.schema.
 grpc_server_started_total{grpc_method="ZAdd",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_started_total{grpc_method="ZScan",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
 grpc_server_started_total{grpc_method="ZScanSV",grpc_service="immudb.schema.ImmuService",grpc_type="unary"} 0
-# HELP immudb_number_of_stored_entries Number of key-value entries currently stored by the database.
+# HELP immudb_db_size_bytes Database size in bytes.
+# TYPE immudb_db_size_bytes gauge
+immudb_db_size_bytes{db="defaultdb"} 8.388608e+06
+immudb_db_size_bytes{db="mydb"} 1.048576e+06
+# HELP immudb_number_of_stored_entries Number of transactions stored in each database.
 # TYPE immudb_number_of_stored_entries counter
-immudb_number_of_stored_entries 2
+immudb_number_of_stored_entries{db="defaultdb"} 2
+immudb_number_of_stored_entries{db="mydb"} 1
 # HELP immudb_uptime_hours Server uptime in hours.
 # TYPE immudb_uptime_hours counter
 immudb_uptime_hours 0.010175722224166666
