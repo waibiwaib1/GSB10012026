@@ -154,22 +154,24 @@ func (ms *metrics) withClients(metricsFamilies *map[string]*dto.MetricFamily) {
 }
 
 func (ms *metrics) withDBInfo(metricsFamilies *map[string]*dto.MetricFamily) {
-
-	ms.db.name = "data/defaultdb"
-
-	// DB size
-	dbSizeMetricsFams := (*metricsFamilies)["immudb_db_size_bytes"]
-	if dbSizeMetricsFams != nil && len(dbSizeMetricsFams.GetMetric()) > 0 {
-		ms.db.totalBytes =
-			uint64(dbSizeMetricsFams.GetMetric()[0].GetCounter().GetValue())
+	dbName := "defaultdb"
+	sizeMetric := labeledMetric((*metricsFamilies)["immudb_db_size_bytes"], dbName)
+	if sizeMetric == nil {
+		sizeMetric = firstCounterMetric((*metricsFamilies)["immudb_db_size_bytes"])
 	}
-
-	// Number of entries
-	nbEntriesMetricsFams := (*metricsFamilies)["immudb_number_of_stored_entries"]
-	if nbEntriesMetricsFams != nil && len(nbEntriesMetricsFams.GetMetric()) > 0 {
-		ms.db.nbEntries =
-			uint64(nbEntriesMetricsFams.GetMetric()[0].GetCounter().GetValue())
+	if sizeMetric != nil {
+		dbName = databaseLabel(sizeMetric)
+		ms.db.totalBytes = uint64(sizeMetric.GetCounter().GetValue())
 	}
+	entriesMetric := labeledMetric((*metricsFamilies)["immudb_number_of_stored_entries"], dbName)
+	if entriesMetric == nil {
+		entriesMetric = firstCounterMetric((*metricsFamilies)["immudb_number_of_stored_entries"])
+	}
+	if entriesMetric != nil {
+		dbName = databaseLabel(entriesMetric)
+		ms.db.nbEntries = uint64(entriesMetric.GetCounter().GetValue())
+	}
+	ms.db.name = "data/" + dbName
 
 	// Uptime hours
 	upHoursMetricsFams := (*metricsFamilies)["immudb_uptime_hours"]
@@ -177,6 +179,34 @@ func (ms *metrics) withDBInfo(metricsFamilies *map[string]*dto.MetricFamily) {
 		ms.db.uptimeHours = upHoursMetricsFams.GetMetric()[0].GetCounter().GetValue()
 	}
 
+}
+
+func labeledMetric(family *dto.MetricFamily, database string) *dto.Metric {
+	if family == nil {
+		return nil
+	}
+	for _, metric := range family.GetMetric() {
+		if databaseLabel(metric) == database {
+			return metric
+		}
+	}
+	return nil
+}
+
+func firstCounterMetric(family *dto.MetricFamily) *dto.Metric {
+	if family == nil || len(family.GetMetric()) == 0 {
+		return nil
+	}
+	return family.GetMetric()[0]
+}
+
+func databaseLabel(metric *dto.Metric) string {
+	for _, label := range metric.GetLabel() {
+		if label.GetName() == "database" {
+			return label.GetValue()
+		}
+	}
+	return "defaultdb"
 }
 
 func (ms *metrics) withDuration(metricsFamilies *map[string]*dto.MetricFamily) {

@@ -20,38 +20,27 @@ import (
 	"context"
 	"expvar"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
+	"sync"
 
-	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/grpc/peer"
 
 	"github.com/codenotary/immudb/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 // MetricsCollection immudb Prometheus metrics collection
 type MetricsCollection struct {
-	RecordsCounter               prometheus.CounterFunc
 	UptimeCounter                prometheus.CounterFunc
-	DBSizeFunc                   prometheus.CounterFunc
 	RPCsPerClientCounters        *prometheus.CounterVec
 	LastMessageAtPerClientGauges *prometheus.GaugeVec
 }
 
 var metricsNamespace = "immudb"
-
-// WithRecordsCounter ...
-func (mc *MetricsCollection) WithRecordsCounter(f func() float64) {
-	mc.RecordsCounter = promauto.NewCounterFunc(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Name:      "number_of_stored_entries",
-			Help:      "Number of key-value entries currently stored by the database.",
-		},
-		f,
-	)
-}
 
 // WithUptimeCounter ...
 func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
@@ -65,16 +54,80 @@ func (mc *MetricsCollection) WithUptimeCounter(f func() float64) {
 	)
 }
 
-// WithDBSizeFunc ...
-func (mc *MetricsCollection) WithDBSizeFunc(f func() float64) {
-	mc.DBSizeFunc = promauto.NewCounterFunc(
-		prometheus.CounterOpts{
-			Namespace: metricsNamespace,
-			Name:      "db_size_bytes",
-			Help:      "Database size in bytes.",
-		},
-		f,
-	)
+type databasePathOptions interface {
+	GetDbName() string
+	GetDbRootPath() string
+}
+
+type dbMetricsCollector struct {
+	mutex  sync.RWMutex
+	dbList DatabaseList
+
+	records *prometheus.Desc
+	size    *prometheus.Desc
+}
+
+func newDBMetricsCollector(dbList DatabaseList) *dbMetricsCollector {
+	return &dbMetricsCollector{
+		dbList: dbList,
+		records: prometheus.NewDesc(
+			prometheus.BuildFQName(metricsNamespace, "", "number_of_stored_entries"),
+			"Number of key-value entries currently stored by the database.",
+			[]string{"database"},
+			nil,
+		),
+		size: prometheus.NewDesc(
+			prometheus.BuildFQName(metricsNamespace, "", "db_size_bytes"),
+			"Database size in bytes.",
+			[]string{"database"},
+			nil,
+		),
+	}
+}
+
+func (c *dbMetricsCollector) setDatabaseList(dbList DatabaseList) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	c.dbList = dbList
+}
+
+func (c *dbMetricsCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- c.records
+	ch <- c.size
+}
+
+func (c *dbMetricsCollector) Collect(ch chan<- prometheus.Metric) {
+	c.mutex.RLock()
+	dbList := c.dbList
+	c.mutex.RUnlock()
+
+	if dbList == nil {
+		return
+	}
+
+	for i := 0; i < dbList.Length(); i++ {
+		db := dbList.GetByIndex(int64(i))
+		options := db.GetOptions()
+		dbName := options.GetDbName()
+
+		var records float64
+		if state, err := db.CurrentState(); err == nil {
+			records = float64(state.GetTxId())
+		}
+		ch <- prometheus.MustNewConstMetric(c.records, prometheus.CounterValue, records, dbName)
+		ch <- prometheus.MustNewConstMetric(c.size, prometheus.CounterValue, databaseSizeBytes(options), dbName)
+	}
+}
+
+func databaseSizeBytes(options databasePathOptions) float64 {
+	var size int64
+	_ = filepath.Walk(filepath.Join(options.GetDbRootPath(), options.GetDbName()), func(path string, info os.FileInfo, err error) error {
+		if err == nil && !info.IsDir() {
+			size += info.Size()
+		}
+		return nil
+	})
+	return float64(size)
 }
 
 // UpdateClientMetrics ...
@@ -109,18 +162,22 @@ var Metrics = MetricsCollection{
 	),
 }
 
+var dbMetrics = newDBMetricsCollector(nil)
+
+func init() {
+	prometheus.MustRegister(dbMetrics)
+}
+
 // StartMetrics listens and servers the HTTP metrics server in a new goroutine.
 // The server is then returned and can be stopped using Close().
 func StartMetrics(
 	addr string,
 	l logger.Logger,
-	recordsCounter func() float64,
 	uptimeCounter func() float64,
-	dbSizeFunc func() float64,
+	dbList DatabaseList,
 ) *http.Server {
-	Metrics.WithRecordsCounter(recordsCounter)
 	Metrics.WithUptimeCounter(uptimeCounter)
-	Metrics.WithDBSizeFunc(dbSizeFunc)
+	dbMetrics.setDatabaseList(dbList)
 	// expvar package adds a handler in to the default HTTP server (which has to be started explicitly),
 	// and serves up the metrics at the /debug/vars endpoint.
 	// Here we're registering both expvar and promhttp handlers in our custom server.

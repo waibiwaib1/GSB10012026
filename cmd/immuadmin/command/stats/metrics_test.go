@@ -14,13 +14,26 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package server
+package stats
 
 import (
+	"bytes"
 	"testing"
+
+	"github.com/codenotary/immudb/cmd/immuadmin/command/stats/statstest"
+	"github.com/prometheus/common/expfmt"
+	"github.com/stretchr/testify/require"
 )
 
-func TestMetricFuncServerUptimeCounter(t *testing.T) {
-	s := ImmuServer{}
-	s.metricFuncServerUptimeCounter()
+func TestMetricsPopulatesDefaultDatabaseFromLabeledMetrics(t *testing.T) {
+	parser := expfmt.TextParser{}
+	families, err := parser.TextToMetricFamilies(bytes.NewReader(statstest.StatsResponse))
+	require.NoError(t, err)
+
+	ms := &metrics{}
+	ms.populateFrom(&families)
+
+	require.Equal(t, "data/defaultdb", ms.db.name)
+	require.Equal(t, uint64(4096), ms.db.totalBytes)
+	require.Equal(t, uint64(2), ms.db.nbEntries)
 }

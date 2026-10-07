@@ -17,32 +17,9 @@ limitations under the License.
 package server
 
 import (
-	"os"
-	"path/filepath"
 	"time"
 )
 
-func (s *ImmuServer) metricFuncDefaultDBRecordsCounter() float64 {
-	ic, err := s.dbList.GetByIndex(DefaultDbIndex).CurrentState()
-	if err != nil {
-		return 0
-	}
-	return float64(ic.GetTxId())
-}
-
 func (s *ImmuServer) metricFuncServerUptimeCounter() float64 {
 	return time.Since(startedAt).Hours()
-}
-
-func (s *ImmuServer) metricFuncDefaultDBSize() float64 {
-	var defaultDBDirSizeBytes int64 = 0
-	readSize := func(path string, file os.FileInfo, err error) error {
-		if !file.IsDir() {
-			defaultDBDirSizeBytes += file.Size()
-		}
-		return nil
-	}
-	defaultDBPath := filepath.Join(s.Options.Dir, s.Options.defaultDbName)
-	filepath.Walk(defaultDBPath, readSize)
-	return float64(defaultDBDirSizeBytes)
 }
