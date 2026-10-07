@@ -155,6 +155,41 @@ func TestCustomerSearch__query(t *testing.T) {
 		t.Errorf("unexpected args: %#v", args)
 	}
 }
+func TestCustomerSearch__customerIDs(t *testing.T) {
+	sqliteDB := database.CreateTestSqliteDB(t)
+	defer sqliteDB.Close()
+
+	mysqlDB := database.CreateTestMySQLDB(t)
+	defer mysqlDB.Close()
+
+	prepare := func(db *sql.DB, query string) error {
+		stmt, err := db.Prepare(query)
+		if err != nil {
+			return err
+		}
+		return stmt.Close()
+	}
+
+	query, args := buildSearchQuery(
+		SearchParams{
+			Organization: "foo",
+			CustomerIDs:  []string{"c1", "c2"},
+			Count:        100,
+		},
+	)
+	if query != "select customer_id from customers where deleted_at is null and organization = ? and customer_id in (?, ?) order by created_at desc limit ?;" {
+		t.Errorf("unexpected query: %q", query)
+	}
+	if err := prepare(sqliteDB.DB, query); err != nil {
+		t.Errorf("sqlite: %v", err)
+	}
+	if err := prepare(mysqlDB.DB, query); err != nil {
+		t.Errorf("mysql: %v", err)
+	}
+	if len(args) != 4 {
+		t.Errorf("unexpected args: %#v", args)
+	}
+}
 
 func TestCustomerSearchEmpty(t *testing.T) {
 	scope := Setup(t)

@@ -49,6 +49,7 @@ func searchCustomers(logger log.Logger, repo CustomerRepository) http.HandlerFun
 
 type SearchParams struct {
 	Organization string
+	CustomerIDs  []string
 	Query        string
 	Email        string
 	Status       string
@@ -116,6 +117,12 @@ func buildSearchQuery(params SearchParams) (string, []interface{}) {
 	var args []interface{}
 	query := `select customer_id from customers where deleted_at is null and organization = ?`
 	args = append(args, params.Organization)
+	if len(params.CustomerIDs) > 0 {
+		query += " and customer_id in (?" + strings.Repeat(", ?", len(params.CustomerIDs)-1) + ")"
+		for i := range params.CustomerIDs {
+			args = append(args, params.CustomerIDs[i])
+		}
+	}
 	if params.Query != "" {
 		query += " and lower(first_name) || \" \" || lower(last_name) LIKE ?"
 		args = append(args, "%"+params.Query+"%")
