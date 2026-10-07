@@ -360,18 +360,33 @@ class _TotalJacInfo(object):
         model = self.model
         # raise an exception if we depend on any discrete outputs
         if model._var_allprocs_discrete['output']:
-            # discrete_outs at the model level are absolute names
-            discrete_outs = set(model._var_allprocs_discrete['output'])
-            piter = self.relevance.iter_seed_pair_relevance
-            for seed, rseed, rels in piter([m['source'] for m in self.input_meta['fwd'].values()],
-                                           [m['source'] for m in self.input_meta['rev'].values()],
-                                           outputs=True):
-                inter = discrete_outs.intersection(rels)
-                if inter:
-                    inp = seed if self.mode == 'fwd' else rseed
-                    kind = 'of' if self.mode == 'rev' else 'with respect to'
-                    raise RuntimeError("Total derivative %s '%s' depends upon "
-                                       "discrete output variables %s." % (kind, inp, sorted(inter)))
+            relevance = self.relevance
+            discrete_outs = [name for name in model._var_allprocs_discrete['output']
+                             if name in relevance._var2idx]
+            if discrete_outs:
+                discrete_names = np.asarray(discrete_outs, dtype=object)
+                discrete_idxs = np.asarray([relevance._var2idx[name] for name in discrete_outs],
+                                           dtype=INT_DTYPE)
+                fwd_seeds = relevance._all_seed_vars['fwd']
+                rev_seeds = relevance._all_seed_vars['rev']
+                full_rel = relevance._get_rel_array(relevance._seed_var_map,
+                                                    relevance._single_seed2relvars,
+                                                    fwd_seeds, rev_seeds)
+
+                if not np.any(full_rel[discrete_idxs]):
+                    return
+
+                for seed in fwd_seeds:
+                    fwd_rel = relevance._single_seed2relvars['fwd'][seed]
+                    for rseed in rev_seeds:
+                        rel = fwd_rel & relevance._single_seed2relvars['rev'][rseed]
+                        inter = discrete_names[np.flatnonzero(rel[discrete_idxs])]
+                        if inter.size:
+                            inp = seed if self.mode == 'fwd' else rseed
+                            kind = 'of' if self.mode == 'rev' else 'with respect to'
+                            raise RuntimeError("Total derivative %s '%s' depends upon "
+                                               "discrete output variables %s."
+                                               % (kind, inp, sorted(inter.tolist())))
 
     @property
     def msginfo(self):

@@ -3,6 +3,7 @@
 import sys
 import unittest
 import copy
+from unittest.mock import patch
 
 from io import StringIO
 import numpy as np
@@ -16,6 +17,7 @@ from openmdao.utils.assert_utils import assert_near_equal, assert_no_warning
 from openmdao.utils.general_utils import remove_whitespace
 from openmdao.utils.testing_utils import use_tempdirs
 from openmdao.utils.om_warnings import OMDeprecationWarning
+from openmdao.utils.relevance import Relevance
 
 
 class ModCompEx(om.ExplicitComponent):
@@ -598,6 +600,30 @@ class DiscreteTestCase(unittest.TestCase):
         prob.run_model()
 
         J = prob.compute_totals(return_format='array')
+
+        np.testing.assert_almost_equal(J, np.array([[3.]]))
+
+    def test_discrete_deriv_check_avoids_seed_pair_iteration(self):
+        prob = om.Problem()
+        model = prob.model
+
+        indep = model.add_subsystem('indep', om.IndepVarComp())
+        indep.add_output('x', 1.0)
+
+        model.add_subsystem('comp', CompDiscWDerivs())
+        model.connect('indep.x', 'comp.x')
+
+        model.add_design_var('indep.x')
+        model.add_objective('comp.y')
+
+        prob.setup()
+        prob.run_model()
+
+        def fail_iter(*args, **kwargs):
+            raise AssertionError("Discrete dependence check iterated seed pairs.")
+
+        with patch.object(Relevance, 'iter_seed_pair_relevance', fail_iter):
+            J = prob.compute_totals(return_format='array')
 
         np.testing.assert_almost_equal(J, np.array([[3.]]))
 
