@@ -1581,6 +1581,7 @@ export type AccessibilityRole =
   | 'button'
   | 'checkbox'
   | 'combobox'
+  | 'dialog'
   | 'header'
   | 'image'
   | 'imagebutton'
