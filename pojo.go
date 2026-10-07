@@ -32,6 +32,10 @@ import (
 // invalid consts
 const (
 	InvalidJavaEnum JavaEnum = -1
+
+	// ClassKey is the map key which records the java class name
+	// when decoding an object to a map.
+	ClassKey = "_class"
 )
 
 // struct filed tag of hessian
@@ -76,6 +80,19 @@ type classInfo struct {
 	javaName      string
 	fieldNameList []string
 	buffer        []byte // encoded buffer
+}
+
+// initDefBuffer initial the class definition buffer, which can be used repeatedly.
+func (c *classInfo) initDefBuffer() {
+	if len(c.buffer) == 0 {
+		c.buffer = encByte(c.buffer, BC_OBJECT_DEF)
+		c.buffer = encString(c.buffer, c.javaName)
+		c.buffer = encInt32(c.buffer, int32(len(c.fieldNameList)))
+
+		for _, fieldName := range c.fieldNameList {
+			c.buffer = encString(c.buffer, fieldName)
+		}
+	}
 }
 
 type structInfo struct {
@@ -383,6 +400,33 @@ func getStructInfo(javaName string) (*structInfo, bool) {
 	pojoRegistry.RUnlock()
 
 	return s, ok
+}
+
+// buildMapClassDef build classInfo from map keys.
+func buildMapClassDef(javaName string, m map[string]interface{}) (*classInfo, error) {
+	if javaName == "" {
+		var ok bool
+		javaName, ok = m[ClassKey].(string)
+		if !ok {
+			return nil, perrors.Errorf("no java name to build class info from map: %v", m)
+		}
+	}
+
+	info := &classInfo{javaName: javaName}
+
+	_, existClassKey := m[ClassKey]
+
+	for fieldName := range m {
+		if existClassKey && fieldName == ClassKey {
+			continue
+		}
+
+		info.fieldNameList = append(info.fieldNameList, fieldName)
+	}
+
+	info.initDefBuffer()
+
+	return info, nil
 }
 
 func getStructDefByIndex(idx int) (reflect.Type, *classInfo, error) {

@@ -209,6 +209,93 @@ func (e *Encoder) encObject(v interface{}) error {
 	return nil
 }
 
+// classIndex find the index of the given java class name in the encoder class info list,
+// return -1 if not found.
+func (e *Encoder) classIndex(javaName string) int {
+	for i := range e.classInfoList {
+		if e.classInfoList[i].javaName == javaName {
+			return i
+		}
+	}
+	return -1
+}
+
+// EncodeMapClass encode a map as object, which MUST contains a key _class and its value is the target class name.
+func (e *Encoder) EncodeMapClass(m map[string]interface{}) error {
+	clsName, ok := m[ClassKey]
+	if !ok {
+		return perrors.New("no _class key map")
+	}
+
+	className, ok := clsName.(string)
+	if !ok {
+		return perrors.Errorf("expect string class name, but get %v", reflect.TypeOf(clsName))
+	}
+
+	return e.EncodeMapAsClass(className, m)
+}
+
+// EncodeMapAsClass encode a map as object of given class name.
+func (e *Encoder) EncodeMapAsClass(className string, m map[string]interface{}) error {
+	idx := e.classIndex(className)
+
+	if idx == -1 {
+		var clsDef *classInfo
+		s, ok := getStructInfo(className)
+		if ok {
+			clsDef = pojoRegistry.classInfoList[s.index]
+		} else {
+			var err error
+			clsDef, err = buildMapClassDef(className, m)
+			if err != nil {
+				return err
+			}
+		}
+		idx = len(e.classInfoList)
+		e.classInfoList = append(e.classInfoList, clsDef)
+		e.buffer = append(e.buffer, clsDef.buffer...)
+	}
+
+	return e.encodeMapAsIndexedClass(idx, m)
+}
+
+// EncodeMapAsObject encode a map as the given class defined object.
+// Sometimes a class may not being registered in hessian, but it can be decoded from serialized data,
+// and the classInfo can be found in Decoder by calling Decoder.FindClassInfo.
+func (e *Encoder) EncodeMapAsObject(clsDef *classInfo, m map[string]interface{}) error {
+	idx := e.classIndex(clsDef.javaName)
+	if idx == -1 {
+		idx = len(e.classInfoList)
+		e.classInfoList = append(e.classInfoList, clsDef)
+		if len(clsDef.buffer) == 0 {
+			clsDef.initDefBuffer()
+		}
+		e.buffer = append(e.buffer, clsDef.buffer...)
+	}
+	return e.encodeMapAsIndexedClass(idx, m)
+}
+
+// encodeMapAsIndexedClass encode a map as the defined class at the given index in the encoder class list.
+func (e *Encoder) encodeMapAsIndexedClass(idx int, m map[string]interface{}) error {
+	// write object instance
+	if byte(idx) <= OBJECT_DIRECT_MAX {
+		e.buffer = encByte(e.buffer, byte(idx)+BC_OBJECT_DIRECT)
+	} else {
+		e.buffer = encByte(e.buffer, BC_OBJECT)
+		e.buffer = encInt32(e.buffer, int32(idx))
+	}
+
+	cls := e.classInfoList[idx]
+	var err error
+	for i := 0; i < len(cls.fieldNameList); i++ {
+		fieldName := cls.fieldNameList[i]
+		if err = e.Encode(m[fieldName]); err != nil {
+			return perrors.Wrapf(err, "failed to encode field: %s, %+v", fieldName, m[fieldName])
+		}
+	}
+	return nil
+}
+
 /////////////////////////////////////////
 // Object
 /////////////////////////////////////////
@@ -575,7 +662,7 @@ func (d *Decoder) getStructDefByIndex(idx int) (reflect.Type, *classInfo, error)
 		if s, ok = checkAndGetException(cls); ok {
 			return s.typ, cls, nil
 		}
-		if !d.isSkip {
+		if !d.isSkip && d.Strict {
 			err = perrors.Errorf("can not find go type name %s in registry", cls.javaName)
 		}
 		return nil, cls, err
@@ -665,7 +752,10 @@ func (d *Decoder) decObject(flag int32) (interface{}, error) {
 			return nil, err
 		}
 		if typ == nil {
-			return nil, d.skip(cls)
+			if d.isSkip {
+				return nil, d.skip(cls)
+			}
+			return d.decClassToMap(cls)
 		}
 		if typ.Implements(javaEnumType) {
 			return d.decEnum(cls.javaName, TAG_READ)
@@ -683,7 +773,10 @@ func (d *Decoder) decObject(flag int32) (interface{}, error) {
 			return nil, err
 		}
 		if typ == nil {
-			return nil, d.skip(cls)
+			if d.isSkip {
+				return nil, d.skip(cls)
+			}
+			return d.decClassToMap(cls)
 		}
 		if typ.Implements(javaEnumType) {
 			return d.decEnum(cls.javaName, TAG_READ)
@@ -698,4 +791,25 @@ func (d *Decoder) decObject(flag int32) (interface{}, error) {
 	default:
 		return nil, perrors.Errorf("decObject illegal object type tag:%+v", tag)
 	}
+}
+
+// decClassToMap decode an object to a map when its class is not registered.
+// The java class name is recorded in the map with key ClassKey.
+func (d *Decoder) decClassToMap(cls *classInfo) (interface{}, error) {
+	vMap := make(map[string]interface{}, len(cls.fieldNameList))
+	vMap[ClassKey] = cls.javaName
+
+	d.appendRefs(vMap)
+
+	for i := 0; i < len(cls.fieldNameList); i++ {
+		fieldName := cls.fieldNameList[i]
+
+		fieldValue, decErr := d.DecodeValue()
+		if decErr != nil {
+			return nil, perrors.Wrapf(decErr, "decClassToMap -> decode field name:%s", fieldName)
+		}
+		vMap[fieldName] = EnsureRawAny(fieldValue)
+	}
+
+	return vMap, nil
 }
