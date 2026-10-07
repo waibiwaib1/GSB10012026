@@ -10,6 +10,6 @@ export default class HTMLSelectElementValueSanitizer {
 	 * @param value Value.
 	 */
 	public static sanitize(value: string): string {
-		return value.replace(NEW_LINES_REGEXP, '');
+		return value.trim().replace(NEW_LINES_REGEXP, '');
 	}
 }

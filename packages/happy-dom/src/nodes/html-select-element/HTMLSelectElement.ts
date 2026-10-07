@@ -5,7 +5,6 @@ import IHTMLElement from '../html-element/IHTMLElement';
 import IHTMLFormElement from '../html-form-element/IHTMLFormElement';
 import ValidityState from '../validity-state/ValidityState';
 import IHTMLLabelElement from '../html-label-element/IHTMLLabelElement';
-import HTMLOptGroupElement from '../html-opt-group-element/HTMLOptGroupElement';
 import HTMLOptionElement from '../html-option-element/HTMLOptionElement';
 import HTMLOptionsCollection from '../html-option-element/HTMLOptionsCollection';
 import IHTMLOptionsCollection from '../html-option-element/IHTMLOptionsCollection';
@@ -27,10 +26,6 @@ export default class HTMLSelectElement extends HTMLElement implements IHTMLSelec
 	// Events
 	public onchange: (event: Event) => void | null = null;
 	public oninput: (event: Event) => void | null = null;
-
-	public _value = null;
-	public _selectedIndex = -1;
-	public _options: IHTMLOptionsCollection = null;
 
 	/**
 	 * Returns name.
@@ -144,7 +139,11 @@ export default class HTMLSelectElement extends HTMLElement implements IHTMLSelec
 	 * @returns Value.
 	 */
 	public get value(): string {
-		return this._value;
+		const selectedIndex = this.selectedIndex;
+		if (selectedIndex === -1) {
+			return '';
+		}
+		return (<HTMLOptionElement>this.options[selectedIndex]).value;
 	}
 
 	/**
@@ -153,37 +152,43 @@ export default class HTMLSelectElement extends HTMLElement implements IHTMLSelec
 	 * @param value Value.
 	 */
 	public set value(value: string) {
-		this._value = HTMLSelectElementValueSanitizer.sanitize(value);
+		const sanitizedValue = HTMLSelectElementValueSanitizer.sanitize(value);
 
-		const idx = this.options.findIndex((o) => o.nodeValue === value);
-		if (idx > -1) {
-			this._selectedIndex = idx;
-		}
+		const options = this.options;
+		const index = options.findIndex(
+			(option) => (<HTMLOptionElement>option).value === sanitizedValue
+		);
+
+		this.selectedIndex = index;
 	}
 
 	/**
-	 * Returns value.
+	 * Returns selected index.
 	 *
-	 * @returns Value.
+	 * @returns Selected index.
 	 */
 	public get selectedIndex(): number {
-		return this._options ? this._options.selectedIndex : -1;
+		return this.options.findIndex((option) => (<HTMLOptionElement>option).selected);
 	}
 
 	/**
-	 * Sets value.
+	 * Sets selected index.
 	 *
-	 * @param value Value.
+	 * @param value Selected index.
 	 */
 	public set selectedIndex(value: number) {
-		if (value > this.options.length - 1 || value < 0) {
+		const options = this.options;
+
+		if (value > options.length - 1 || value < -1) {
 			throw new DOMException(
 				'Select elements selected index must be valid',
 				DOMExceptionNameEnum.indexSizeError
 			);
 		}
 
-		this._options.selectedIndex = value;
+		for (let i = 0; i < options.length; i++) {
+			(<HTMLOptionElement>options[i]).selected = i === value;
+		}
 	}
 
 	/**
@@ -229,16 +234,10 @@ export default class HTMLSelectElement extends HTMLElement implements IHTMLSelec
 	 * @returns Options.
 	 */
 	public get options(): IHTMLOptionsCollection {
-		if (this._options === null) {
-			this._options = new HTMLOptionsCollection();
-			const childs = <INodeList<IHTMLElement>>this.childNodes;
-			for (const child of childs) {
-				if (child.tagName === 'OPTION') {
-					this._options.add(<HTMLOptionElement | HTMLOptGroupElement>child);
-				}
-			}
+		const options = new HTMLOptionsCollection(this);
+		for (const option of this.querySelectorAll('option')) {
+			options.push(<HTMLOptionElement>option);
 		}
-
-		return this._options;
+		return options;
 	}
 }

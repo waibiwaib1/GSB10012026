@@ -2,6 +2,7 @@ import DOMException from '../../exception/DOMException';
 import HTMLCollection from '../element/HTMLCollection';
 import HTMLOptGroupElement from '../html-opt-group-element/HTMLOptGroupElement';
 import HTMLOptionElement from './HTMLOptionElement';
+import IHTMLSelectElement from '../html-select-element/IHTMLSelectElement';
 import IHTMLOptionsCollection from './IHTMLOptionsCollection';
 
 /**
@@ -14,7 +15,17 @@ export default class HTMLOptionsCollection
 	extends HTMLCollection
 	implements IHTMLOptionsCollection
 {
-	public _selectedIndex: number;
+	public _selectElement: IHTMLSelectElement;
+
+	/**
+	 * Constructor.
+	 *
+	 * @param selectElement Select element.
+	 */
+	constructor(selectElement?: IHTMLSelectElement) {
+		super();
+		this._selectElement = selectElement || null;
+	}
 
 	/**
 	 * Returns selectedIndex.
@@ -22,7 +33,7 @@ export default class HTMLOptionsCollection
 	 * @returns SelectedIndex.
 	 */
 	public get selectedIndex(): number {
-		return this._selectedIndex;
+		return this.findIndex((option) => (<HTMLOptionElement>option).selected);
 	}
 
 	/**
@@ -31,7 +42,9 @@ export default class HTMLOptionsCollection
 	 * @param selectedIndex SelectedIndex.
 	 */
 	public set selectedIndex(selectedIndex: number) {
-		this._selectedIndex = selectedIndex;
+		for (let i = 0; i < this.length; i++) {
+			(<HTMLOptionElement>this[i]).selected = i === selectedIndex;
+		}
 	}
 
 	/**
@@ -54,6 +67,9 @@ export default class HTMLOptionsCollection
 	): void {
 		if (!before && before !== 0) {
 			this.push(element);
+			if (this._selectElement) {
+				this._selectElement.appendChild(element);
+			}
 			return;
 		}
 
@@ -63,6 +79,14 @@ export default class HTMLOptionsCollection
 			}
 
 			this.splice(<number>before, 0, element);
+			if (this._selectElement) {
+				const beforeElement = this[<number>before + 1];
+				if (beforeElement) {
+					beforeElement.parentNode.insertBefore(element, beforeElement);
+				} else {
+					this._selectElement.appendChild(element);
+				}
+			}
 			return;
 		}
 
@@ -74,6 +98,12 @@ export default class HTMLOptionsCollection
 		}
 
 		this.splice(idx, 0, element);
+		if (this._selectElement) {
+			(<HTMLOptionElement | HTMLOptGroupElement>before).parentNode.insertBefore(
+				element,
+				<HTMLOptionElement | HTMLOptGroupElement>before
+			);
+		}
 	}
 
 	/**
@@ -82,13 +112,14 @@ export default class HTMLOptionsCollection
 	 * @param index Index.
 	 */
 	public remove(index: number): void {
+		const selectedIndex = this.selectedIndex;
+		const element = this[index];
 		this.splice(index, 1);
-		if (index === this.selectedIndex) {
-			if (this.length) {
-				this.selectedIndex = 0;
-			} else {
-				this.selectedIndex = -1;
-			}
+		if (element && element.parentNode) {
+			element.parentNode.removeChild(element);
+		}
+		if (index === selectedIndex) {
+			this.selectedIndex = this.length ? 0 : -1;
 		}
 	}
 }
